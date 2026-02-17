@@ -23,6 +23,9 @@
 - [x] Redesign LogService -- simplify to Get+Follow, structured attrs via map[string]any, well-known key constants
 - [x] Expand Restore types -- BcpChain for incremental, RestoreNode for physical restore monitoring
 - [x] Add restore-specific Status values (StatusDown, StatusCleanupCluster)
+- [x] CommandService -- sealed Command interface, BackupCommand/RestoreCommand/CancelBackupCommand, result types
+- [x] Write operations on services -- BackupService.Start/Cancel, RestoreService.Start (delegate to CommandService)
+- [x] Wire CommandService into Client and service impls
 
 ## Phase 3: SDK Implementation
 - [ ] BackupService -- wire to PBM internals

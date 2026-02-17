@@ -9,6 +9,7 @@ import (
 
 type backupServiceImpl struct {
 	conn connect.Client
+	cmds CommandService
 }
 
 var _ BackupService = (*backupServiceImpl)(nil)
@@ -23,4 +24,12 @@ func (s *backupServiceImpl) Get(ctx context.Context, name string) (*Backup, erro
 
 func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup, error) {
 	return nil, fmt.Errorf("backup get by opid: not implemented")
+}
+
+func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error) {
+	return BackupResult{}, fmt.Errorf("backup start: not implemented")
+}
+
+func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {
+	return CommandResult{}, fmt.Errorf("backup cancel: not implemented")
 }

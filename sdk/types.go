@@ -42,7 +42,7 @@ var (
 	StatusCopyDone       = newStatus("copyDone")
 	StatusPartlyDone     = newStatus("partlyDone")
 	StatusDone           = newStatus("done")
-	StatusCancelled      = newStatus("cancelled")
+	StatusCancelled      = newStatus("canceled")
 	StatusError          = newStatus("error")
 	StatusDown           = newStatus("down")           // physical restore: mongod processes stopped
 	StatusCleanupCluster = newStatus("cleanupCluster") // restore: clearing existing data
@@ -160,7 +160,7 @@ var (
 	CompressionSNAPPY = newCompressionType("snappy")
 	CompressionLZ4    = newCompressionType("lz4")
 	CompressionS2     = newCompressionType("s2")
-	CompressionZSTD   = newCompressionType("zstandard")
+	CompressionZSTD   = newCompressionType("zstd")
 )
 
 var compressionTypes = make(map[string]CompressionType)
@@ -218,6 +218,8 @@ var (
 	StorageGCS        = newStorageType("gcs")
 	StorageAzure      = newStorageType("azure")
 	StorageFilesystem = newStorageType("filesystem")
+	StorageBlackhole  = newStorageType("blackhole")
+	StorageOSS        = newStorageType("oss")
 )
 
 var storageTypes = make(map[string]StorageType)
@@ -427,4 +429,67 @@ func (c *ConfigName) UnmarshalText(data []byte) error {
 	}
 	*c = cn
 	return nil
+}
+
+// =============================================================================
+// CommandType
+// =============================================================================
+
+// CommandType represents the type of a PBM command or operation.
+type CommandType struct {
+	value string
+}
+
+var (
+	CmdTypeBackup        = newCommandType("backup")
+	CmdTypeRestore       = newCommandType("restore")
+	CmdTypeReplay        = newCommandType("replay")
+	CmdTypeCancelBackup  = newCommandType("cancelBackup")
+	CmdTypeResync        = newCommandType("resync")
+	CmdTypePITR          = newCommandType("pitr")
+	CmdTypeDelete        = newCommandType("delete")
+	CmdTypeDeletePITR    = newCommandType("deletePitr")
+	CmdTypeCleanup       = newCommandType("cleanup")
+	CmdTypeAddProfile    = newCommandType("addConfigProfile")
+	CmdTypeRemoveProfile = newCommandType("removeConfigProfile")
+)
+
+var commandTypes = make(map[string]CommandType)
+
+func newCommandType(s string) CommandType {
+	ct := CommandType{s}
+	commandTypes[s] = ct
+	return ct
+}
+
+// String returns the string representation of the command type.
+func (c CommandType) String() string { return c.value }
+
+// IsZero reports whether the command type is the zero value (unset).
+func (c CommandType) IsZero() bool { return c.value == "" }
+
+// Equal reports whether two command type values are identical.
+func (c CommandType) Equal(other CommandType) bool { return c.value == other.value }
+
+// MarshalText implements encoding.TextMarshaler.
+func (c CommandType) MarshalText() ([]byte, error) { return []byte(c.value), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (c *CommandType) UnmarshalText(data []byte) error {
+	parsed, err := ParseCommandType(string(data))
+	if err != nil {
+		return err
+	}
+	*c = parsed
+	return nil
+}
+
+// ParseCommandType parses a string into a CommandType.
+// Returns an error if the value is not a known command type.
+func ParseCommandType(value string) (CommandType, error) {
+	ct, ok := commandTypes[value]
+	if !ok {
+		return CommandType{}, fmt.Errorf("invalid command type %q", value)
+	}
+	return ct, nil
 }

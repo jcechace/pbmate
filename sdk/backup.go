@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// BackupService provides read access to PBM backup metadata.
+// BackupService provides access to PBM backup operations and metadata.
 type BackupService interface {
 	// List returns backups matching the given options.
 	List(ctx context.Context, opts ListBackupsOptions) ([]Backup, error)
@@ -15,6 +15,12 @@ type BackupService interface {
 
 	// GetByOpID returns a single backup by operation ID.
 	GetByOpID(ctx context.Context, opid string) (*Backup, error)
+
+	// Start initiates a new backup and returns the result.
+	Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error)
+
+	// Cancel requests cancellation of the currently running backup.
+	Cancel(ctx context.Context) (CommandResult, error)
 }
 
 // ListBackupsOptions controls filtering and pagination for backup listing.

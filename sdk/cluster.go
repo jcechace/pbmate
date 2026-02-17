@@ -1,9 +1,6 @@
 package sdk
 
-import (
-	"context"
-	"time"
-)
+import "context"
 
 // ClusterService provides read access to cluster topology,
 // agent statuses, and currently running operations.
@@ -44,11 +41,11 @@ type Agent struct {
 	Errors     []string
 }
 
-// Operation represents a currently running PBM operation.
+// Operation represents a currently running PBM operation,
+// derived from active distributed locks.
 type Operation struct {
-	Type    string // e.g. "Backup", "Restore", "Delete"
-	OPID    string
-	Name    string
-	StartTS time.Time
-	Status  Status
+	Type       CommandType
+	OPID       string
+	ReplicaSet string
+	Node       string
 }

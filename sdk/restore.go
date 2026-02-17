@@ -15,6 +15,9 @@ type RestoreService interface {
 
 	// GetByOpID returns a single restore by operation ID.
 	GetByOpID(ctx context.Context, opid string) (*Restore, error)
+
+	// Start initiates a new restore and returns the result.
+	Start(ctx context.Context, opts StartRestoreOptions) (RestoreResult, error)
 }
 
 // ListRestoresOptions controls filtering and pagination for restore listing.

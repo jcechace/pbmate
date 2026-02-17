@@ -15,6 +15,7 @@ type Client struct {
 	Cluster  ClusterService
 	PITR     PITRService
 	Logs     LogService
+	Commands CommandService
 
 	conn connect.Client
 }
@@ -61,8 +62,9 @@ func newMongoClient(ctx context.Context, o *options) (*Client, error) {
 	}
 
 	c := &Client{conn: conn}
-	c.Backups = &backupServiceImpl{conn: conn}
-	c.Restores = &restoreServiceImpl{conn: conn}
+	c.Commands = &commandServiceImpl{conn: conn}
+	c.Backups = &backupServiceImpl{conn: conn, cmds: c.Commands}
+	c.Restores = &restoreServiceImpl{conn: conn, cmds: c.Commands}
 	c.Config = &configServiceImpl{conn: conn}
 	c.Cluster = &clusterServiceImpl{conn: conn}
 	c.PITR = &pitrServiceImpl{conn: conn}

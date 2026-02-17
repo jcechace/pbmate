@@ -9,6 +9,7 @@ import (
 
 type restoreServiceImpl struct {
 	conn connect.Client
+	cmds CommandService
 }
 
 var _ RestoreService = (*restoreServiceImpl)(nil)
@@ -23,4 +24,8 @@ func (s *restoreServiceImpl) Get(ctx context.Context, name string) (*Restore, er
 
 func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Restore, error) {
 	return nil, fmt.Errorf("restore get by opid: not implemented")
+}
+
+func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions) (RestoreResult, error) {
+	return RestoreResult{}, fmt.Errorf("restore start: not implemented")
 }
