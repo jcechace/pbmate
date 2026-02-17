@@ -131,7 +131,16 @@ pbmate/
 ## Build & Tasks
 
 - Use `task <name>` (Taskfile) for all build, test, and lint operations.
-- See `Taskfile.yaml` for available tasks.
+- Key tasks:
+  - `task check` -- build, vet, lint, and test all modules (use after changes)
+  - `task build` -- build all modules
+  - `task test` -- run all tests
+  - `task lint` -- run golangci-lint on all modules
+  - `task fmt` -- auto-fix formatting
+  - Module-specific tasks are prefixed: `sdk:build`, `sdk:test`, etc.
+- Run `task --list` for the full list.
+- AI agents must run `task check` after making changes instead of running
+  go commands directly. Always consult the user before modifying AGENTS.md.
 
 ## Git Practices
 

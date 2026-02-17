@@ -1,0 +1,86 @@
+version: "3"
+
+vars:
+  SDK_DIR: ./sdk
+  MCP_DIR: ./mcp
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # ---------------------------------------------------------------------------
+  # SDK
+  # ---------------------------------------------------------------------------
+  sdk:build:
+    desc: Build the SDK module
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go build ./...
+
+  sdk:vet:
+    desc: Run go vet on the SDK module
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go vet ./...
+
+  sdk:test:
+    desc: Run SDK tests
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go test ./...
+
+  sdk:lint:
+    desc: Run golangci-lint on the SDK module
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - golangci-lint run ./...
+
+  sdk:fmt:
+    desc: Auto-fix formatting on the SDK module
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go fmt ./...
+
+  sdk:check:
+    desc: Build, vet, lint, and test the SDK
+    cmds:
+      - task: sdk:build
+      - task: sdk:vet
+      - task: sdk:lint
+      - task: sdk:test
+
+  # ---------------------------------------------------------------------------
+  # All modules
+  # ---------------------------------------------------------------------------
+  build:
+    desc: Build all modules
+    cmds:
+      - task: sdk:build
+
+  vet:
+    desc: Run go vet on all modules
+    cmds:
+      - task: sdk:vet
+
+  test:
+    desc: Run tests for all modules
+    cmds:
+      - task: sdk:test
+
+  lint:
+    desc: Run golangci-lint on all modules
+    cmds:
+      - task: sdk:lint
+
+  fmt:
+    desc: Auto-fix formatting on all modules
+    cmds:
+      - task: sdk:fmt
+
+
+  check:
+    desc: Build, vet, lint, and test all modules
+    cmds:
+      - task: sdk:check
