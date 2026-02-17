@@ -1,0 +1,20 @@
+# Go
+bin/
+dist/
+
+# IDE - GoLand / JetBrains
+.idea/
+
+# OS
+.DS_Store
+
+# Environment / secrets
+.env
+.env.*
+
+# Test / coverage
+*.out
+coverage/
+
+# Taskfile
+.task/
