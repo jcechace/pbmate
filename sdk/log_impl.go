@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
+	"github.com/percona/percona-backup-mongodb/pbm/log"
 )
 
 type logServiceImpl struct {
@@ -14,14 +15,52 @@ type logServiceImpl struct {
 var _ LogService = (*logServiceImpl)(nil)
 
 func (s *logServiceImpl) Get(ctx context.Context, limit int64) ([]LogEntry, error) {
-	return nil, fmt.Errorf("log get: not implemented")
+	// Default to Info severity (includes Fatal, Error, Warning, Info).
+	req := &log.LogRequest{
+		LogKeys: log.LogKeys{
+			Severity: log.Info,
+		},
+	}
+
+	entries, err := log.LogGet(ctx, s.conn, req, limit)
+	if err != nil {
+		return nil, fmt.Errorf("get logs: %w", err)
+	}
+
+	result := make([]LogEntry, len(entries.Data))
+	for i := range entries.Data {
+		result[i] = convertLogEntry(&entries.Data[i])
+	}
+	return result, nil
 }
 
 func (s *logServiceImpl) Follow(ctx context.Context) (<-chan LogEntry, <-chan error) {
+	// Default to Info severity (includes Fatal, Error, Warning, Info).
+	req := &log.LogRequest{
+		LogKeys: log.LogKeys{
+			Severity: log.Info,
+		},
+	}
+
+	pbmEntries, pbmErrs := log.Follow(ctx, s.conn, req, false)
+
 	entries := make(chan LogEntry)
 	errs := make(chan error, 1)
-	errs <- fmt.Errorf("log follow: not implemented")
-	close(entries)
-	close(errs)
+
+	go func() {
+		defer close(entries)
+		defer close(errs)
+
+		for e := range pbmEntries {
+			entries <- convertLogEntry(e)
+		}
+
+		// Forward any error from the PBM follow channel.
+		for err := range pbmErrs {
+			errs <- fmt.Errorf("follow logs: %w", err)
+			return
+		}
+	}()
+
 	return entries, errs
 }
