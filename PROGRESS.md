@@ -28,12 +28,14 @@
 - [x] Wire CommandService into Client and service impls
 
 ## Phase 3: SDK Implementation
-- [ ] BackupService -- wire to PBM internals
-- [ ] RestoreService -- wire to PBM internals
-- [ ] ConfigService -- wire to PBM internals
-- [ ] ClusterService -- wire to PBM internals
-- [ ] PITRService -- wire to PBM internals
-- [ ] LogService -- wire to PBM internals
+- [x] Foundation -- errors (ErrNotFound, ConcurrentOperationError), shared conversion helpers, CommandType enum, Operation struct revision
+- [x] CommandService -- lock checking via lock.GetLocks + staleness, command dispatch via CmdStreamCollection insert
+- [x] BackupService -- custom MongoDB query for List with filters, Get/GetByOpID via PBM functions, Start/Cancel via CommandService
+- [x] RestoreService -- List via restore.RestoreList, Get/GetByOpID via PBM functions, Start via CommandService
+- [x] PITRService -- Status aggregation (config + oplog slicing + active slicers + meta errors), Timelines via oplog.PITRTimelines
+- [x] ClusterService -- Members via topo.ClusterMembers, Agents via topo.ListAgentStatuses, RunningOperations via lock.GetLocks with stale filtering, ClusterTime via topo.GetClusterTime
+- [x] ConfigService -- Get/GetYAML via config.GetConfig, ListProfiles/GetProfile/GetProfileYAML via config profile functions
+- [x] LogService -- Get via log.LogGet with Info default severity, Follow via log.Follow tailable cursor with goroutine adapter
 
 ## Phase 4: MCP Server
 - [ ] (TBD)
