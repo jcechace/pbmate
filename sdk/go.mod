@@ -6,6 +6,7 @@ require (
 	github.com/percona/percona-backup-mongodb v1.8.1-0.20260213115858-01eb9981f58a
 	github.com/stretchr/testify v1.11.1
 	go.mongodb.org/mongo-driver v1.17.9
+	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
@@ -115,6 +116,5 @@ require (
 	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

@@ -68,7 +68,12 @@ func (s *commandServiceImpl) checkForConcurrentOp(ctx context.Context) error {
 }
 
 // dispatch inserts a command into the PBM command stream collection.
-// This replicates PBM's internal sendCommand pattern.
+// This replicates PBM's internal sendCommand pattern because that function
+// is unexported and PBM only exports type-specific wrappers (SendCancelBackup,
+// SendDeleteBackupByName, etc.) — none for generic backup/restore dispatch.
+//
+// NOTE: Direct MongoDB interaction should only be used when no reasonable
+// exported PBM API exists. This is currently the only such exception.
 func (s *commandServiceImpl) dispatch(ctx context.Context, cmd ctrl.Cmd) (string, error) {
 	cmd.TS = time.Now().UTC().Unix()
 
