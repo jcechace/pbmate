@@ -58,9 +58,10 @@ Rules:
 The SDK follows the **godo pattern** (DigitalOcean's Go client): a concrete
 `Client` struct with interface-typed fields for each domain service.
 
-Services (v1 is read-only):
-- `BackupService` -- list and describe backups
-- `RestoreService` -- list and describe restores
+Services:
+- `BackupService` -- list, get, start, and cancel backups
+- `RestoreService` -- list, get, and start restores
+- `CommandService` -- send commands (backup, restore, cancel) with lock checking
 - `ConfigService` -- read configuration and storage profiles
 - `ClusterService` -- cluster topology, agents, running operations
 - `PITRService` -- PITR status and oplog timelines
@@ -69,10 +70,21 @@ Services (v1 is read-only):
 Each service has:
 - A public interface definition + domain types in `<service>.go`
 - An unexported implementation struct in `<service>_impl.go`
-- Conversion functions from PBM internal types to SDK domain types
+- Pure conversion functions (PBM types to SDK types) in `<service>_convert.go`
+- Conversion unit tests in `<service>_convert_test.go`
+
+Shared conversion helpers (Timestamp, Status, BackupType, etc.) live in
+`convert.go` with tests in `convert_test.go`.
 
 Domain types are owned by the SDK (not aliased from PBM). This isolates
 consumers from PBM internal changes and enables testing without MongoDB.
+
+### Enum types
+
+All enum types (Status, BackupType, CompressionType, StorageType, NodeRole,
+LogSeverity, ConfigName, CommandType) use **DDD-style value objects**: a struct
+with an unexported `value` field, exported singleton instances, and a
+`Parse*()` function.
 
 ## Tech Stack
 
@@ -91,6 +103,15 @@ consumers from PBM internal changes and enables testing without MongoDB.
 - Naming: follow standard Go conventions (exported = PascalCase,
   unexported = camelCase).
 - Interfaces describe behavior, not data. Keep them small and focused.
+- Use `gofmt` for formatting (not `gofumpt`).
+- Under no circumstances should `primitive.Timestamp` or any other
+  BSON/MongoDB driver type leak into the SDK's public API. `sdk.Timestamp{T,
+  I uint32}` is the clean domain equivalent.
+- Prefer PBM's exported internal APIs over direct MongoDB queries. If it means
+  fetching a larger data set and filtering in memory, do that -- the data
+  volumes (backups, restores, agents) are always small. Direct DB interaction
+  is acceptable only when no reasonable exported PBM API exists (currently the
+  only exception is command dispatch, since `ctrl.sendCommand` is unexported).
 
 ## Project Structure
 
@@ -105,18 +126,37 @@ pbmate/
 │   ├── go.mod              # SDK module: github.com/jcechace/pbmate/sdk/v2
 │   ├── client.go           # Client struct, NewClient, Close
 │   ├── types.go            # Shared types: Timestamp, Status, BackupType, etc.
+│   ├── errors.go           # ErrNotFound, ConcurrentOperationError
+│   ├── convert.go          # Shared conversion helpers (Timestamp, Status, etc.)
+│   ├── convert_test.go     # Tests for shared conversion helpers
 │   ├── backup.go           # BackupService interface + types
-│   ├── backup_impl.go      # backupServiceImpl + conversion
+│   ├── backup_impl.go      # backupServiceImpl
+│   ├── backup_convert.go   # PBM BackupMeta -> SDK Backup conversion
+│   ├── backup_convert_test.go
 │   ├── restore.go          # RestoreService interface + types
-│   ├── restore_impl.go     # restoreServiceImpl + conversion
+│   ├── restore_impl.go     # restoreServiceImpl
+│   ├── restore_convert.go  # PBM RestoreMeta -> SDK Restore conversion
+│   ├── restore_convert_test.go
+│   ├── command.go          # CommandService interface, Command types
+│   ├── command_impl.go     # commandServiceImpl (lock check + dispatch)
+│   ├── command_convert.go  # SDK Command -> PBM ctrl.Cmd conversion
+│   ├── command_convert_test.go
 │   ├── config.go           # ConfigService interface + types
-│   ├── config_impl.go      # configServiceImpl + conversion
+│   ├── config_impl.go      # configServiceImpl
+│   ├── config_convert.go   # PBM Config -> SDK Config conversion
+│   ├── config_convert_test.go
 │   ├── cluster.go          # ClusterService interface + types
-│   ├── cluster_impl.go     # clusterServiceImpl + conversion
+│   ├── cluster_impl.go     # clusterServiceImpl
+│   ├── cluster_convert.go  # PBM topo/lock -> SDK Agent/Operation conversion
+│   ├── cluster_convert_test.go
 │   ├── pitr.go             # PITRService interface + types
-│   ├── pitr_impl.go        # pitrServiceImpl + conversion
+│   ├── pitr_impl.go        # pitrServiceImpl
+│   ├── pitr_convert.go     # PBM oplog.Timeline -> SDK Timeline conversion
+│   ├── pitr_convert_test.go
 │   ├── log.go              # LogService interface + types
-│   └── log_impl.go         # logServiceImpl + conversion
+│   ├── log_impl.go         # logServiceImpl
+│   ├── log_convert.go      # PBM log.Entry -> SDK LogEntry conversion
+│   └── log_convert_test.go
 ├── mcp/
 │   └── go.mod              # MCP module: github.com/jcechace/pbmate/mcp
 └── ...                     # TUI source (future)
