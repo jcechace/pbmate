@@ -10,7 +10,7 @@ terminal user interface for monitoring and managing MongoDB backups through PBM.
 PBMate consists of three Go modules in a single repository:
 
 ```
-sdk/  (github.com/jcechace/pbmate/sdk)  - Standalone SDK wrapping PBM internals
+sdk/  (github.com/jcechace/pbmate/sdk/v2)  - Standalone SDK wrapping PBM internals
 mcp/  (github.com/jcechace/pbmate/mcp)  - MCP server, usable standalone or in-TUI
 root  (github.com/jcechace/pbmate)      - TUI application (BubbleTea)
 ```
@@ -102,7 +102,7 @@ pbmate/
 ├── go.mod                  # TUI module: github.com/jcechace/pbmate
 ├── Taskfile.yaml           # Task runner config
 ├── sdk/
-│   ├── go.mod              # SDK module: github.com/jcechace/pbmate/sdk
+│   ├── go.mod              # SDK module: github.com/jcechace/pbmate/sdk/v2
 │   ├── client.go           # Client struct, NewClient, Close
 │   ├── types.go            # Shared types: Timestamp, Status, BackupType, etc.
 │   ├── backup.go           # BackupService interface + types

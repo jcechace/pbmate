@@ -8,14 +8,15 @@
 - [x] PROGRESS.md (this file)
 
 ## Phase 2: SDK Scaffolding
-- [ ] Shared types (types.go)
-- [ ] Client struct (client.go)
-- [ ] BackupService (interface + impl)
-- [ ] RestoreService (interface + impl)
-- [ ] ConfigService (interface + impl)
-- [ ] ClusterService (interface + impl)
-- [ ] PITRService (interface + impl)
-- [ ] LogService (interface + impl)
+- [x] Shared types (types.go)
+- [x] Client struct (client.go) -- functional options pattern
+- [x] BackupService (interface + impl stub)
+- [x] RestoreService (interface + impl stub)
+- [x] ConfigService (interface + impl stub)
+- [x] ClusterService (interface + impl stub)
+- [x] PITRService (interface + impl stub)
+- [x] LogService (interface + impl stub)
+- [x] PBM dependency via replace directive (local source)
 
 ## Phase 3: SDK Implementation
 - [ ] BackupService -- wire to PBM internals
