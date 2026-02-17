@@ -13,11 +13,11 @@ type logServiceImpl struct {
 
 var _ LogService = (*logServiceImpl)(nil)
 
-func (s *logServiceImpl) Query(ctx context.Context, opts LogQuery) ([]LogEntry, error) {
-	return nil, fmt.Errorf("log query: not implemented")
+func (s *logServiceImpl) Get(ctx context.Context, limit int64) ([]LogEntry, error) {
+	return nil, fmt.Errorf("log get: not implemented")
 }
 
-func (s *logServiceImpl) Follow(ctx context.Context, opts LogQuery) (<-chan LogEntry, <-chan error) {
+func (s *logServiceImpl) Follow(ctx context.Context) (<-chan LogEntry, <-chan error) {
 	entries := make(chan LogEntry)
 	errs := make(chan error, 1)
 	errs <- fmt.Errorf("log follow: not implemented")

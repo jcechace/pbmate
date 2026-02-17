@@ -17,6 +17,12 @@
 - [x] PITRService (interface + impl stub)
 - [x] LogService (interface + impl stub)
 - [x] PBM dependency via replace directive (local source)
+- [x] Refactor enum types to DDD-style value objects (unexported field, exported instances, Parse functions)
+- [x] Add ConfigName type to encapsulate config/profile identity (normalizes PBM's "" -> "main")
+- [x] Redesign ConfigService -- unified Config type, GetYAML/GetProfileYAML for raw access, separate typed vs raw methods
+- [x] Redesign LogService -- simplify to Get+Follow, structured attrs via map[string]any, well-known key constants
+- [x] Expand Restore types -- BcpChain for incremental, RestoreNode for physical restore monitoring
+- [x] Add restore-specific Status values (StatusDown, StatusCleanupCluster)
 
 ## Phase 3: SDK Implementation
 - [ ] BackupService -- wire to PBM internals

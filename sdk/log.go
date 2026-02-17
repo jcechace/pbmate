@@ -5,38 +5,31 @@ import (
 	"time"
 )
 
+// Well-known log attribute keys.
+const (
+	LogKeyReplicaSet = "rs"
+	LogKeyNode       = "node"
+	LogKeyEvent      = "event"
+	LogKeyObjName    = "objName"
+	LogKeyOPID       = "opid"
+	LogKeyEpoch      = "epoch"
+)
+
 // LogService provides access to PBM's stored logs.
 type LogService interface {
-	// Query returns log entries matching the given options.
-	Query(ctx context.Context, opts LogQuery) ([]LogEntry, error)
+	// Get returns log entries, most recent first.
+	// Limit controls how many entries to return. Zero means no limit.
+	Get(ctx context.Context, limit int64) ([]LogEntry, error)
 
-	// Follow streams log entries matching the given options.
+	// Follow streams log entries as they arrive.
 	// The returned channels are closed when the context is cancelled.
-	Follow(ctx context.Context, opts LogQuery) (<-chan LogEntry, <-chan error)
-}
-
-// LogQuery controls filtering for log queries.
-type LogQuery struct {
-	// Severity is the minimum severity level. Empty means all levels.
-	Severity LogSeverity
-
-	// Event filters by event type (e.g. "backup", "restore", "pitr").
-	Event string
-
-	// OPID filters by operation ID.
-	OPID string
-
-	// Limit is the maximum number of entries to return. Zero means no limit.
-	Limit int64
+	Follow(ctx context.Context) (<-chan LogEntry, <-chan error)
 }
 
 // LogEntry represents a single PBM log entry.
 type LogEntry struct {
-	Timestamp  time.Time
-	Severity   LogSeverity
-	ReplicaSet string
-	Node       string
-	Event      string
-	OPID       string
-	Message    string
+	Timestamp time.Time
+	Severity  LogSeverity
+	Message   string
+	Attrs     map[string]any
 }

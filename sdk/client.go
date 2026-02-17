@@ -41,7 +41,7 @@ func WithAppName(name string) Option {
 // At least one connection option (e.g. WithMongoURI) must be provided.
 // The caller must call Close when the client is no longer needed.
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
-	o := &options{appName: "pbmate"}
+	o := &options{appName: "pbmate-sdk"}
 	for _, opt := range opts {
 		opt(o)
 	}

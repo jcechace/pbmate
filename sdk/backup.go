@@ -22,8 +22,8 @@ type ListBackupsOptions struct {
 	// Limit is the maximum number of backups to return. Zero means no limit.
 	Limit int
 
-	// Profile filters by storage profile name. Empty means the default profile.
-	Profile string
+	// ConfigName filters by storage configuration name. Zero value means all.
+	ConfigName ConfigName
 
 	// Type filters by backup type. Empty means all types.
 	Type BackupType
@@ -36,7 +36,7 @@ type Backup struct {
 	Type             BackupType
 	Status           Status
 	Compression      CompressionType
-	Profile          string
+	ConfigName       ConfigName
 	StartTS          time.Time
 	LastWriteTS      Timestamp
 	LastTransitionTS time.Time

@@ -4,22 +4,29 @@ import "context"
 
 // ConfigService provides read access to PBM configuration and storage profiles.
 type ConfigService interface {
-	// Get returns the current PBM configuration.
+	// Get returns the main PBM configuration.
 	Get(ctx context.Context) (*Config, error)
 
-	// ListProfiles returns all configured storage profiles.
+	// GetYAML returns the main PBM configuration as raw YAML.
+	GetYAML(ctx context.Context) ([]byte, error)
+
+	// ListProfiles returns all named storage profiles.
 	ListProfiles(ctx context.Context) ([]StorageProfile, error)
 
 	// GetProfile returns a storage profile by name.
 	GetProfile(ctx context.Context, name string) (*StorageProfile, error)
+
+	// GetProfileYAML returns a storage profile as raw YAML.
+	GetProfileYAML(ctx context.Context, name string) ([]byte, error)
 }
 
 // Config represents the PBM configuration.
 type Config struct {
-	Storage StorageConfig
-	PITR    *PITRConfig
-	Backup  *BackupConfig
-	Restore *RestoreConfig
+	ConfigName ConfigName
+	Storage    StorageConfig
+	PITR       *PITRConfig
+	Backup     *BackupConfig
+	Restore    *RestoreConfig
 }
 
 // StorageConfig describes the configured backup storage.
@@ -51,6 +58,6 @@ type RestoreConfig struct {
 
 // StorageProfile represents a named storage configuration.
 type StorageProfile struct {
-	Name    string
+	Name    ConfigName
 	Storage StorageConfig
 }

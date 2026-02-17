@@ -27,11 +27,12 @@ type ListRestoresOptions struct {
 type Restore struct {
 	Name             string
 	OPID             string
-	Backup           string // source backup name
+	Backup           string   // source backup name
+	BcpChain         []string // for incremental restores: the ordered backup chain
 	Type             BackupType
 	Status           Status
 	StartTS          time.Time
-	FinishTS         time.Time // zero if not finished
+	FinishTS         time.Time // zero if not finished; derived from LastTransitionTS on terminal status
 	PITRTarget       Timestamp // zero if not a PITR restore
 	Namespaces       []string
 	LastTransitionTS time.Time
@@ -41,6 +42,15 @@ type Restore struct {
 
 // RestoreReplset holds per-replica-set metadata for a restore.
 type RestoreReplset struct {
+	Name             string
+	Status           Status
+	LastTransitionTS time.Time
+	Error            string
+	Nodes            []RestoreNode // per-node status; populated for physical restores
+}
+
+// RestoreNode holds per-node metadata for a physical restore.
+type RestoreNode struct {
 	Name             string
 	Status           Status
 	LastTransitionTS time.Time
