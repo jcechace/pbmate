@@ -195,6 +195,10 @@ pbmate/
   For complex changes, follow with an empty line and a multiline description.
 - Never push to remote. Pushing is always done by the human developer.
 
+## TUI Design
+
+- See `TUI.md` for the TUI design document, layout, and architecture decisions.
+
 ## Progress Tracking
 
 - See `PROGRESS.md` for current project status and milestones.
