@@ -42,6 +42,7 @@ type Model struct {
 	width        int
 	height       int
 	pollInterval time.Duration
+	flashErr     string // transient error message for the status bar
 
 	// Fetched data.
 	data    overviewData
@@ -66,7 +67,7 @@ func New(client *sdk.Client, theme Theme) Model {
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
 		overview:     newOverviewModel(&s),
-		backups:      newBackupsModel(&s),
+		backups:      newBackupsModel(client, &s),
 		keys:         globalKeys,
 		help:         h,
 	}
@@ -98,6 +99,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case overviewDataMsg:
 		m.data = msg.overviewData
 		m.overview.setData(m.data)
+		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
 		if len(m.data.operations) > 0 {
 			m.pollInterval = activeInterval
@@ -110,6 +112,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.bkpData = msg.backupsData
 		m.backups.setData(m.bkpData)
 		return m, nil
+
+	case backupActionMsg:
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
+		} else {
+			m.flashErr = ""
+		}
+		// Trigger immediate re-fetch to pick up the change.
+		return m, tickCmd(0)
 
 	case tea.KeyMsg:
 		switch {
@@ -329,6 +340,11 @@ func (m Model) placeholderContent(text string, height int) string {
 
 // statusBarView renders the bottom status bar with live cluster info.
 func (m Model) statusBarView() string {
+	if m.flashErr != "" {
+		return m.styles.StatusBar.Width(m.width).
+			Render("  " + m.styles.StatusError.Render(m.flashErr))
+	}
+
 	pitr := m.pitrStatusText()
 	op := m.runningOpText()
 	cluster := m.clusterTimeText()
@@ -375,5 +391,9 @@ func (m Model) clusterTimeText() string {
 
 // helpBarView renders the keybinding help at the bottom.
 func (m Model) helpBarView() string {
-	return m.styles.HelpBar.Width(m.width).Render(m.help.ShortHelpView(m.keys.ShortHelp()))
+	bindings := m.keys.ShortHelp()
+	if m.activeTab == tabBackups {
+		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
+	}
+	return m.styles.HelpBar.Width(m.width).Render(m.help.ShortHelpView(bindings))
 }

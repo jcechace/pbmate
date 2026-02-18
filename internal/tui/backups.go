@@ -13,6 +13,7 @@ import (
 
 // backupsModel is the sub-model for the Backups tab.
 type backupsModel struct {
+	client  *sdk.Client
 	backups []sdk.Backup
 	cursor  int
 	focus   panel
@@ -20,8 +21,9 @@ type backupsModel struct {
 }
 
 // newBackupsModel creates a new backups sub-model.
-func newBackupsModel(styles *Styles) backupsModel {
+func newBackupsModel(client *sdk.Client, styles *Styles) backupsModel {
 	return backupsModel{
+		client: client,
 		styles: styles,
 		focus:  panelLeft,
 	}
@@ -51,6 +53,14 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		m.focus = panelLeft
 	case key.Matches(msg, keys.Right):
 		m.focus = panelRight
+	case key.Matches(msg, backupKeys.Start):
+		return startBackupCmd(m.client)
+	case key.Matches(msg, backupKeys.Cancel):
+		return cancelBackupCmd(m.client)
+	case key.Matches(msg, backupKeys.Delete):
+		if sel := m.selectedBackup(); sel != nil {
+			return deleteBackupCmd(m.client, sel.Name)
+		}
 	}
 	return nil
 }

@@ -79,6 +79,28 @@ var globalKeys = globalKeyMap{
 	),
 }
 
+// backupKeyMap defines keybindings specific to the Backups tab.
+type backupKeyMap struct {
+	Start  key.Binding
+	Cancel key.Binding
+	Delete key.Binding
+}
+
+var backupKeys = backupKeyMap{
+	Start: key.NewBinding(
+		key.WithKeys("s"),
+		key.WithHelp("s", "start backup"),
+	),
+	Cancel: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "cancel backup"),
+	),
+	Delete: key.NewBinding(
+		key.WithKeys("d"),
+		key.WithHelp("d", "delete backup"),
+	),
+}
+
 // ShortHelp returns the key bindings shown in the compact help bar.
 func (k globalKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{

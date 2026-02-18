@@ -31,6 +31,41 @@ type backupsData struct {
 // backupsDataMsg wraps backupsData as a BubbleTea message.
 type backupsDataMsg struct{ backupsData }
 
+// backupActionMsg carries the result of a backup action (start, cancel, delete).
+type backupActionMsg struct {
+	action string // "start", "cancel", "delete"
+	err    error
+}
+
+// startBackupCmd returns a tea.Cmd that starts a logical backup with defaults.
+func startBackupCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		_, err := client.Backups.Start(ctx, sdk.StartBackupOptions{
+			Type: sdk.BackupTypeLogical,
+		})
+		return backupActionMsg{action: "start", err: err}
+	}
+}
+
+// cancelBackupCmd returns a tea.Cmd that cancels the running backup.
+func cancelBackupCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		_, err := client.Backups.Cancel(ctx)
+		return backupActionMsg{action: "cancel", err: err}
+	}
+}
+
+// deleteBackupCmd returns a tea.Cmd that deletes the named backup.
+func deleteBackupCmd(client *sdk.Client, name string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		_, err := client.Backups.Delete(ctx, name)
+		return backupActionMsg{action: "delete", err: err}
+	}
+}
+
 // fetchOverviewCmd returns a tea.Cmd that fetches all overview data from the
 // SDK client. Errors from individual calls are coalesced into the first
 // encountered error; partial data is still returned.
