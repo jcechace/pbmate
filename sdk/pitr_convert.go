@@ -14,8 +14,16 @@ func convertTimeline(tl oplog.Timeline) Timeline {
 }
 
 // convertTimelines converts a slice of PBM oplog.Timeline to SDK Timelines.
+// A single zero-valued timeline is treated as empty — PBM's internal
+// gettimelines() produces this artifact when the oplog chunk list is empty.
 func convertTimelines(tlns []oplog.Timeline) []Timeline {
 	if len(tlns) == 0 {
+		return nil
+	}
+
+	// PBM bug workaround: gettimelines() unconditionally appends the
+	// accumulator after its loop, producing [{0,0,0}] for empty input.
+	if len(tlns) == 1 && tlns[0].Start == 0 && tlns[0].End == 0 {
 		return nil
 	}
 

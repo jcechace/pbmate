@@ -32,6 +32,15 @@ func TestConvertTimelines(t *testing.T) {
 		assert.Nil(t, result)
 	})
 
+	t.Run("single zero timeline (PBM empty artifact)", func(t *testing.T) {
+		tlns := []oplog.Timeline{
+			{Start: 0, End: 0},
+		}
+
+		result := convertTimelines(tlns)
+		assert.Nil(t, result)
+	})
+
 	t.Run("multiple timelines", func(t *testing.T) {
 		tlns := []oplog.Timeline{
 			{Start: 1700000000, End: 1700003600},
