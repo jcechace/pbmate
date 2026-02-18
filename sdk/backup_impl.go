@@ -76,6 +76,10 @@ func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup
 }
 
 func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error) {
+	if opts.ConfigName.IsZero() {
+		opts.ConfigName = MainConfig
+	}
+
 	cmd := BackupCommand{
 		Name:        time.Now().UTC().Format(time.RFC3339),
 		Type:        opts.Type,
