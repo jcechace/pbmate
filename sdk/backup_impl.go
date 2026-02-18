@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/backup"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
@@ -74,6 +75,7 @@ func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup
 
 func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error) {
 	cmd := BackupCommand{
+		Name:        time.Now().UTC().Format(time.RFC3339),
 		Type:        opts.Type,
 		ConfigName:  opts.ConfigName,
 		Compression: opts.Compression,

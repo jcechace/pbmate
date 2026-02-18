@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
@@ -60,6 +61,7 @@ func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Resto
 
 func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions) (RestoreResult, error) {
 	cmd := RestoreCommand{
+		Name:       time.Now().UTC().Format(time.RFC3339Nano),
 		BackupName: opts.BackupName,
 		PITRTarget: opts.PITRTarget,
 		Namespaces: opts.Namespaces,
