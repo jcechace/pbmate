@@ -1,6 +1,9 @@
 package sdk
 
-import "context"
+import (
+	"context"
+	"fmt"
+)
 
 // CommandService handles dispatching commands to PBM agents.
 // It performs pre-flight checks (lock validation) before sending.
@@ -12,7 +15,7 @@ type CommandService interface {
 // Command is a sealed interface representing a PBM command.
 // Only types defined in this package can implement it.
 type Command interface {
-	command() // unexported method prevents external implementations
+	kind() string // unexported method prevents external implementations
 }
 
 // CommandResult is returned when a command is dispatched to PBM agents.
@@ -30,7 +33,7 @@ type BackupCommand struct {
 	IncrBase    bool            // for incremental: start a new base
 }
 
-func (BackupCommand) command() {}
+func (c BackupCommand) kind() string { return fmt.Sprintf("%T", c) }
 
 // RestoreCommand describes a restore to initiate.
 type RestoreCommand struct {
@@ -40,12 +43,12 @@ type RestoreCommand struct {
 	Namespaces []string  // nil = full restore
 }
 
-func (RestoreCommand) command() {}
+func (c RestoreCommand) kind() string { return fmt.Sprintf("%T", c) }
 
 // CancelBackupCommand requests cancellation of the currently running backup.
 type CancelBackupCommand struct{}
 
-func (CancelBackupCommand) command() {}
+func (c CancelBackupCommand) kind() string { return fmt.Sprintf("%T", c) }
 
 // BackupResult is returned by BackupService.Start.
 type BackupResult struct {

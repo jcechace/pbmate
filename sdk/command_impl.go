@@ -33,13 +33,14 @@ func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResu
 		return CommandResult{}, fmt.Errorf("convert command: %w", err)
 	}
 
-	s.log.InfoContext(ctx, "dispatching command", "type", pbmCmd.Cmd)
+	s.log.InfoContext(ctx, "dispatching command", "kind", cmd.kind())
+	s.log.DebugContext(ctx, "command details", "command", cmd)
 	opid, err := s.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("dispatch command: %w", err)
 	}
 
-	s.log.InfoContext(ctx, "command dispatched", "type", pbmCmd.Cmd, "opid", opid)
+	s.log.InfoContext(ctx, "command dispatched", "kind", cmd.kind(), "opid", opid)
 	return CommandResult{OPID: opid}, nil
 }
 
