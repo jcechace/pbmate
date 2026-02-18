@@ -22,6 +22,15 @@ type overviewData struct {
 // overviewDataMsg wraps overviewData as a BubbleTea message.
 type overviewDataMsg struct{ overviewData }
 
+// backupsData holds the result of a single backups poll cycle.
+type backupsData struct {
+	backups []sdk.Backup
+	err     error
+}
+
+// backupsDataMsg wraps backupsData as a BubbleTea message.
+type backupsDataMsg struct{ backupsData }
+
 // fetchOverviewCmd returns a tea.Cmd that fetches all overview data from the
 // SDK client. Errors from individual calls are coalesced into the first
 // encountered error; partial data is still returned.
@@ -67,5 +76,14 @@ func fetchOverviewCmd(client *sdk.Client) tea.Cmd {
 		d.clusterTime = ct
 
 		return overviewDataMsg{d}
+	}
+}
+
+// fetchBackupsCmd returns a tea.Cmd that fetches the full backup list.
+func fetchBackupsCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{})
+		return backupsDataMsg{backupsData{backups: backups, err: err}}
 	}
 }

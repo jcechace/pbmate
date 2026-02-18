@@ -44,10 +44,12 @@ type Model struct {
 	pollInterval time.Duration
 
 	// Fetched data.
-	data overviewData
+	data    overviewData
+	bkpData backupsData
 
 	// Sub-models.
 	overview overviewModel
+	backups  backupsModel
 
 	keys globalKeyMap
 	help help.Model
@@ -64,6 +66,7 @@ func New(client *sdk.Client, theme Theme) Model {
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
 		overview:     newOverviewModel(&s),
+		backups:      newBackupsModel(&s),
 		keys:         globalKeys,
 		help:         h,
 	}
@@ -84,7 +87,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tickMsg:
-		return m, fetchOverviewCmd(m.client)
+		// Always fetch overview data (needed for status bar).
+		// Additionally fetch tab-specific data.
+		cmds := []tea.Cmd{fetchOverviewCmd(m.client)}
+		if m.activeTab == tabBackups {
+			cmds = append(cmds, fetchBackupsCmd(m.client))
+		}
+		return m, tea.Batch(cmds...)
 
 	case overviewDataMsg:
 		m.data = msg.overviewData
@@ -96,6 +105,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pollInterval = idleInterval
 		}
 		return m, tickCmd(m.pollInterval)
+
+	case backupsDataMsg:
+		m.bkpData = msg.backupsData
+		m.backups.setData(m.bkpData)
+		return m, nil
 
 	case tea.KeyMsg:
 		switch {
@@ -117,8 +131,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
 		default:
 			// Forward to active tab sub-model.
-			if m.activeTab == tabOverview {
+			switch m.activeTab {
+			case tabOverview:
 				m.overview.update(msg, m.keys)
+			case tabBackups:
+				if cmd := m.backups.update(msg, m.keys); cmd != nil {
+					return m, cmd
+				}
 			}
 		}
 	}
@@ -182,7 +201,7 @@ func (m Model) contentView(height int) string {
 	case tabOverview:
 		return m.overviewContentView(height)
 	case tabBackups:
-		return m.placeholderContent("Backups - list and manage backups", height)
+		return m.backupsContentView(height)
 	case tabRestores:
 		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
@@ -256,6 +275,48 @@ func (m Model) overviewContentView(height int) string {
 	rightColumn := lipgloss.JoinVertical(lipgloss.Left, detail, status)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, rightColumn)
+}
+
+// backupsContentView renders the Backups tab with left list + right detail.
+func (m Model) backupsContentView(height int) string {
+	leftWidth := m.width * 30 / 100
+	if leftWidth < 28 {
+		leftWidth = 28
+	}
+	rightWidth := m.width - leftWidth
+
+	const panelChrome = 4
+	innerLeftWidth := leftWidth - panelChrome
+	innerRightWidth := rightWidth - panelChrome
+	innerHeight := height - 2
+
+	if innerLeftWidth < 0 {
+		innerLeftWidth = 0
+	}
+	if innerRightWidth < 0 {
+		innerRightWidth = 0
+	}
+	if innerHeight < 0 {
+		innerHeight = 0
+	}
+
+	leftContent := m.backups.leftView(innerLeftWidth, innerHeight)
+	rightContent := m.backups.detailView()
+
+	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerHeight)
+	rightStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerHeight)
+
+	if m.backups.focus == panelLeft {
+		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+	if m.backups.focus == panelRight {
+		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+
+	left := leftStyle.Render(leftContent)
+	right := rightStyle.Render(rightContent)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
 // placeholderContent renders a simple placeholder for unimplemented tabs.
