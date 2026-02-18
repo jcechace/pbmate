@@ -52,17 +52,49 @@ tasks:
       - task: sdk:test
 
   # ---------------------------------------------------------------------------
+  # TUI (root module)
+  # ---------------------------------------------------------------------------
+  tui:build:
+    desc: Build the TUI module
+    cmds:
+      - go build ./...
+
+  tui:vet:
+    desc: Run go vet on the TUI module
+    cmds:
+      - go vet ./...
+
+  tui:lint:
+    desc: Run golangci-lint on the TUI module
+    cmds:
+      - golangci-lint run ./...
+
+  tui:fmt:
+    desc: Auto-fix formatting on the TUI module
+    cmds:
+      - go fmt ./...
+
+  tui:check:
+    desc: Build, vet, and lint the TUI
+    cmds:
+      - task: tui:build
+      - task: tui:vet
+      - task: tui:lint
+
+  # ---------------------------------------------------------------------------
   # All modules
   # ---------------------------------------------------------------------------
   build:
     desc: Build all modules
     cmds:
       - task: sdk:build
+      - task: tui:build
 
   vet:
     desc: Run go vet on all modules
     cmds:
       - task: sdk:vet
+      - task: tui:vet
 
   test:
     desc: Run tests for all modules
@@ -73,14 +105,16 @@ tasks:
     desc: Run golangci-lint on all modules
     cmds:
       - task: sdk:lint
+      - task: tui:lint
 
   fmt:
     desc: Auto-fix formatting on all modules
     cmds:
       - task: sdk:fmt
-
+      - task: tui:fmt
 
   check:
     desc: Build, vet, lint, and test all modules
     cmds:
       - task: sdk:check
+      - task: tui:check
