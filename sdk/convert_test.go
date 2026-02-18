@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -69,6 +70,24 @@ func TestConvertStatus(t *testing.T) {
 func TestConvertStatusUnknown(t *testing.T) {
 	s := convertStatus(defs.Status("bogus"))
 	assert.True(t, s.IsZero())
+}
+
+func TestStatusIsTerminal(t *testing.T) {
+	terminal := []Status{StatusDone, StatusError, StatusCancelled, StatusPartlyDone}
+	for _, s := range terminal {
+		assert.True(t, s.IsTerminal(), "expected %s to be terminal", s)
+	}
+
+	nonTerminal := []Status{
+		StatusInit, StatusReady, StatusStarting, StatusRunning,
+		StatusDumpDone, StatusCopyReady, StatusCopyDone,
+		StatusDown, StatusCleanupCluster,
+	}
+	for _, s := range nonTerminal {
+		assert.False(t, s.IsTerminal(), "expected %s to be non-terminal", s)
+	}
+
+	assert.False(t, Status{}.IsTerminal(), "zero value should be non-terminal")
 }
 
 func TestConvertBackupType(t *testing.T) {
@@ -146,4 +165,15 @@ func TestConvertStorageTypeUnknown(t *testing.T) {
 func TestConvertConfigName(t *testing.T) {
 	assert.Equal(t, MainConfig, convertConfigName(""))
 	assert.Equal(t, "my-profile", convertConfigName("my-profile").String())
+}
+
+func TestOperationError(t *testing.T) {
+	err := &OperationError{Name: "2024-01-15T10:30:00Z", Message: "storage unreachable"}
+	assert.Equal(t, `operation "2024-01-15T10:30:00Z" failed: storage unreachable`, err.Error())
+
+	// Verify errors.As works for type assertion by callers.
+	var opErr *OperationError
+	assert.True(t, errors.As(err, &opErr))
+	assert.Equal(t, "2024-01-15T10:30:00Z", opErr.Name)
+	assert.Equal(t, "storage unreachable", opErr.Message)
 }

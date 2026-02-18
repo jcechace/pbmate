@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+// BackupWaitOptions controls the polling behavior of BackupService.Wait.
+type BackupWaitOptions struct {
+	// PollInterval is the duration between status checks. Defaults to 1s.
+	PollInterval time.Duration
+
+	// OnProgress is called after each successful poll with the current state.
+	// It is not called when the poll returns an error. Optional.
+	OnProgress func(*Backup)
+}
+
 // BackupService provides access to PBM backup operations and metadata.
 type BackupService interface {
 	// List returns backups matching the given options.
@@ -18,6 +28,16 @@ type BackupService interface {
 
 	// Start initiates a new backup and returns the result.
 	Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error)
+
+	// Wait polls until the named backup reaches a terminal status or the
+	// context is cancelled. Context cancellation stops waiting but does NOT
+	// cancel the running backup — use Cancel for that.
+	//
+	// Returns the final Backup and nil on success (StatusDone, StatusCancelled).
+	// Returns the Backup and an *OperationError on failure (StatusError,
+	// StatusPartlyDone). On context cancellation, returns the last observed
+	// Backup (may be nil) and ctx.Err().
+	Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error)
 
 	// Cancel requests cancellation of the currently running backup.
 	Cancel(ctx context.Context) (CommandResult, error)

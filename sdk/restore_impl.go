@@ -77,3 +77,46 @@ func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions
 		Name:          cmd.Name,
 	}, nil
 }
+
+func (s *restoreServiceImpl) Wait(ctx context.Context, name string, opts RestoreWaitOptions) (*Restore, error) {
+	interval := opts.PollInterval
+	if interval == 0 {
+		interval = time.Second
+	}
+
+	var last *Restore
+	timer := time.NewTimer(0) // fires immediately for first check
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return last, ctx.Err()
+		case <-timer.C:
+		}
+
+		r, err := s.Get(ctx, name)
+		if err != nil {
+			if ctx.Err() != nil {
+				return last, ctx.Err()
+			}
+			if !errors.Is(err, ErrNotFound) {
+				return last, fmt.Errorf("wait for restore %q: %w", name, err)
+			}
+			// ErrNotFound: restore metadata not yet created by agent, keep polling.
+		} else {
+			last = r
+			if opts.OnProgress != nil {
+				opts.OnProgress(r)
+			}
+			if r.Status.IsTerminal() {
+				if r.Status.Equal(StatusError) || r.Status.Equal(StatusPartlyDone) {
+					return r, &OperationError{Name: name, Message: r.Error}
+				}
+				return r, nil
+			}
+		}
+
+		timer.Reset(interval)
+	}
+}

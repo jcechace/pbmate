@@ -65,6 +65,13 @@ func (s Status) IsZero() bool { return s.value == "" }
 // Equal reports whether two status values are identical.
 func (s Status) Equal(other Status) bool { return s.value == other.value }
 
+// IsTerminal reports whether the status represents a final state
+// from which no further transitions will occur.
+func (s Status) IsTerminal() bool {
+	return s.Equal(StatusDone) || s.Equal(StatusError) ||
+		s.Equal(StatusCancelled) || s.Equal(StatusPartlyDone)
+}
+
 // MarshalText implements encoding.TextMarshaler.
 func (s Status) MarshalText() ([]byte, error) { return []byte(s.value), nil }
 

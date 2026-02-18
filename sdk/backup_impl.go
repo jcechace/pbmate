@@ -94,6 +94,49 @@ func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) 
 	}, nil
 }
 
+func (s *backupServiceImpl) Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error) {
+	interval := opts.PollInterval
+	if interval == 0 {
+		interval = time.Second
+	}
+
+	var last *Backup
+	timer := time.NewTimer(0) // fires immediately for first check
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return last, ctx.Err()
+		case <-timer.C:
+		}
+
+		b, err := s.Get(ctx, name)
+		if err != nil {
+			if ctx.Err() != nil {
+				return last, ctx.Err()
+			}
+			if !errors.Is(err, ErrNotFound) {
+				return last, fmt.Errorf("wait for backup %q: %w", name, err)
+			}
+			// ErrNotFound: backup metadata not yet created by agent, keep polling.
+		} else {
+			last = b
+			if opts.OnProgress != nil {
+				opts.OnProgress(b)
+			}
+			if b.Status.IsTerminal() {
+				if b.Status.Equal(StatusError) || b.Status.Equal(StatusPartlyDone) {
+					return b, &OperationError{Name: name, Message: b.Error}
+				}
+				return b, nil
+			}
+		}
+
+		timer.Reset(interval)
+	}
+}
+
 func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {
 	result, err := s.cmds.Send(ctx, CancelBackupCommand{})
 	if err != nil {

@@ -18,3 +18,16 @@ type ConcurrentOperationError struct {
 func (e *ConcurrentOperationError) Error() string {
 	return fmt.Sprintf("another operation is running: %s (opid: %s)", e.Type, e.OPID)
 }
+
+// OperationError is returned by Wait when the operation reaches a failed
+// terminal status (StatusError or StatusPartlyDone). The corresponding
+// Backup or Restore struct is still returned alongside the error so callers
+// can inspect the full metadata.
+type OperationError struct {
+	Name    string // backup or restore name
+	Message string // error message from the operation
+}
+
+func (e *OperationError) Error() string {
+	return fmt.Sprintf("operation %q failed: %s", e.Name, e.Message)
+}
