@@ -199,42 +199,63 @@ func (m Model) overviewContentView(height int) string {
 	if leftWidth < 28 {
 		leftWidth = 28
 	}
+	rightWidth := m.width - leftWidth
 
 	// Account for panel border + padding (2 border + 2 padding = 4 per panel).
 	const panelChrome = 4
 	innerLeftWidth := leftWidth - panelChrome
-	innerRightWidth := m.width - leftWidth - panelChrome
-	innerHeight := height - 2 // top + bottom border
+	innerRightWidth := rightWidth - panelChrome
 
+	// Right side: two panels stacked vertically.
+	// Top detail panel gets 70%, bottom status panel gets 30%.
+	topHeight := (height * 70 / 100)
+	bottomHeight := height - topHeight
+	innerTopHeight := topHeight - 2       // border
+	innerBottomHeight := bottomHeight - 2 // border
+	innerLeftHeight := height - 2         // border
+
+	// Clamp to zero.
 	if innerLeftWidth < 0 {
 		innerLeftWidth = 0
 	}
 	if innerRightWidth < 0 {
 		innerRightWidth = 0
 	}
-	if innerHeight < 0 {
-		innerHeight = 0
+	if innerLeftHeight < 0 {
+		innerLeftHeight = 0
+	}
+	if innerTopHeight < 0 {
+		innerTopHeight = 0
+	}
+	if innerBottomHeight < 0 {
+		innerBottomHeight = 0
 	}
 
 	// Render panel contents.
-	leftContent := m.overview.leftView(innerLeftWidth, innerHeight)
-	rightContent := m.overview.rightView(innerRightWidth, innerHeight)
+	leftContent := m.overview.leftView(innerLeftWidth, innerLeftHeight)
+	detailContent := m.overview.detailView()
+	statusContent := m.overview.statusView()
 
-	// Apply panel styles with focus highlighting.
-	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerHeight)
-	rightStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerHeight)
+	// Apply panel styles.
+	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerLeftHeight)
+	detailStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerTopHeight)
+	statusStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerBottomHeight)
 
+	// Focus highlighting.
 	if m.overview.focus == panelLeft {
 		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
 	}
 	if m.overview.focus == panelRight {
-		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
+		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
 	}
 
 	left := leftStyle.Render(leftContent)
-	right := rightStyle.Render(rightContent)
+	detail := detailStyle.Render(detailContent)
+	status := statusStyle.Render(statusContent)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+	rightColumn := lipgloss.JoinVertical(lipgloss.Left, detail, status)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, rightColumn)
 }
 
 // placeholderContent renders a simple placeholder for unimplemented tabs.

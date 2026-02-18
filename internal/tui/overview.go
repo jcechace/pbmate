@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -172,35 +173,192 @@ func (m *overviewModel) selectedItem() *overviewItem {
 	return nil
 }
 
-// rightView renders the right panel content (detail for selected item).
-func (m *overviewModel) rightView(width, height int) string {
+// detailView renders the detail panel content for the selected item.
+func (m *overviewModel) detailView() string {
 	sel := m.selectedItem()
 	if sel == nil {
 		return m.styles.StatusMuted.Render("No selection")
 	}
+	var b strings.Builder
 	switch sel.kind {
 	case itemAgent:
-		return fmt.Sprintf("Agent: %s\nReplica Set: %s\nRole: %s\nVersion: %s",
-			sel.agent.Node, sel.agent.ReplicaSet, sel.agent.Role, sel.agent.Version)
+		m.renderAgentDetail(&b, sel.agent)
 	case itemBackup:
-		return fmt.Sprintf("Backup: %s\nType: %s\nStatus: %s",
-			sel.backup.Name, sel.backup.Type, sel.backup.Status)
+		m.renderBackupDetail(&b, sel.backup)
 	}
-	return ""
+	return b.String()
+}
+
+// statusView renders the running operations and PITR status.
+func (m *overviewModel) statusView() string {
+	var b strings.Builder
+	m.renderOperationsSection(&b)
+	m.renderPITRSection(&b)
+	return b.String()
+}
+
+// renderAgentDetail writes agent detail to the builder.
+func (m *overviewModel) renderAgentDetail(b *strings.Builder, a *sdk.Agent) {
+	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+	b.WriteString(header.Render("Agent"))
+	b.WriteByte('\n')
+
+	fmt.Fprintf(b, "  Node:        %s\n", a.Node)
+	fmt.Fprintf(b, "  Replica Set: %s\n", a.ReplicaSet)
+	fmt.Fprintf(b, "  Role:        %s\n", a.Role)
+	fmt.Fprintf(b, "  Version:     %s\n", a.Version)
+
+	status := m.styles.StatusOK.Render("OK")
+	if a.Stale {
+		status = m.styles.StatusMuted.Render("Stale")
+	} else if !a.OK {
+		status = m.styles.StatusError.Render("Error")
+	}
+	fmt.Fprintf(b, "  Status:      %s\n", status)
+
+	if len(a.Errors) > 0 {
+		b.WriteByte('\n')
+		b.WriteString(m.styles.StatusError.Render("  Errors:"))
+		b.WriteByte('\n')
+		for _, e := range a.Errors {
+			fmt.Fprintf(b, "    - %s\n", e)
+		}
+	}
+	b.WriteByte('\n')
+}
+
+// renderBackupDetail writes backup detail to the builder.
+func (m *overviewModel) renderBackupDetail(b *strings.Builder, bk *sdk.Backup) {
+	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+	b.WriteString(header.Render("Backup"))
+	b.WriteByte('\n')
+
+	fmt.Fprintf(b, "  Name:        %s\n", bk.Name)
+	fmt.Fprintf(b, "  Type:        %s\n", bk.Type)
+
+	indicator := m.statusIndicator(bk.Status)
+	fmt.Fprintf(b, "  Status:      %s %s\n", indicator, bk.Status)
+
+	if bk.Size > 0 {
+		fmt.Fprintf(b, "  Size:        %s", humanBytes(bk.Size))
+		if bk.SizeUncompressed > 0 {
+			fmt.Fprintf(b, " (%s uncompressed)", humanBytes(bk.SizeUncompressed))
+		}
+		b.WriteByte('\n')
+	}
+
+	if !bk.Compression.IsZero() {
+		fmt.Fprintf(b, "  Compression: %s\n", bk.Compression)
+	}
+	if !bk.ConfigName.IsZero() {
+		fmt.Fprintf(b, "  Config:      %s\n", bk.ConfigName)
+	}
+	if !bk.StartTS.IsZero() {
+		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.Format("2006-01-02 15:04:05"))
+	}
+	if !bk.LastTransitionTS.IsZero() && !bk.StartTS.IsZero() {
+		dur := bk.LastTransitionTS.Sub(bk.StartTS).Truncate(time.Second)
+		if dur > 0 {
+			fmt.Fprintf(b, "  Duration:    %s\n", dur)
+		}
+	}
+
+	if bk.Error != "" {
+		fmt.Fprintf(b, "  Error:       %s\n", m.styles.StatusError.Render(bk.Error))
+	}
+
+	if len(bk.Replsets) > 0 {
+		b.WriteByte('\n')
+		b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Replica Sets"))
+		b.WriteByte('\n')
+		for _, rs := range bk.Replsets {
+			ind := m.statusIndicator(rs.Status)
+			node := rs.Node
+			if node == "" {
+				node = "-"
+			}
+			fmt.Fprintf(b, "  %s %s: %s  (%s)\n", ind, rs.Name, rs.Status, node)
+		}
+	}
+	b.WriteByte('\n')
+}
+
+// renderOperationsSection writes the running operations section.
+func (m *overviewModel) renderOperationsSection(b *strings.Builder) {
+	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+	b.WriteString(header.Render("Running Operations"))
+	b.WriteByte('\n')
+
+	if len(m.data.operations) == 0 {
+		b.WriteString(m.styles.StatusMuted.Render("  none"))
+		b.WriteByte('\n')
+	} else {
+		for _, op := range m.data.operations {
+			fmt.Fprintf(b, "  %s %s  %s\n", m.styles.StatusWarning.Render("●"), op.Type, op.OPID)
+		}
+	}
+	b.WriteByte('\n')
+}
+
+// renderPITRSection writes the PITR status section.
+func (m *overviewModel) renderPITRSection(b *strings.Builder) {
+	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+	b.WriteString(header.Render("PITR"))
+	b.WriteByte('\n')
+
+	pitr := m.data.pitr
+	if pitr == nil {
+		b.WriteString(m.styles.StatusMuted.Render("  no data"))
+		b.WriteByte('\n')
+		return
+	}
+
+	enabledStr := m.styles.StatusMuted.Render("false")
+	if pitr.Enabled {
+		enabledStr = m.styles.StatusOK.Render("true")
+	}
+	fmt.Fprintf(b, "  Enabled: %s\n", enabledStr)
+
+	runningStr := m.styles.StatusMuted.Render("false")
+	if pitr.Running {
+		runningStr = m.styles.StatusOK.Render("true")
+	}
+	fmt.Fprintf(b, "  Running: %s\n", runningStr)
+
+	if pitr.Error != "" {
+		fmt.Fprintf(b, "  Error:   %s\n", m.styles.StatusError.Render(pitr.Error))
+	}
+
+	if len(m.data.timelines) > 0 {
+		b.WriteByte('\n')
+		b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Timelines"))
+		b.WriteByte('\n')
+		for _, tl := range m.data.timelines {
+			start := tl.Start.Time().Format("2006-01-02 15:04:05")
+			end := tl.End.Time().Format("2006-01-02 15:04:05")
+			fmt.Fprintf(b, "  %s -> %s\n", start, end)
+		}
+	}
 }
 
 // leftView renders the left panel content.
 func (m *overviewModel) leftView(width, height int) string {
+	cursor := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
+
 	var b strings.Builder
 	for i, item := range m.items {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
 		line := m.renderItem(item)
-		if i == m.cursor && m.focus == panelLeft {
-			line = lipgloss.NewStyle().Reverse(true).Render(line)
-		} else if i == m.cursor {
-			line = lipgloss.NewStyle().Bold(true).Render(line)
+		if i == m.cursor && item.selectable {
+			if m.focus == panelLeft {
+				line = cursor.Render("▶ ") + lipgloss.NewStyle().Bold(true).Render(line)
+			} else {
+				line = "  " + lipgloss.NewStyle().Bold(true).Render(line)
+			}
+		} else {
+			line = "  " + line
 		}
 		b.WriteString(line)
 	}
@@ -286,4 +444,23 @@ func sortedKeys(m map[string][]sdk.Agent) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// humanBytes formats a byte count into a human-readable string.
+func humanBytes(b int64) string {
+	const (
+		kb = 1024
+		mb = kb * 1024
+		gb = mb * 1024
+	)
+	switch {
+	case b >= gb:
+		return fmt.Sprintf("%.1fGB", float64(b)/float64(gb))
+	case b >= mb:
+		return fmt.Sprintf("%.1fMB", float64(b)/float64(mb))
+	case b >= kb:
+		return fmt.Sprintf("%.1fKB", float64(b)/float64(kb))
+	default:
+		return fmt.Sprintf("%dB", b)
+	}
 }

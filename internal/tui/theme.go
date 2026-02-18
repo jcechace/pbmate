@@ -18,6 +18,7 @@ type Theme struct {
 	Muted       lipgloss.TerminalColor
 	Background  lipgloss.TerminalColor
 	StatusBarBg lipgloss.TerminalColor
+	SelectedBg  lipgloss.TerminalColor
 }
 
 // DefaultTheme returns an adaptive theme that works on both light and dark
@@ -33,6 +34,7 @@ func DefaultTheme() Theme {
 		Muted:       lipgloss.AdaptiveColor{Light: "245", Dark: "241"},
 		Background:  lipgloss.AdaptiveColor{Light: "254", Dark: "235"},
 		StatusBarBg: lipgloss.AdaptiveColor{Light: "254", Dark: "235"},
+		SelectedBg:  lipgloss.AdaptiveColor{Light: "253", Dark: "237"},
 	}
 }
 
@@ -48,6 +50,7 @@ func catppuccinTheme(f catppuccingo.Flavor) Theme {
 		Muted:       lipgloss.Color(f.Overlay0().Hex),
 		Background:  lipgloss.Color(f.Base().Hex),
 		StatusBarBg: lipgloss.Color(f.Surface0().Hex),
+		SelectedBg:  lipgloss.Color(f.Surface1().Hex),
 	}
 }
 
