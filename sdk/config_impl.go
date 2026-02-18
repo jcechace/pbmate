@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"gopkg.in/yaml.v2"
@@ -14,6 +15,7 @@ import (
 
 type configServiceImpl struct {
 	conn connect.Client
+	cmds CommandService
 	log  *slog.Logger
 }
 
@@ -30,6 +32,23 @@ func (s *configServiceImpl) Get(ctx context.Context) (*Config, error) {
 
 	result := convertConfig(cfg)
 	return &result, nil
+}
+
+func (s *configServiceImpl) SetYAML(ctx context.Context, r io.Reader) error {
+	if err := s.cmds.CheckLock(ctx); err != nil {
+		return err
+	}
+
+	cfg, err := config.Parse(r)
+	if err != nil {
+		return fmt.Errorf("parse config: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "setting config")
+	if err := config.SetConfig(ctx, s.conn, cfg); err != nil {
+		return fmt.Errorf("set config: %w", err)
+	}
+	return nil
 }
 
 func (s *configServiceImpl) GetYAML(ctx context.Context) ([]byte, error) {
@@ -88,4 +107,28 @@ func (s *configServiceImpl) GetProfileYAML(ctx context.Context, name string) ([]
 		return nil, fmt.Errorf("marshal profile yaml: %w", err)
 	}
 	return b, nil
+}
+
+func (s *configServiceImpl) SetProfile(ctx context.Context, name string, r io.Reader) (CommandResult, error) {
+	cfg, err := config.Parse(r)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("parse profile config: %w", err)
+	}
+
+	s.log.InfoContext(ctx, "setting profile", "name", name)
+	cmd := AddProfileCommand{Name: name, storage: cfg.Storage}
+	result, err := s.cmds.Send(ctx, cmd)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("set profile %q: %w", name, err)
+	}
+	return result, nil
+}
+
+func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (CommandResult, error) {
+	s.log.InfoContext(ctx, "removing profile", "name", name)
+	result, err := s.cmds.Send(ctx, RemoveProfileCommand{Name: name})
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("remove profile %q: %w", name, err)
+	}
+	return result, nil
 }

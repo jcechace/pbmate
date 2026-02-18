@@ -9,7 +9,12 @@ import (
 // It performs pre-flight checks (lock validation) before sending.
 type CommandService interface {
 	// Send dispatches a command to PBM agents and returns the result.
+	// It checks for concurrent operations before dispatching.
 	Send(ctx context.Context, cmd Command) (CommandResult, error)
+
+	// CheckLock verifies no non-stale PBM operation is currently running.
+	// Returns a *ConcurrentOperationError if one is.
+	CheckLock(ctx context.Context) error
 }
 
 // Command is a sealed interface representing a PBM command.
@@ -51,6 +56,22 @@ type DeleteBackupCommand struct {
 }
 
 func (c DeleteBackupCommand) kind() string { return fmt.Sprintf("%T", c) }
+
+// AddProfileCommand requests creation or replacement of a named storage profile.
+// The storage field is unexported and populated by ConfigService from parsed YAML.
+type AddProfileCommand struct {
+	Name    string
+	storage any // holds parsed PBM config.StorageConf; set by ConfigService
+}
+
+func (c AddProfileCommand) kind() string { return fmt.Sprintf("%T", c) }
+
+// RemoveProfileCommand requests deletion of a named storage profile.
+type RemoveProfileCommand struct {
+	Name string
+}
+
+func (c RemoveProfileCommand) kind() string { return fmt.Sprintf("%T", c) }
 
 // CancelBackupCommand requests cancellation of the currently running backup.
 type CancelBackupCommand struct{}

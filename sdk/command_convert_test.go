@@ -7,8 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
+	"github.com/percona/percona-backup-mongodb/pbm/storage"
+	"github.com/percona/percona-backup-mongodb/pbm/storage/fs"
 )
 
 func TestConvertBackupCommandToPBM(t *testing.T) {
@@ -92,6 +95,47 @@ func TestConvertCancelBackupCommandToPBM(t *testing.T) {
 	assert.Equal(t, ctrl.CmdCancelBackup, result.Cmd)
 	assert.Nil(t, result.Backup)
 	assert.Nil(t, result.Restore)
+}
+
+func TestConvertAddProfileCommandToPBM(t *testing.T) {
+	stg := config.StorageConf{
+		Type: storage.Filesystem,
+		Filesystem: &fs.Config{
+			Path: "/opt/backups",
+		},
+	}
+	cmd := AddProfileCommand{
+		Name:    "my-fs",
+		storage: stg,
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdAddConfigProfile, result.Cmd)
+	require.NotNil(t, result.Profile)
+	assert.Equal(t, "my-fs", result.Profile.Name)
+	assert.True(t, result.Profile.IsProfile)
+	assert.Equal(t, stg, result.Profile.Storage)
+}
+
+func TestConvertAddProfileCommandWithoutStorage(t *testing.T) {
+	cmd := AddProfileCommand{Name: "bad"}
+
+	_, err := convertCommandToPBM(cmd)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "storage config not set")
+}
+
+func TestConvertRemoveProfileCommandToPBM(t *testing.T) {
+	cmd := RemoveProfileCommand{Name: "my-fs"}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdRemoveConfigProfile, result.Cmd)
+	require.NotNil(t, result.Profile)
+	assert.Equal(t, "my-fs", result.Profile.Name)
 }
 
 func TestConfigNameToPBM(t *testing.T) {

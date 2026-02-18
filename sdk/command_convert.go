@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
 )
@@ -17,6 +18,10 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertRestoreCommandToPBM(c), nil
 	case DeleteBackupCommand:
 		return convertDeleteBackupCommandToPBM(c), nil
+	case AddProfileCommand:
+		return convertAddProfileCommandToPBM(c)
+	case RemoveProfileCommand:
+		return convertRemoveProfileCommandToPBM(c), nil
 	case CancelBackupCommand:
 		return ctrl.Cmd{Cmd: ctrl.CmdCancelBackup}, nil
 	default:
@@ -55,6 +60,30 @@ func convertDeleteBackupCommandToPBM(cmd DeleteBackupCommand) ctrl.Cmd {
 		Cmd: ctrl.CmdDeleteBackup,
 		Delete: &ctrl.DeleteBackupCmd{
 			Backup: cmd.Name,
+		},
+	}
+}
+
+func convertAddProfileCommandToPBM(cmd AddProfileCommand) (ctrl.Cmd, error) {
+	storage, ok := cmd.storage.(config.StorageConf)
+	if !ok {
+		return ctrl.Cmd{}, fmt.Errorf("add profile %q: storage config not set", cmd.Name)
+	}
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdAddConfigProfile,
+		Profile: &ctrl.ProfileCmd{
+			Name:      cmd.Name,
+			IsProfile: true,
+			Storage:   storage,
+		},
+	}, nil
+}
+
+func convertRemoveProfileCommandToPBM(cmd RemoveProfileCommand) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdRemoveConfigProfile,
+		Profile: &ctrl.ProfileCmd{
+			Name: cmd.Name,
 		},
 	}
 }

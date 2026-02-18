@@ -23,8 +23,7 @@ type commandServiceImpl struct {
 var _ CommandService = (*commandServiceImpl)(nil)
 
 func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResult, error) {
-	s.log.DebugContext(ctx, "checking for concurrent operations")
-	if err := s.checkForConcurrentOp(ctx); err != nil {
+	if err := s.CheckLock(ctx); err != nil {
 		return CommandResult{}, err
 	}
 
@@ -44,8 +43,8 @@ func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResu
 	return CommandResult{OPID: opid}, nil
 }
 
-// checkForConcurrentOp verifies no non-stale PBM operation is currently running.
-func (s *commandServiceImpl) checkForConcurrentOp(ctx context.Context) error {
+func (s *commandServiceImpl) CheckLock(ctx context.Context) error {
+	s.log.DebugContext(ctx, "checking for concurrent operations")
 	locks, err := lock.GetLocks(ctx, s.conn, &lock.LockHeader{})
 	if err != nil {
 		return fmt.Errorf("check running operations: %w", err)

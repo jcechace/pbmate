@@ -1,14 +1,21 @@
 package sdk
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
-// ConfigService provides read access to PBM configuration and storage profiles.
+// ConfigService provides access to PBM configuration and storage profiles.
 type ConfigService interface {
 	// Get returns the main PBM configuration.
 	Get(ctx context.Context) (*Config, error)
 
 	// GetYAML returns the main PBM configuration as raw YAML.
 	GetYAML(ctx context.Context) ([]byte, error)
+
+	// SetYAML replaces the main PBM configuration from YAML read from r.
+	// This is a direct write — no command dispatch or agent involvement.
+	SetYAML(ctx context.Context, r io.Reader) error
 
 	// ListProfiles returns all named storage profiles.
 	ListProfiles(ctx context.Context) ([]StorageProfile, error)
@@ -18,6 +25,16 @@ type ConfigService interface {
 
 	// GetProfileYAML returns a storage profile as raw YAML.
 	GetProfileYAML(ctx context.Context, name string) ([]byte, error)
+
+	// SetProfile creates or replaces a named storage profile from YAML read
+	// from r. The name parameter identifies the profile; the YAML must contain
+	// a storage configuration. This is dispatched as a command — the agent
+	// validates storage accessibility before saving.
+	SetProfile(ctx context.Context, name string, r io.Reader) (CommandResult, error)
+
+	// RemoveProfile deletes a named storage profile. This is dispatched as a
+	// command — the agent clears associated backup metadata before removing.
+	RemoveProfile(ctx context.Context, name string) (CommandResult, error)
 }
 
 // Config represents the PBM configuration.
