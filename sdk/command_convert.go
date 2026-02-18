@@ -15,6 +15,8 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertBackupCommandToPBM(c), nil
 	case RestoreCommand:
 		return convertRestoreCommandToPBM(c), nil
+	case DeleteBackupCommand:
+		return convertDeleteBackupCommandToPBM(c), nil
 	case CancelBackupCommand:
 		return ctrl.Cmd{Cmd: ctrl.CmdCancelBackup}, nil
 	default:
@@ -44,6 +46,15 @@ func convertRestoreCommandToPBM(cmd RestoreCommand) ctrl.Cmd {
 			BackupName: cmd.BackupName,
 			Namespaces: cmd.Namespaces,
 			OplogTS:    convertTimestampToPBM(cmd.PITRTarget),
+		},
+	}
+}
+
+func convertDeleteBackupCommandToPBM(cmd DeleteBackupCommand) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdDeleteBackup,
+		Delete: &ctrl.DeleteBackupCmd{
+			Backup: cmd.Name,
 		},
 	}
 }

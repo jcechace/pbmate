@@ -39,6 +39,9 @@ type BackupService interface {
 	// Backup (may be nil) and ctx.Err().
 	Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error)
 
+	// Delete requests deletion of a backup by name.
+	Delete(ctx context.Context, name string) (CommandResult, error)
+
 	// Cancel requests cancellation of the currently running backup.
 	Cancel(ctx context.Context) (CommandResult, error)
 }

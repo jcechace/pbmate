@@ -45,6 +45,13 @@ type RestoreCommand struct {
 
 func (c RestoreCommand) kind() string { return fmt.Sprintf("%T", c) }
 
+// DeleteBackupCommand requests deletion of a specific backup by name.
+type DeleteBackupCommand struct {
+	Name string // backup name to delete
+}
+
+func (c DeleteBackupCommand) kind() string { return fmt.Sprintf("%T", c) }
+
 // CancelBackupCommand requests cancellation of the currently running backup.
 type CancelBackupCommand struct{}
 

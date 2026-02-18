@@ -70,6 +70,19 @@ func TestConvertRestoreCommandToPBM(t *testing.T) {
 	assert.Equal(t, []string{"db1.coll1"}, result.Restore.Namespaces)
 }
 
+func TestConvertDeleteBackupCommandToPBM(t *testing.T) {
+	cmd := DeleteBackupCommand{
+		Name: "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
+	require.NotNil(t, result.Delete)
+	assert.Equal(t, "2024-01-15T10:30:00Z", result.Delete.Backup)
+}
+
 func TestConvertCancelBackupCommandToPBM(t *testing.T) {
 	cmd := CancelBackupCommand{}
 

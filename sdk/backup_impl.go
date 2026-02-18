@@ -146,6 +146,15 @@ func (s *backupServiceImpl) Wait(ctx context.Context, name string, opts BackupWa
 	}
 }
 
+func (s *backupServiceImpl) Delete(ctx context.Context, name string) (CommandResult, error) {
+	s.log.InfoContext(ctx, "deleting backup", "name", name)
+	result, err := s.cmds.Send(ctx, DeleteBackupCommand{Name: name})
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("delete backup %q: %w", name, err)
+	}
+	return result, nil
+}
+
 func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {
 	result, err := s.cmds.Send(ctx, CancelBackupCommand{})
 	if err != nil {
