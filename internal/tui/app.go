@@ -46,6 +46,9 @@ type Model struct {
 	// Fetched data.
 	data overviewData
 
+	// Sub-models.
+	overview overviewModel
+
 	keys globalKeyMap
 	help help.Model
 }
@@ -54,11 +57,13 @@ type Model struct {
 func New(client *sdk.Client, theme Theme) Model {
 	h := help.New()
 	h.ShortSeparator = "  "
+	s := NewStyles(theme)
 	return Model{
 		client:       client,
-		styles:       NewStyles(theme),
+		styles:       s,
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
+		overview:     newOverviewModel(&s),
 		keys:         globalKeys,
 		help:         h,
 	}
@@ -83,6 +88,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case overviewDataMsg:
 		m.data = msg.overviewData
+		m.overview.setData(m.data)
 		// Adaptive polling: faster when operations are running.
 		if len(m.data.operations) > 0 {
 			m.pollInterval = activeInterval
@@ -109,6 +115,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.activeTab = (m.activeTab + 1) % tabCount
 		case key.Matches(msg, m.keys.PrevTab):
 			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+		default:
+			// Forward to active tab sub-model.
+			if m.activeTab == tabOverview {
+				m.overview.update(msg, m.keys)
+			}
 		}
 	}
 
@@ -167,25 +178,71 @@ func (m Model) headerView() string {
 
 // contentView renders the active tab's content.
 func (m Model) contentView(height int) string {
-	style := lipgloss.NewStyle().
-		Width(m.width).
-		Height(height)
-
-	var content string
 	switch m.activeTab {
 	case tabOverview:
-		content = "Overview - cluster agents, recent backups, PITR status"
+		return m.overviewContentView(height)
 	case tabBackups:
-		content = "Backups - list and manage backups"
+		return m.placeholderContent("Backups - list and manage backups", height)
 	case tabRestores:
-		content = "Restores - list restores"
+		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
-		content = "Config - PBM configuration and profiles"
+		return m.placeholderContent("Config - PBM configuration and profiles", height)
 	case tabLogs:
-		content = "Logs - streaming PBM log entries"
+		return m.placeholderContent("Logs - streaming PBM log entries", height)
+	}
+	return ""
+}
+
+// overviewContentView renders the Overview tab with left/right panels.
+func (m Model) overviewContentView(height int) string {
+	leftWidth := m.width * 30 / 100
+	if leftWidth < 28 {
+		leftWidth = 28
 	}
 
-	return style.Render(content)
+	// Account for panel border + padding (2 border + 2 padding = 4 per panel).
+	const panelChrome = 4
+	innerLeftWidth := leftWidth - panelChrome
+	innerRightWidth := m.width - leftWidth - panelChrome
+	innerHeight := height - 2 // top + bottom border
+
+	if innerLeftWidth < 0 {
+		innerLeftWidth = 0
+	}
+	if innerRightWidth < 0 {
+		innerRightWidth = 0
+	}
+	if innerHeight < 0 {
+		innerHeight = 0
+	}
+
+	// Render panel contents.
+	leftContent := m.overview.leftView(innerLeftWidth, innerHeight)
+	rightContent := m.overview.rightView(innerRightWidth, innerHeight)
+
+	// Apply panel styles with focus highlighting.
+	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerHeight)
+	rightStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerHeight)
+
+	if m.overview.focus == panelLeft {
+		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+	if m.overview.focus == panelRight {
+		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+
+	left := leftStyle.Render(leftContent)
+	right := rightStyle.Render(rightContent)
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+// placeholderContent renders a simple placeholder for unimplemented tabs.
+func (m Model) placeholderContent(text string, height int) string {
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Height(height).
+		Render(text)
 }
 
 // statusBarView renders the bottom status bar with live cluster info.
