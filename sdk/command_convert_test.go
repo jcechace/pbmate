@@ -14,9 +14,9 @@ import (
 func TestConvertBackupCommandToPBM(t *testing.T) {
 	cmd := BackupCommand{
 		Name:        "2024-01-15T10:30:00Z",
-		Type:        BackupLogical,
+		Type:        BackupTypeLogical,
 		ConfigName:  MainConfig,
-		Compression: CompressionZSTD,
+		Compression: CompressionTypeZSTD,
 		Namespaces:  []string{"db1.coll1"},
 		IncrBase:    true,
 	}
@@ -40,7 +40,7 @@ func TestConvertBackupCommandWithProfile(t *testing.T) {
 
 	cmd := BackupCommand{
 		Name:       "2024-01-15T10:30:00Z",
-		Type:       BackupPhysical,
+		Type:       BackupTypePhysical,
 		ConfigName: cn,
 	}
 

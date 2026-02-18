@@ -44,7 +44,7 @@ func TestConvertRestore(t *testing.T) {
 	assert.Equal(t, "opid123", r.OPID)
 	assert.Equal(t, "2024-01-15T10:30:00Z", r.Backup)
 	assert.Equal(t, []string{"base", "incr1"}, r.BcpChain)
-	assert.Equal(t, BackupLogical, r.Type)
+	assert.Equal(t, BackupTypeLogical, r.Type)
 	assert.Equal(t, StatusDone, r.Status)
 	assert.Equal(t, int64(1705312200), r.StartTS.Unix())
 	assert.Equal(t, uint32(1705312300), r.PITRTarget.T)

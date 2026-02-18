@@ -68,15 +68,15 @@ func convertAgent(a topo.AgentStat, clusterTime uint32) Agent {
 func agentNodeRole(a topo.AgentStat) NodeRole {
 	switch {
 	case a.Arbiter:
-		return RoleArbiter
+		return NodeRoleArbiter
 	case a.DelaySecs > 0:
-		return RoleDelayed
+		return NodeRoleDelayed
 	case a.Hidden:
-		return RoleHidden
+		return NodeRoleHidden
 	case a.State == defs.NodeStatePrimary:
-		return RolePrimary
+		return NodeRolePrimary
 	case a.State == defs.NodeStateSecondary:
-		return RoleSecondary
+		return NodeRoleSecondary
 	default:
 		return NodeRole{}
 	}

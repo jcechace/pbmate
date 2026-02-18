@@ -98,10 +98,10 @@ type BackupType struct {
 }
 
 var (
-	BackupLogical     = newBackupType("logical")
-	BackupPhysical    = newBackupType("physical")
-	BackupIncremental = newBackupType("incremental")
-	BackupExternal    = newBackupType("external")
+	BackupTypeLogical     = newBackupType("logical")
+	BackupTypePhysical    = newBackupType("physical")
+	BackupTypeIncremental = newBackupType("incremental")
+	BackupTypeExternal    = newBackupType("external")
 )
 
 var backupTypes = make(map[string]BackupType)
@@ -154,13 +154,13 @@ type CompressionType struct {
 }
 
 var (
-	CompressionNone   = newCompressionType("none")
-	CompressionGZIP   = newCompressionType("gzip")
-	CompressionPGZIP  = newCompressionType("pgzip")
-	CompressionSNAPPY = newCompressionType("snappy")
-	CompressionLZ4    = newCompressionType("lz4")
-	CompressionS2     = newCompressionType("s2")
-	CompressionZSTD   = newCompressionType("zstd")
+	CompressionTypeNone   = newCompressionType("none")
+	CompressionTypeGZIP   = newCompressionType("gzip")
+	CompressionTypePGZIP  = newCompressionType("pgzip")
+	CompressionTypeSNAPPY = newCompressionType("snappy")
+	CompressionTypeLZ4    = newCompressionType("lz4")
+	CompressionTypeS2     = newCompressionType("s2")
+	CompressionTypeZSTD   = newCompressionType("zstd")
 )
 
 var compressionTypes = make(map[string]CompressionType)
@@ -213,13 +213,13 @@ type StorageType struct {
 }
 
 var (
-	StorageS3         = newStorageType("s3")
-	StorageMinio      = newStorageType("minio")
-	StorageGCS        = newStorageType("gcs")
-	StorageAzure      = newStorageType("azure")
-	StorageFilesystem = newStorageType("filesystem")
-	StorageBlackhole  = newStorageType("blackhole")
-	StorageOSS        = newStorageType("oss")
+	StorageTypeS3         = newStorageType("s3")
+	StorageTypeMinio      = newStorageType("minio")
+	StorageTypeGCS        = newStorageType("gcs")
+	StorageTypeAzure      = newStorageType("azure")
+	StorageTypeFilesystem = newStorageType("filesystem")
+	StorageTypeBlackhole  = newStorageType("blackhole")
+	StorageTypeOSS        = newStorageType("oss")
 )
 
 var storageTypes = make(map[string]StorageType)
@@ -272,11 +272,11 @@ type NodeRole struct {
 }
 
 var (
-	RolePrimary   = newNodeRole("P")
-	RoleSecondary = newNodeRole("S")
-	RoleArbiter   = newNodeRole("A")
-	RoleHidden    = newNodeRole("H")
-	RoleDelayed   = newNodeRole("D")
+	NodeRolePrimary   = newNodeRole("P")
+	NodeRoleSecondary = newNodeRole("S")
+	NodeRoleArbiter   = newNodeRole("A")
+	NodeRoleHidden    = newNodeRole("H")
+	NodeRoleDelayed   = newNodeRole("D")
 )
 
 var nodeRoles = make(map[string]NodeRole)
@@ -329,11 +329,11 @@ type LogSeverity struct {
 }
 
 var (
-	LogDebug   = newLogSeverity("D")
-	LogInfo    = newLogSeverity("I")
-	LogWarning = newLogSeverity("W")
-	LogError   = newLogSeverity("E")
-	LogFatal   = newLogSeverity("F")
+	LogSeverityDebug   = newLogSeverity("D")
+	LogSeverityInfo    = newLogSeverity("I")
+	LogSeverityWarning = newLogSeverity("W")
+	LogSeverityError   = newLogSeverity("E")
+	LogSeverityFatal   = newLogSeverity("F")
 )
 
 var logSeverities = make(map[string]LogSeverity)

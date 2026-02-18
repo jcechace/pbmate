@@ -76,10 +76,10 @@ func TestConvertBackupType(t *testing.T) {
 		input defs.BackupType
 		want  BackupType
 	}{
-		{defs.LogicalBackup, BackupLogical},
-		{defs.PhysicalBackup, BackupPhysical},
-		{defs.IncrementalBackup, BackupIncremental},
-		{defs.ExternalBackup, BackupExternal},
+		{defs.LogicalBackup, BackupTypeLogical},
+		{defs.PhysicalBackup, BackupTypePhysical},
+		{defs.IncrementalBackup, BackupTypeIncremental},
+		{defs.ExternalBackup, BackupTypeExternal},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.input), func(t *testing.T) {
@@ -98,13 +98,13 @@ func TestConvertCompressionType(t *testing.T) {
 		input compress.CompressionType
 		want  CompressionType
 	}{
-		{compress.CompressionTypeNone, CompressionNone},
-		{compress.CompressionTypeGZIP, CompressionGZIP},
-		{compress.CompressionTypePGZIP, CompressionPGZIP},
-		{compress.CompressionTypeSNAPPY, CompressionSNAPPY},
-		{compress.CompressionTypeLZ4, CompressionLZ4},
-		{compress.CompressionTypeS2, CompressionS2},
-		{compress.CompressionTypeZstandard, CompressionZSTD},
+		{compress.CompressionTypeNone, CompressionTypeNone},
+		{compress.CompressionTypeGZIP, CompressionTypeGZIP},
+		{compress.CompressionTypePGZIP, CompressionTypePGZIP},
+		{compress.CompressionTypeSNAPPY, CompressionTypeSNAPPY},
+		{compress.CompressionTypeLZ4, CompressionTypeLZ4},
+		{compress.CompressionTypeS2, CompressionTypeS2},
+		{compress.CompressionTypeZstandard, CompressionTypeZSTD},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.input), func(t *testing.T) {
@@ -123,13 +123,13 @@ func TestConvertStorageType(t *testing.T) {
 		input storage.Type
 		want  StorageType
 	}{
-		{storage.S3, StorageS3},
-		{storage.GCS, StorageGCS},
-		{storage.Azure, StorageAzure},
-		{storage.Filesystem, StorageFilesystem},
-		{storage.Minio, StorageMinio},
-		{storage.Blackhole, StorageBlackhole},
-		{storage.OSS, StorageOSS},
+		{storage.S3, StorageTypeS3},
+		{storage.GCS, StorageTypeGCS},
+		{storage.Azure, StorageTypeAzure},
+		{storage.Filesystem, StorageTypeFilesystem},
+		{storage.Minio, StorageTypeMinio},
+		{storage.Blackhole, StorageTypeBlackhole},
+		{storage.OSS, StorageTypeOSS},
 	}
 	for _, tt := range tests {
 		t.Run(string(tt.input), func(t *testing.T) {

@@ -32,7 +32,7 @@ func TestConvertConfig(t *testing.T) {
 		result := convertConfig(cfg)
 
 		assert.Equal(t, MainConfig, result.ConfigName)
-		assert.Equal(t, StorageFilesystem, result.Storage.Type)
+		assert.Equal(t, StorageTypeFilesystem, result.Storage.Type)
 		assert.Equal(t, "/data/backups", result.Storage.Path)
 		assert.Empty(t, result.Storage.Region)
 
@@ -41,7 +41,7 @@ func TestConvertConfig(t *testing.T) {
 		assert.False(t, result.PITR.OplogOnly)
 
 		assert.NotNil(t, result.Backup)
-		assert.Equal(t, CompressionZSTD, result.Backup.Compression)
+		assert.Equal(t, CompressionTypeZSTD, result.Backup.Compression)
 
 		assert.NotNil(t, result.Restore)
 	})
@@ -86,7 +86,7 @@ func TestConvertStorageConfig(t *testing.T) {
 
 		result := convertStorageConfig(sc)
 
-		assert.Equal(t, StorageFilesystem, result.Type)
+		assert.Equal(t, StorageTypeFilesystem, result.Type)
 		assert.Equal(t, "/data/backups", result.Path)
 		assert.Empty(t, result.Region)
 	})
@@ -115,6 +115,6 @@ func TestConvertStorageProfile(t *testing.T) {
 	result := convertStorageProfile(cfg)
 
 	assert.Equal(t, "s3-backup", result.Name.String())
-	assert.Equal(t, StorageFilesystem, result.Storage.Type)
+	assert.Equal(t, StorageTypeFilesystem, result.Storage.Type)
 	assert.Equal(t, "/profile/path", result.Storage.Path)
 }

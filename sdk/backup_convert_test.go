@@ -48,9 +48,9 @@ func TestConvertBackup(t *testing.T) {
 
 	assert.Equal(t, "2024-01-15T10:30:00Z", b.Name)
 	assert.Equal(t, "abc123", b.OPID)
-	assert.Equal(t, BackupLogical, b.Type)
+	assert.Equal(t, BackupTypeLogical, b.Type)
 	assert.Equal(t, StatusDone, b.Status)
-	assert.Equal(t, CompressionGZIP, b.Compression)
+	assert.Equal(t, CompressionTypeGZIP, b.Compression)
 	assert.Equal(t, "my-profile", b.ConfigName.String())
 	assert.Equal(t, int64(1705312200), b.StartTS.Unix())
 	assert.Equal(t, uint32(1705312300), b.LastWriteTS.T)

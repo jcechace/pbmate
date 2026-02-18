@@ -29,7 +29,7 @@ func TestConvertLogEntry(t *testing.T) {
 		result := convertLogEntry(e)
 
 		assert.Equal(t, time.Unix(1700000000, 0).UTC(), result.Timestamp)
-		assert.Equal(t, LogInfo, result.Severity)
+		assert.Equal(t, LogSeverityInfo, result.Severity)
 		assert.Equal(t, "backup started", result.Message)
 
 		assert.Equal(t, "rs0", result.Attrs[LogKeyReplicaSet])
@@ -51,7 +51,7 @@ func TestConvertLogEntry(t *testing.T) {
 
 		result := convertLogEntry(e)
 
-		assert.Equal(t, LogError, result.Severity)
+		assert.Equal(t, LogSeverityError, result.Severity)
 		assert.Equal(t, "simple message", result.Message)
 		assert.Nil(t, result.Attrs)
 	})
@@ -75,11 +75,11 @@ func TestConvertLogSeverity(t *testing.T) {
 		input    log.Severity
 		expected LogSeverity
 	}{
-		{"fatal", log.Fatal, LogFatal},
-		{"error", log.Error, LogError},
-		{"warning", log.Warning, LogWarning},
-		{"info", log.Info, LogInfo},
-		{"debug", log.Debug, LogDebug},
+		{"fatal", log.Fatal, LogSeverityFatal},
+		{"error", log.Error, LogSeverityError},
+		{"warning", log.Warning, LogSeverityWarning},
+		{"info", log.Info, LogSeverityInfo},
+		{"debug", log.Debug, LogSeverityDebug},
 	}
 
 	for _, tt := range tests {

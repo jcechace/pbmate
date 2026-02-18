@@ -65,27 +65,27 @@ func TestAgentNodeRole(t *testing.T) {
 		{
 			name:     "primary",
 			agent:    topo.AgentStat{State: defs.NodeStatePrimary},
-			expected: RolePrimary,
+			expected: NodeRolePrimary,
 		},
 		{
 			name:     "secondary",
 			agent:    topo.AgentStat{State: defs.NodeStateSecondary},
-			expected: RoleSecondary,
+			expected: NodeRoleSecondary,
 		},
 		{
 			name:     "arbiter",
 			agent:    topo.AgentStat{Arbiter: true, State: defs.NodeStateArbiter},
-			expected: RoleArbiter,
+			expected: NodeRoleArbiter,
 		},
 		{
 			name:     "hidden",
 			agent:    topo.AgentStat{Hidden: true, State: defs.NodeStateSecondary},
-			expected: RoleHidden,
+			expected: NodeRoleHidden,
 		},
 		{
 			name:     "delayed",
 			agent:    topo.AgentStat{DelaySecs: 3600, State: defs.NodeStateSecondary},
-			expected: RoleDelayed,
+			expected: NodeRoleDelayed,
 		},
 		{
 			name: "delayed takes precedence over hidden",
@@ -94,7 +94,7 @@ func TestAgentNodeRole(t *testing.T) {
 				Hidden:    true,
 				State:     defs.NodeStateSecondary,
 			},
-			expected: RoleDelayed,
+			expected: NodeRoleDelayed,
 		},
 		{
 			name:     "unknown state",
@@ -133,7 +133,7 @@ func TestConvertAgent(t *testing.T) {
 		assert.Equal(t, "mongo1:27018", result.Node)
 		assert.Equal(t, "rs0", result.ReplicaSet)
 		assert.Equal(t, "v2.3.0", result.Version)
-		assert.Equal(t, RolePrimary, result.Role)
+		assert.Equal(t, NodeRolePrimary, result.Role)
 		assert.True(t, result.OK)
 		assert.False(t, result.Stale)
 		assert.Empty(t, result.Errors)
