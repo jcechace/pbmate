@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -184,7 +183,7 @@ func (m *overviewModel) detailView() string {
 	case itemAgent:
 		m.renderAgentDetail(&b, sel.agent)
 	case itemBackup:
-		m.renderBackupDetail(&b, sel.backup)
+		renderBackupDetail(&b, sel.backup, m.styles)
 	}
 	return b.String()
 }
@@ -222,62 +221,6 @@ func (m *overviewModel) renderAgentDetail(b *strings.Builder, a *sdk.Agent) {
 		b.WriteByte('\n')
 		for _, e := range a.Errors {
 			fmt.Fprintf(b, "    - %s\n", e)
-		}
-	}
-	b.WriteByte('\n')
-}
-
-// renderBackupDetail writes backup detail to the builder.
-func (m *overviewModel) renderBackupDetail(b *strings.Builder, bk *sdk.Backup) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
-	b.WriteString(header.Render("Backup"))
-	b.WriteByte('\n')
-
-	fmt.Fprintf(b, "  Name:        %s\n", bk.Name)
-	fmt.Fprintf(b, "  Type:        %s\n", bk.Type)
-
-	indicator := m.statusIndicator(bk.Status)
-	fmt.Fprintf(b, "  Status:      %s %s\n", indicator, bk.Status)
-
-	if bk.Size > 0 {
-		fmt.Fprintf(b, "  Size:        %s", humanBytes(bk.Size))
-		if bk.SizeUncompressed > 0 {
-			fmt.Fprintf(b, " (%s uncompressed)", humanBytes(bk.SizeUncompressed))
-		}
-		b.WriteByte('\n')
-	}
-
-	if !bk.Compression.IsZero() {
-		fmt.Fprintf(b, "  Compression: %s\n", bk.Compression)
-	}
-	if !bk.ConfigName.IsZero() {
-		fmt.Fprintf(b, "  Config:      %s\n", bk.ConfigName)
-	}
-	if !bk.StartTS.IsZero() {
-		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.Format("2006-01-02 15:04:05"))
-	}
-	if !bk.LastTransitionTS.IsZero() && !bk.StartTS.IsZero() {
-		dur := bk.LastTransitionTS.Sub(bk.StartTS).Truncate(time.Second)
-		if dur > 0 {
-			fmt.Fprintf(b, "  Duration:    %s\n", dur)
-		}
-	}
-
-	if bk.Error != "" {
-		fmt.Fprintf(b, "  Error:       %s\n", m.styles.StatusError.Render(bk.Error))
-	}
-
-	if len(bk.Replsets) > 0 {
-		b.WriteByte('\n')
-		b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Replica Sets"))
-		b.WriteByte('\n')
-		for _, rs := range bk.Replsets {
-			ind := m.statusIndicator(rs.Status)
-			node := rs.Node
-			if node == "" {
-				node = "-"
-			}
-			fmt.Fprintf(b, "  %s %s: %s  (%s)\n", ind, rs.Name, rs.Status, node)
 		}
 	}
 	b.WriteByte('\n')
@@ -379,7 +322,7 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 
 	case itemAgent:
 		a := item.agent
-		indicator := m.agentIndicator(a)
+		indicator := agentIndicator(a, m.styles)
 		role := a.Role.String()
 		ver := a.Version
 		if len(ver) > 5 {
@@ -389,7 +332,7 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 
 	case itemBackup:
 		b := item.backup
-		indicator := m.statusIndicator(b.Status)
+		indicator := statusIndicator(b.Status, m.styles)
 		name := b.Name
 		if len(name) > 20 {
 			name = name[:20]
@@ -397,34 +340,6 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 		return fmt.Sprintf("  %s %s  %s  %s", indicator, name, b.Type, b.Status)
 	}
 	return ""
-}
-
-// agentIndicator returns a colored status dot for an agent.
-func (m *overviewModel) agentIndicator(a *sdk.Agent) string {
-	if a.Stale {
-		return m.styles.StatusMuted.Render("○")
-	}
-	if !a.OK || len(a.Errors) > 0 {
-		return m.styles.StatusError.Render("●")
-	}
-	return m.styles.StatusOK.Render("●")
-}
-
-// statusIndicator returns a colored status dot for a PBM status.
-func (m *overviewModel) statusIndicator(s sdk.Status) string {
-	switch {
-	case s.Equal(sdk.StatusDone):
-		return m.styles.StatusOK.Render("●")
-	case s.Equal(sdk.StatusError), s.Equal(sdk.StatusPartlyDone):
-		return m.styles.StatusError.Render("●")
-	case s.Equal(sdk.StatusCancelled):
-		return m.styles.StatusMuted.Render("●")
-	case s.IsTerminal():
-		return m.styles.StatusMuted.Render("●")
-	default:
-		// Running / in-progress states.
-		return m.styles.StatusWarning.Render("●")
-	}
 }
 
 // groupAgentsByRS groups agents by their replica set name.
@@ -444,23 +359,4 @@ func sortedKeys(m map[string][]sdk.Agent) []string {
 	}
 	sort.Strings(keys)
 	return keys
-}
-
-// humanBytes formats a byte count into a human-readable string.
-func humanBytes(b int64) string {
-	const (
-		kb = 1024
-		mb = kb * 1024
-		gb = mb * 1024
-	)
-	switch {
-	case b >= gb:
-		return fmt.Sprintf("%.1fGB", float64(b)/float64(gb))
-	case b >= mb:
-		return fmt.Sprintf("%.1fMB", float64(b)/float64(mb))
-	case b >= kb:
-		return fmt.Sprintf("%.1fKB", float64(b)/float64(kb))
-	default:
-		return fmt.Sprintf("%dB", b)
-	}
 }
