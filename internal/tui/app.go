@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
@@ -37,9 +38,13 @@ type Model struct {
 	client *sdk.Client
 	styles Styles
 
-	activeTab tab
-	width     int
-	height    int
+	activeTab    tab
+	width        int
+	height       int
+	pollInterval time.Duration
+
+	// Fetched data.
+	data overviewData
 
 	keys globalKeyMap
 	help help.Model
@@ -50,17 +55,18 @@ func New(client *sdk.Client, theme Theme) Model {
 	h := help.New()
 	h.ShortSeparator = "  "
 	return Model{
-		client:    client,
-		styles:    NewStyles(theme),
-		activeTab: tabOverview,
-		keys:      globalKeys,
-		help:      h,
+		client:       client,
+		styles:       NewStyles(theme),
+		activeTab:    tabOverview,
+		pollInterval: idleInterval,
+		keys:         globalKeys,
+		help:         h,
 	}
 }
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.WindowSize()
+	return tea.Batch(tea.WindowSize(), tickCmd(0))
 }
 
 // Update implements tea.Model.
@@ -71,6 +77,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.help.Width = msg.Width
 		return m, nil
+
+	case tickMsg:
+		return m, fetchOverviewCmd(m.client)
+
+	case overviewDataMsg:
+		m.data = msg.overviewData
+		// Adaptive polling: faster when operations are running.
+		if len(m.data.operations) > 0 {
+			m.pollInterval = activeInterval
+		} else {
+			m.pollInterval = idleInterval
+		}
+		return m, tickCmd(m.pollInterval)
 
 	case tea.KeyMsg:
 		switch {
@@ -169,14 +188,50 @@ func (m Model) contentView(height int) string {
 	return style.Render(content)
 }
 
-// statusBarView renders the bottom status bar.
+// statusBarView renders the bottom status bar with live cluster info.
 func (m Model) statusBarView() string {
-	left := "PITR: --"
-	mid := "Op: none"
-	right := "Cluster: --"
+	pitr := m.pitrStatusText()
+	op := m.runningOpText()
+	cluster := m.clusterTimeText()
 
-	bar := fmt.Sprintf("  %s  |  %s  |  %s", left, mid, right)
+	bar := fmt.Sprintf("  %s  |  %s  |  %s", pitr, op, cluster)
 	return m.styles.StatusBar.Width(m.width).Render(bar)
+}
+
+// pitrStatusText returns a short PITR status string for the status bar.
+func (m Model) pitrStatusText() string {
+	if m.data.pitr == nil {
+		return "PITR: --"
+	}
+	if !m.data.pitr.Enabled {
+		return "PITR: off"
+	}
+	if m.data.pitr.Running {
+		return "PITR: on"
+	}
+	return "PITR: enabled (not running)"
+}
+
+// runningOpText returns a short running operation string for the status bar.
+func (m Model) runningOpText() string {
+	if len(m.data.operations) == 0 {
+		return "Op: none"
+	}
+	op := m.data.operations[0]
+	text := fmt.Sprintf("Op: %s", op.Type)
+	if len(m.data.operations) > 1 {
+		text += fmt.Sprintf(" (+%d)", len(m.data.operations)-1)
+	}
+	return text
+}
+
+// clusterTimeText returns the cluster time for the status bar.
+func (m Model) clusterTimeText() string {
+	if m.data.clusterTime.IsZero() {
+		return "Cluster: --"
+	}
+	return fmt.Sprintf("Cluster: %s",
+		m.data.clusterTime.Time().Format("15:04:05"))
 }
 
 // helpBarView renders the keybinding help at the bottom.
