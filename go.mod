@@ -5,6 +5,7 @@ go 1.26
 replace github.com/jcechace/pbmate/sdk/v2 => ./sdk
 
 require (
+	github.com/catppuccin/go v0.3.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0

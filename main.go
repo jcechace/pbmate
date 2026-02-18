@@ -22,6 +22,7 @@ func main() {
 
 func run() error {
 	uri := flag.String("uri", "", "MongoDB connection URI")
+	themeName := flag.String("theme", "default", "Color theme (default, mocha, latte, frappe, macchiato)")
 	flag.Parse()
 
 	if *uri == "" {
@@ -35,7 +36,8 @@ func run() error {
 	}
 	defer func() { _ = client.Close(ctx) }()
 
-	m := tui.New(client)
+	theme := tui.ThemeByName(*themeName)
+	m := tui.New(client, theme)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return err

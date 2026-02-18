@@ -2,69 +2,68 @@ package tui
 
 import "github.com/charmbracelet/lipgloss"
 
-// Colors — adaptive for light/dark terminals.
-var (
-	colorPrimary   = lipgloss.AdaptiveColor{Light: "62", Dark: "62"}
-	colorSubtle    = lipgloss.AdaptiveColor{Light: "245", Dark: "241"}
-	colorHighlight = lipgloss.AdaptiveColor{Light: "236", Dark: "252"}
+// Styles holds all lipgloss styles derived from a Theme.
+type Styles struct {
+	// Tab bar.
+	ActiveTab   lipgloss.Style
+	InactiveTab lipgloss.Style
+	Header      lipgloss.Style
 
-	ColorOK      = lipgloss.AdaptiveColor{Light: "34", Dark: "42"}
-	ColorError   = lipgloss.AdaptiveColor{Light: "160", Dark: "196"}
-	ColorWarning = lipgloss.AdaptiveColor{Light: "172", Dark: "214"}
-	ColorMuted   = lipgloss.AdaptiveColor{Light: "245", Dark: "241"}
-)
+	// Panel layout.
+	PanelBorder        lipgloss.Border
+	LeftPanel          lipgloss.Style
+	RightPanel         lipgloss.Style
+	FocusedBorderColor lipgloss.TerminalColor
 
-// Tab bar styles.
-var (
-	tabStyle = lipgloss.NewStyle().
-			Padding(0, 2)
+	// Status bar and help.
+	StatusBar lipgloss.Style
+	HelpBar   lipgloss.Style
 
-	activeTabStyle = tabStyle.
+	// Status indicator styles.
+	StatusOK      lipgloss.Style
+	StatusError   lipgloss.Style
+	StatusWarning lipgloss.Style
+	StatusMuted   lipgloss.Style
+}
+
+// NewStyles creates a Styles set from the given Theme.
+func NewStyles(t Theme) Styles {
+	tab := lipgloss.NewStyle().
+		Padding(0, 2)
+
+	return Styles{
+		ActiveTab: tab.
 			Bold(true).
-			Foreground(colorPrimary)
+			Foreground(t.Primary),
+		InactiveTab: tab.
+			Foreground(t.Subtle),
+		Header: lipgloss.NewStyle().
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderBottom(true).
+			BorderForeground(t.Subtle),
 
-	inactiveTabStyle = tabStyle.
-				Foreground(colorSubtle)
-)
+		PanelBorder: lipgloss.RoundedBorder(),
+		LeftPanel: lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(t.Subtle).
+			Padding(0, 1),
+		RightPanel: lipgloss.NewStyle().
+			BorderStyle(lipgloss.RoundedBorder()).
+			BorderForeground(t.Subtle).
+			Padding(0, 1),
+		FocusedBorderColor: t.Primary,
 
-// Header renders the top bar with app name and tabs.
-var headerStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderBottom(true).
-	BorderForeground(colorSubtle)
+		StatusBar: lipgloss.NewStyle().
+			Foreground(t.Highlight).
+			Background(t.StatusBarBg).
+			Padding(0, 1),
+		HelpBar: lipgloss.NewStyle().
+			Foreground(t.Subtle).
+			Padding(0, 1),
 
-// Panel styles for the master-detail layout.
-var (
-	PanelBorder = lipgloss.RoundedBorder()
-
-	LeftPanelStyle = lipgloss.NewStyle().
-			BorderStyle(PanelBorder).
-			BorderForeground(colorSubtle).
-			Padding(0, 1)
-
-	RightPanelStyle = lipgloss.NewStyle().
-			BorderStyle(PanelBorder).
-			BorderForeground(colorSubtle).
-			Padding(0, 1)
-
-	FocusedBorderColor = colorPrimary
-)
-
-// Status bar at the bottom.
-var statusBarStyle = lipgloss.NewStyle().
-	Foreground(colorHighlight).
-	Background(lipgloss.AdaptiveColor{Light: "254", Dark: "235"}).
-	Padding(0, 1)
-
-// Help bar at the very bottom.
-var helpBarStyle = lipgloss.NewStyle().
-	Foreground(colorSubtle).
-	Padding(0, 1)
-
-// Status indicator styles.
-var (
-	StatusOK      = lipgloss.NewStyle().Foreground(ColorOK)
-	StatusError   = lipgloss.NewStyle().Foreground(ColorError)
-	StatusWarning = lipgloss.NewStyle().Foreground(ColorWarning)
-	StatusMuted   = lipgloss.NewStyle().Foreground(ColorMuted)
-)
+		StatusOK:      lipgloss.NewStyle().Foreground(t.OK),
+		StatusError:   lipgloss.NewStyle().Foreground(t.Error),
+		StatusWarning: lipgloss.NewStyle().Foreground(t.Warning),
+		StatusMuted:   lipgloss.NewStyle().Foreground(t.Muted),
+	}
+}

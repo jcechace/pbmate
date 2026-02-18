@@ -35,6 +35,7 @@ var tabNames = [tabCount]string{
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
 	client *sdk.Client
+	styles Styles
 
 	activeTab tab
 	width     int
@@ -44,12 +45,13 @@ type Model struct {
 	help help.Model
 }
 
-// New creates a new root model.
-func New(client *sdk.Client) Model {
+// New creates a new root model with the given theme.
+func New(client *sdk.Client, theme Theme) Model {
 	h := help.New()
 	h.ShortSeparator = "  "
 	return Model{
 		client:    client,
+		styles:    NewStyles(theme),
 		activeTab: tabOverview,
 		keys:      globalKeys,
 		help:      h,
@@ -129,9 +131,9 @@ func (m Model) headerView() string {
 	for i := 0; i < int(tabCount); i++ {
 		label := fmt.Sprintf("%d:%s", i+1, tabNames[i])
 		if tab(i) == m.activeTab {
-			tabs = append(tabs, activeTabStyle.Render(label))
+			tabs = append(tabs, m.styles.ActiveTab.Render(label))
 		} else {
-			tabs = append(tabs, inactiveTabStyle.Render(label))
+			tabs = append(tabs, m.styles.InactiveTab.Render(label))
 		}
 	}
 
@@ -141,7 +143,7 @@ func (m Model) headerView() string {
 		strings.Join(tabs, ""),
 	)
 
-	return headerStyle.Width(m.width).Render(row)
+	return m.styles.Header.Width(m.width).Render(row)
 }
 
 // contentView renders the active tab's content.
@@ -174,10 +176,10 @@ func (m Model) statusBarView() string {
 	right := "Cluster: --"
 
 	bar := fmt.Sprintf("  %s  |  %s  |  %s", left, mid, right)
-	return statusBarStyle.Width(m.width).Render(bar)
+	return m.styles.StatusBar.Width(m.width).Render(bar)
 }
 
 // helpBarView renders the keybinding help at the bottom.
 func (m Model) helpBarView() string {
-	return helpBarStyle.Width(m.width).Render(m.help.ShortHelpView(m.keys.ShortHelp()))
+	return m.styles.HelpBar.Width(m.width).Render(m.help.ShortHelpView(m.keys.ShortHelp()))
 }
