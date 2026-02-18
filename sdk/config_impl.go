@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"gopkg.in/yaml.v2"
 
@@ -13,6 +14,7 @@ import (
 
 type configServiceImpl struct {
 	conn connect.Client
+	log  *slog.Logger
 }
 
 var _ ConfigService = (*configServiceImpl)(nil)

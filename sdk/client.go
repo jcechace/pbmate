@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 )
@@ -23,6 +24,7 @@ type Client struct {
 type options struct {
 	mongoURI string
 	appName  string
+	logger   *slog.Logger
 }
 
 // Option configures how the Client is created.
@@ -36,6 +38,12 @@ func WithMongoURI(uri string) Option {
 // WithAppName sets the application name used in the backend connection.
 func WithAppName(name string) Option {
 	return func(o *options) { o.appName = name }
+}
+
+// WithLogger sets the structured logger used by the SDK.
+// If not set, the SDK produces no log output.
+func WithLogger(l *slog.Logger) Option {
+	return func(o *options) { o.logger = l }
 }
 
 // NewClient creates a new PBM client with the given options.
@@ -56,19 +64,26 @@ func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 }
 
 func newMongoClient(ctx context.Context, o *options) (*Client, error) {
+	log := o.logger
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
+
 	conn, err := connect.Connect(ctx, o.mongoURI, o.appName)
 	if err != nil {
 		return nil, fmt.Errorf("connect to PBM: %w", err)
 	}
 
+	log.InfoContext(ctx, "connected to PBM")
+
 	c := &Client{conn: conn}
-	c.Commands = &commandServiceImpl{conn: conn}
-	c.Backups = &backupServiceImpl{conn: conn, cmds: c.Commands}
-	c.Restores = &restoreServiceImpl{conn: conn, cmds: c.Commands}
-	c.Config = &configServiceImpl{conn: conn}
-	c.Cluster = &clusterServiceImpl{conn: conn}
-	c.PITR = &pitrServiceImpl{conn: conn}
-	c.Logs = &logServiceImpl{conn: conn}
+	c.Commands = &commandServiceImpl{conn: conn, log: log.With("service", "command")}
+	c.Backups = &backupServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "backup")}
+	c.Restores = &restoreServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "restore")}
+	c.Config = &configServiceImpl{conn: conn, log: log.With("service", "config")}
+	c.Cluster = &clusterServiceImpl{conn: conn, log: log.With("service", "cluster")}
+	c.PITR = &pitrServiceImpl{conn: conn, log: log.With("service", "pitr")}
+	c.Logs = &logServiceImpl{conn: conn, log: log.With("service", "log")}
 	return c, nil
 }
 

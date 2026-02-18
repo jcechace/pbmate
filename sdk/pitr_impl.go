@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
@@ -13,6 +14,7 @@ import (
 
 type pitrServiceImpl struct {
 	conn connect.Client
+	log  *slog.Logger
 }
 
 var _ PITRService = (*pitrServiceImpl)(nil)

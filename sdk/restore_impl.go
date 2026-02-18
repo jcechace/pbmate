@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
@@ -14,6 +15,7 @@ import (
 type restoreServiceImpl struct {
 	conn connect.Client
 	cmds CommandService
+	log  *slog.Logger
 }
 
 var _ RestoreService = (*restoreServiceImpl)(nil)
@@ -67,6 +69,7 @@ func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions
 		Namespaces: opts.Namespaces,
 	}
 
+	s.log.InfoContext(ctx, "starting restore", "name", cmd.Name, "backup", cmd.BackupName)
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
 		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
@@ -103,13 +106,15 @@ func (s *restoreServiceImpl) Wait(ctx context.Context, name string, opts Restore
 			if !errors.Is(err, ErrNotFound) {
 				return last, fmt.Errorf("wait for restore %q: %w", name, err)
 			}
-			// ErrNotFound: restore metadata not yet created by agent, keep polling.
+			s.log.DebugContext(ctx, "restore not found yet, retrying", "name", name)
 		} else {
 			last = r
+			s.log.DebugContext(ctx, "polling restore status", "name", name, "status", r.Status)
 			if opts.OnProgress != nil {
 				opts.OnProgress(r)
 			}
 			if r.Status.IsTerminal() {
+				s.log.InfoContext(ctx, "restore reached terminal status", "name", name, "status", r.Status)
 				if r.Status.Equal(StatusError) || r.Status.Equal(StatusPartlyDone) {
 					return r, &OperationError{Name: name, Message: r.Error}
 				}

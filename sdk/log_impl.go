@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/log"
@@ -10,6 +11,7 @@ import (
 
 type logServiceImpl struct {
 	conn connect.Client
+	log  *slog.Logger
 }
 
 var _ LogService = (*logServiceImpl)(nil)

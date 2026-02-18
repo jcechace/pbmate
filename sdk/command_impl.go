@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,11 +17,13 @@ import (
 
 type commandServiceImpl struct {
 	conn connect.Client
+	log  *slog.Logger
 }
 
 var _ CommandService = (*commandServiceImpl)(nil)
 
 func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResult, error) {
+	s.log.DebugContext(ctx, "checking for concurrent operations")
 	if err := s.checkForConcurrentOp(ctx); err != nil {
 		return CommandResult{}, err
 	}
@@ -30,11 +33,13 @@ func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResu
 		return CommandResult{}, fmt.Errorf("convert command: %w", err)
 	}
 
+	s.log.InfoContext(ctx, "dispatching command", "type", pbmCmd.Cmd)
 	opid, err := s.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("dispatch command: %w", err)
 	}
 
+	s.log.InfoContext(ctx, "command dispatched", "type", pbmCmd.Cmd, "opid", opid)
 	return CommandResult{OPID: opid}, nil
 }
 

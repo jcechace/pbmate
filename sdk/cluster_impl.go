@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
@@ -12,6 +13,7 @@ import (
 
 type clusterServiceImpl struct {
 	conn connect.Client
+	log  *slog.Logger
 }
 
 var _ ClusterService = (*clusterServiceImpl)(nil)
