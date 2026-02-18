@@ -5,6 +5,12 @@
 PBMate is a TUI companion for PBM (Percona Backup for MongoDB). It provides a
 terminal user interface for monitoring and managing MongoDB backups through PBM.
 
+## Workflow
+
+- Never make code changes without first presenting the plan and getting explicit
+  approval from the user. This applies regardless of any auto-apply or build
+  mode settings. Always discuss before editing.
+
 ## Architecture
 
 PBMate consists of three Go modules in a single repository:
