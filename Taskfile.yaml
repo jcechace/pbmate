@@ -64,6 +64,11 @@ tasks:
     cmds:
       - go vet ./...
 
+  tui:test:
+    desc: Run TUI tests
+    cmds:
+      - go test ./...
+
   tui:lint:
     desc: Run golangci-lint on the TUI module
     cmds:
@@ -75,11 +80,12 @@ tasks:
       - go fmt ./...
 
   tui:check:
-    desc: Build, vet, and lint the TUI
+    desc: Build, vet, lint, and test the TUI
     cmds:
       - task: tui:build
       - task: tui:vet
       - task: tui:lint
+      - task: tui:test
 
   # ---------------------------------------------------------------------------
   # All modules
@@ -100,6 +106,7 @@ tasks:
     desc: Run tests for all modules
     cmds:
       - task: sdk:test
+      - task: tui:test
 
   lint:
     desc: Run golangci-lint on all modules
