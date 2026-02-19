@@ -95,6 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.updateLogViewportDims()
 		return m, nil
 
 	case tickMsg:
@@ -502,7 +503,7 @@ func (m Model) contextBindings() []key.Binding {
 
 	switch m.activeTab {
 	case tabOverview:
-		bindings = append(bindings, overviewKeys.Toggle, overviewKeys.Follow)
+		bindings = append(bindings, overviewKeys.Toggle, overviewKeys.Follow, overviewKeys.Wrap)
 		bindings = append(bindings, backupKeys.Start)
 	case tabBackups:
 		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
@@ -520,6 +521,41 @@ func (m Model) clusterTimeText() string {
 	return m.data.clusterTime.Time().Format("15:04")
 }
 
+// updateLogViewportDims precomputes the log viewport dimensions from the
+// current terminal size. This allows Update-time operations (scrolling,
+// GotoBottom) to use correct bounds, since View-time dimension setting
+// operates on a value copy and doesn't persist.
+func (m *Model) updateLogViewportDims() {
+	if m.width == 0 || m.height == 0 {
+		return
+	}
+	chromeH := lipgloss.Height(m.headerView()) + lipgloss.Height(m.bottomBarView())
+	contentH := m.height - chromeH
+	if contentH < 0 {
+		contentH = 0
+	}
+
+	leftW := m.width * leftPanelPct / 100
+	if leftW < minLeftPanelW {
+		leftW = minLeftPanelW
+	}
+	rightW := m.width - leftW
+
+	w := rightW - panelBorderH - panelPaddingH
+	bottomH := contentH - contentH*topPanelPct/100
+	h := bottomH - panelBorderV
+
+	if w < 0 {
+		w = 0
+	}
+	if h < 0 {
+		h = 0
+	}
+
+	m.overview.logVP.Width = w
+	m.overview.logVP.Height = h
+}
+
 // toggleLogFollow starts or stops the log follow mode.
 func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 	if m.logFollowing {
@@ -535,13 +571,14 @@ func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Start following.
+	// Start following — pin to bottom so new entries auto-scroll.
 	ctx, cancel := context.WithCancel(context.Background())
 	entries, _ := m.client.Logs.Follow(ctx)
 	m.logFollowing = true
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries
 	m.overview.logFollowing = true
+	m.overview.logPinned = true
 	m.overview.rebuildLogContent()
 
 	return m, waitForLogEntry(entries)

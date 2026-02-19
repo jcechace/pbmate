@@ -56,6 +56,9 @@ type overviewModel struct {
 	grouped      map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
 	rsNames      []string               // sorted RS names
 	logFollowing bool                   // whether log follow mode is active
+	logPinned    bool                   // auto-scroll log to bottom on new content
+	logWrap      bool                   // word-wrap log lines to viewport width
+	logLineCount int                    // total lines in log viewport content
 
 	// Panel viewports — each produces exactly its allocated height.
 	clusterVP viewport.Model
@@ -70,6 +73,7 @@ func newOverviewModel(styles *Styles) overviewModel {
 		styles:    styles,
 		focus:     panelLeft,
 		collapsed: make(map[string]bool),
+		logPinned: true,
 		clusterVP: newPanelViewport(),
 		detailVP:  newPanelViewport(),
 		statusVP:  newPanelViewport(),
@@ -151,13 +155,21 @@ func (m *overviewModel) rebuildItems() {
 func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 	switch {
 	case key.Matches(msg, keys.Down):
-		m.moveCursor(1)
-		m.rebuildClusterContent()
-		m.rebuildDetailContent()
+		if m.focus == panelRight {
+			m.scrollLog(1)
+		} else {
+			m.moveCursor(1)
+			m.rebuildClusterContent()
+			m.rebuildDetailContent()
+		}
 	case key.Matches(msg, keys.Up):
-		m.moveCursor(-1)
-		m.rebuildClusterContent()
-		m.rebuildDetailContent()
+		if m.focus == panelRight {
+			m.scrollLog(-1)
+		} else {
+			m.moveCursor(-1)
+			m.rebuildClusterContent()
+			m.rebuildDetailContent()
+		}
 	case key.Matches(msg, keys.Left):
 		m.focus = panelLeft
 		m.rebuildClusterContent()
@@ -167,6 +179,9 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 	case key.Matches(msg, overviewKeys.Toggle):
 		m.toggleCollapse()
 		// rebuildItems (called by toggleCollapse) already rebuilds cluster + detail.
+	case key.Matches(msg, overviewKeys.Wrap):
+		m.logWrap = !m.logWrap
+		m.rebuildLogContent()
 	}
 }
 
@@ -225,6 +240,26 @@ func (m *overviewModel) ensureSelectable(dir int) {
 		return
 	}
 	m.moveCursor(dir)
+}
+
+// scrollLog scrolls the log viewport by delta lines and updates the
+// pinned state based on whether the viewport is at the bottom.
+func (m *overviewModel) scrollLog(delta int) {
+	if delta > 0 {
+		m.logVP.ScrollDown(delta)
+	} else {
+		m.logVP.ScrollUp(-delta)
+	}
+	m.logPinned = m.logAtBottom()
+}
+
+// logAtBottom reports whether the log viewport is scrolled to the bottom.
+func (m *overviewModel) logAtBottom() bool {
+	maxY := m.logLineCount - m.logVP.Height
+	if maxY <= 0 {
+		return true // content fits in viewport
+	}
+	return m.logVP.YOffset >= maxY
 }
 
 // selectedItem returns the currently selected item, or nil if none.
@@ -396,13 +431,14 @@ func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
 	m.rebuildLogContent()
 }
 
-// setLogSize updates the viewport dimensions for the log panel and
-// re-anchors the scroll position. Called from View where layout
-// dimensions are known.
+// setLogSize updates the viewport dimensions for the log panel.
+// Called from View where layout dimensions are known.
 func (m *overviewModel) setLogSize(width, height int) {
 	m.logVP.Width = width
 	m.logVP.Height = height
-	m.logVP.GotoBottom()
+	if m.logPinned {
+		m.logVP.GotoBottom()
+	}
 }
 
 // rebuildLogContent reconstructs the viewport content from log entries
@@ -423,13 +459,35 @@ func (m *overviewModel) rebuildLogContent() {
 
 	// Mode indicator as the last line.
 	b.WriteByte('\n')
+	mode := "auto-refresh"
 	if m.logFollowing {
-		b.WriteString(m.styles.StatusWarning.Render(" [following]"))
+		mode = "following"
+	}
+	if m.logWrap {
+		mode += "+wrap"
+	}
+	if m.logFollowing {
+		b.WriteString(m.styles.StatusWarning.Render(" [" + mode + "]"))
 	} else {
-		b.WriteString(m.styles.StatusMuted.Render(" [auto-refresh]"))
+		b.WriteString(m.styles.StatusMuted.Render(" [" + mode + "]"))
 	}
 
-	m.logVP.SetContent(b.String())
+	content := b.String()
+
+	// When wrapping is enabled, word-wrap lines to viewport width.
+	// This produces more lines but shows full log messages.
+	if m.logWrap && m.logVP.Width > 0 {
+		content = lipgloss.NewStyle().Width(m.logVP.Width).Render(content)
+	}
+
+	m.logLineCount = strings.Count(content, "\n") + 1
+	m.logVP.SetContent(content)
+
+	// Auto-scroll: always in non-follow mode (polled content is replaced
+	// entirely), in follow mode only when pinned to bottom.
+	if m.logVP.Height > 0 && (!m.logFollowing || m.logPinned) {
+		m.logVP.GotoBottom()
+	}
 }
 
 // logsView renders the log panel using the viewport.

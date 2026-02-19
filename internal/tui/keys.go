@@ -78,6 +78,7 @@ var globalKeys = globalKeyMap{
 type overviewKeyMap struct {
 	Toggle key.Binding
 	Follow key.Binding
+	Wrap   key.Binding
 }
 
 var overviewKeys = overviewKeyMap{
@@ -88,6 +89,10 @@ var overviewKeys = overviewKeyMap{
 	Follow: key.NewBinding(
 		key.WithKeys("f"),
 		key.WithHelp("f", "follow logs"),
+	),
+	Wrap: key.NewBinding(
+		key.WithKeys("w"),
+		key.WithHelp("w", "wrap logs"),
 	),
 }
 
