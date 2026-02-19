@@ -18,3 +18,7 @@ coverage/
 
 # Taskfile
 .task/
+
+# Local dev tools / scripts
+sdk/cmd/
+cloudecode.md
