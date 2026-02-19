@@ -1,14 +1,11 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-
-	sdk "github.com/jcechace/pbmate/sdk/v2"
 
 	"github.com/jcechace/pbmate/internal/tui"
 )
@@ -29,18 +26,15 @@ func run() error {
 		return fmt.Errorf("--uri is required")
 	}
 
-	ctx := context.Background()
-	client, err := sdk.NewClient(ctx, sdk.WithMongoURI(*uri))
-	if err != nil {
-		return fmt.Errorf("connect: %w", err)
-	}
-	defer func() { _ = client.Close(ctx) }()
-
 	theme := tui.ThemeByName(*themeName)
-	m := tui.New(client, theme)
+	m := tui.New(*uri, theme)
 	p := tea.NewProgram(m, tea.WithAltScreen())
-	if _, err := p.Run(); err != nil {
+	result, err := p.Run()
+	if err != nil {
 		return err
+	}
+	if m, ok := result.(tui.Model); ok {
+		m.Close()
 	}
 	return nil
 }

@@ -16,6 +16,21 @@ const (
 	recentBackupsLimit = 1  // number of recent backups to fetch for the overview
 )
 
+// connectMsg carries the result of the background SDK connection attempt.
+type connectMsg struct {
+	client *sdk.Client
+	err    error
+}
+
+// connectCmd returns a tea.Cmd that connects to PBM in the background.
+func connectCmd(uri string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		client, err := sdk.NewClient(ctx, sdk.WithMongoURI(uri))
+		return connectMsg{client: client, err: err}
+	}
+}
+
 // overviewData holds the result of a single overview poll cycle.
 type overviewData struct {
 	agents        []sdk.Agent

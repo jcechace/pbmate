@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -54,13 +55,16 @@ var confirmYes = key.NewBinding(key.WithKeys("y"))
 
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
-	client *sdk.Client
+	client   *sdk.Client // nil until connectMsg arrives
+	mongoURI string      // connection URI for background connect
+
 	styles Styles
 
 	activeTab    tab
 	width        int
 	height       int
 	pollInterval time.Duration
+	connecting   bool   // true while waiting for the initial connection
 	flashErr     string // transient error message for the status bar
 
 	// Confirmation state — when non-nil, the bottom bar shows a y/n prompt
@@ -82,23 +86,34 @@ type Model struct {
 	keys globalKeyMap
 }
 
-// New creates a new root model with the given theme.
-func New(client *sdk.Client, theme Theme) Model {
+// New creates a new root model with the given theme. The SDK connection
+// is established asynchronously — the TUI renders immediately while
+// connecting in the background.
+func New(uri string, theme Theme) Model {
 	s := NewStyles(theme)
 	return Model{
-		client:       client,
+		mongoURI:     uri,
 		styles:       s,
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
-		overview:     newOverviewModel(client, &s),
+		connecting:   true,
+		overview:     newOverviewModel(&s),
 		backups:      newBackupsModel(&s),
 		keys:         globalKeys,
 	}
 }
 
+// Close disconnects the SDK client if connected. Safe to call when the
+// client is nil (e.g. connection never succeeded).
+func (m Model) Close() {
+	if m.client != nil {
+		_ = m.client.Close(context.Background())
+	}
+}
+
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.WindowSize(), tickCmd(0))
+	return tea.Batch(tea.WindowSize(), connectCmd(m.mongoURI))
 }
 
 // Update implements tea.Model.
@@ -112,7 +127,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewportDims()
 		return m, nil
 
+	case connectMsg:
+		m.connecting = false
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("connect: %v", msg.err)
+			return m, nil
+		}
+		m.client = msg.client
+		m.overview.client = msg.client
+		return m, tickCmd(0)
+
 	case tickMsg:
+		if m.client == nil {
+			return m, nil
+		}
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
 		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
@@ -250,11 +278,11 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		newTab = (m.activeTab + 1) % tabCount
 	case key.Matches(msg, m.keys.PrevTab):
 		newTab = (m.activeTab - 1 + tabCount) % tabCount
-	case key.Matches(msg, backupKeys.Start):
+	case key.Matches(msg, backupKeys.Start) && m.client != nil:
 		return m, m.openBackupForm(backupFormQuick)
-	case key.Matches(msg, backupKeys.StartCustom):
+	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil:
 		return m, m.openBackupForm(backupFormFull)
-	case key.Matches(msg, backupKeys.Cancel):
+	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
 		if len(m.overview.data.operations) > 0 {
 			m.confirm = &confirmAction{
 				prompt: "Cancel running backup?",
@@ -378,9 +406,12 @@ func (m Model) bottomBarView() string {
 
 	// Left zone: operational status HUD.
 	var statusParts []string
-	if m.flashErr != "" {
+	switch {
+	case m.flashErr != "":
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
-	} else {
+	case m.connecting:
+		statusParts = append(statusParts, m.styles.StatusWarning.Render("Connecting..."))
+	default:
 		statusParts = append(statusParts, m.clusterTimeText())
 		statusParts = append(statusParts, m.pitrStatusText())
 		statusParts = append(statusParts, m.runningOpText())

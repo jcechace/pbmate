@@ -49,11 +49,10 @@ type overviewModel struct {
 }
 
 // newOverviewModel creates a new overview sub-model.
-func newOverviewModel(client *sdk.Client, styles *Styles) overviewModel {
+func newOverviewModel(styles *Styles) overviewModel {
 	cp := newClusterPanel(styles)
 	cp.focused = true // cluster panel starts focused
 	return overviewModel{
-		client:   client,
 		styles:   styles,
 		focus:    focusCluster,
 		cluster:  cp,
