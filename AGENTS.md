@@ -168,9 +168,20 @@ pbmate/
 │   ├── log_impl.go         # logServiceImpl
 │   ├── log_convert.go      # PBM log.Entry -> SDK LogEntry conversion
 │   └── log_convert_test.go
+├── main.go                 # TUI entry point: --uri and --theme flags
+├── internal/
+│   └── tui/
+│       ├── app.go          # Root model: layout, tab routing, bottom bar, global keys
+│       ├── keys.go         # Key bindings (global + per-tab keymaps)
+│       ├── styles.go       # Lipgloss styles, colors, borders
+│       ├── theme.go        # Theme definitions (Catppuccin + adaptive)
+│       ├── poll.go         # Tick intervals and adaptive polling
+│       ├── data.go         # Data fetching commands and message types
+│       ├── render.go       # Shared rendering helpers, viewport factory
+│       ├── overview.go     # Overview tab (4-quadrant: cluster, detail, status, logs)
+│       └── backups.go      # Backups tab (list + detail panels)
 ├── mcp/
 │   └── go.mod              # MCP module: github.com/jcechace/pbmate/mcp
-└── ...                     # TUI source (future)
 ```
 
 ## Testing

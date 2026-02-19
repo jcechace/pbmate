@@ -109,10 +109,10 @@ Master-detail layout with sub-tabs in the detail panel.
 
 Left panel: full scrollable backup list. Compact names (drop seconds).
 
-Right panel with sub-tabs (`[`/`]` to cycle):
-- **Info**: Full backup metadata, timestamps, compression, errors.
-- **Replicas**: Per-RS breakdown (status, node, timing per shard).
-- **Logs**: Filtered log entries for that backup's operation (future).
+Right panel: Full backup metadata, timestamps, compression, errors.
+
+Future sub-tabs (Phase 5c): Info, Replicas, Logs -- will use dedicated keys
+for cycling within the detail panel.
 
 Actions: `s` start backup, `d` delete, `c` cancel running.
 
@@ -144,19 +144,17 @@ Read-only for MVP. Later: `e` edit via YAML, `p` add profile.
 - `esc` -- back / close overlay / clear filter
 
 ### Navigation (within panels)
-- `up`/`down` or `k`/`j` -- move selection in list
-- `left`/`right` or `h`/`l` -- switch focus between left/right panel
+- `up`/`down` or `k`/`j` -- move selection / scroll in focused panel
+- `]` / `[` -- cycle focus to next/previous panel
 
 ### Overview-specific
-- `space` / `enter` -- expand/collapse RS group
+- `space` / `enter` -- expand/collapse RS group (when cluster panel focused)
 - `f` -- toggle log follow mode
-- `s` -- start backup
+- `w` -- toggle log word-wrap
 
 ### Backups-specific
-- `s` -- start backup
-- `d` -- delete backup (inline y/n confirmation)
-- `c` -- cancel running backup
-- `[` / `]` -- cycle detail sub-tabs
+- `d` -- delete backup
+- (`s` start backup and `c` cancel are global -- work from any tab)
 
 ### Restores-specific
 - (view only for now)
@@ -181,8 +179,8 @@ Single merged bar replacing the previous two-bar (status + help) design.
 **Right zone**: Context-sensitive keybinding hints.
 - Changes per tab and per selection state.
 - Keys in bold/primary color, descriptions in muted color.
-- Graceful truncation with `…` on narrow terminals.
-- 6-8 most important hints; full reference via `?` overlay.
+- Hints that exceed available width are dropped (rightmost first).
+- 6-8 most important hints; full reference via `?` overlay (planned).
 
 ## Polling & Data Flow
 
@@ -207,13 +205,13 @@ Single merged bar replacing the previous two-bar (status + help) design.
 - Compact, information-dense -- no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
 
-## Confirmation Dialogs
+## Confirmation Dialogs (planned -- Phase 5c)
 
 - **Destructive actions** (delete, cancel): inline y/n confirmation in the
   bottom bar. Press `d` -> bar shows "Delete backup X? [y/n]" -> `y` confirms,
-  any other key cancels.
+  any other key cancels. (Currently actions execute immediately.)
 - **Parameterized actions** (start backup): `huh` form with type, compression,
-  and profile selection.
+  and profile selection. (Currently starts a logical backup with defaults.)
 - **Future**: `--readonly` flag disables all mutation actions.
 
 ## Project Structure
@@ -232,8 +230,8 @@ pbmate/
 │       ├── render.go          # Shared rendering helpers
 │       ├── overview.go        # Overview tab (cluster tree + detail + status + logs)
 │       ├── backups.go         # Backups tab (list + detail with sub-tabs)
-│       ├── restores.go        # Restores tab (future)
-│       └── config.go          # Config tab (future)
+│       ├── restores.go        # Restores tab (planned -- Phase 5d)
+│       └── config.go          # Config tab (planned -- Phase 5d)
 ```
 
 ## Dependencies
@@ -241,5 +239,5 @@ pbmate/
 - `charmbracelet/bubbletea` -- framework
 - `charmbracelet/bubbles` -- help, key, spinner, viewport, progress
 - `charmbracelet/lipgloss` -- styling and layout
-- `charmbracelet/huh` -- forms (start backup dialog, future)
+- `charmbracelet/huh` -- forms (planned -- Phase 5c, not yet in go.mod)
 - `jcechace/pbmate/sdk/v2` -- PBMate SDK

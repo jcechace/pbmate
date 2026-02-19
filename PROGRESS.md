@@ -66,6 +66,12 @@
 - [x] Follow mode toggle (`f`) for log panel via LogService.Follow
 - [x] Stable cursor -- track selection by item identity, not index
 - [x] Context-sensitive action hints in bottom bar
+- [x] Fix log panel jump when toggling follow mode
+- [x] Migrate all panels to viewport components
+- [x] Fix panel overflow by correcting lipgloss width calculations
+- [x] Add scrollable log viewport with auto-pin and wrap toggle (`w`)
+- [x] Redesign panel focus: 4-quadrant `[]` cycling, per-panel Up/Down dispatch
+- [x] Move start/cancel backup actions (`s`/`c`) to global scope
 
 ### Phase 5c: Interactions (planned)
 - [ ] Inline y/n confirmation for destructive actions (delete, cancel)
