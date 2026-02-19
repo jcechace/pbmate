@@ -103,11 +103,8 @@ func (m Model) Init() tea.Cmd {
 
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// If the backup form is active, forward all messages to it.
-	if m.backupForm != nil {
-		return m.updateBackupForm(msg)
-	}
-
+	// Data and system messages are handled first regardless of overlay state,
+	// so polling and status bar updates continue while forms are open.
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -194,76 +191,94 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd:    deleteBackupCmd(m.client, msg.name),
 		}
 		return m, nil
+	}
 
-	case tea.KeyMsg:
-		// If a confirmation is pending, intercept all key input.
-		if m.confirm != nil {
-			var cmd tea.Cmd
-			if key.Matches(msg, confirmYes) {
-				cmd = m.confirm.cmd
-			}
-			m.confirm = nil
-			return m, cmd
+	// Key messages: route to the backup form if active,
+	// otherwise to the normal key handler.
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if m.backupForm != nil {
+			return m.updateBackupForm(keyMsg)
 		}
+		return m.updateKeys(keyMsg)
+	}
 
-		// If the help overlay is open, dismiss on ?/esc and ignore everything else.
-		if m.showHelp {
-			if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) {
-				m.showHelp = false
-			}
-			return m, nil
-		}
+	// Forward non-key messages to the backup form if active (e.g. huh internals).
+	if m.backupForm != nil {
+		return m.updateBackupForm(msg)
+	}
 
-		var newTab tab = -1
-		switch {
-		case key.Matches(msg, m.keys.Quit):
-			m.overview.stopFollow()
-			return m, tea.Quit
-		case key.Matches(msg, m.keys.Help):
-			m.showHelp = true
-			return m, nil
-		case key.Matches(msg, m.keys.Tab1):
-			newTab = tabOverview
-		case key.Matches(msg, m.keys.Tab2):
-			newTab = tabBackups
-		case key.Matches(msg, m.keys.Tab3):
-			newTab = tabRestores
-		case key.Matches(msg, m.keys.Tab4):
-			newTab = tabConfig
-		case key.Matches(msg, m.keys.NextTab):
-			newTab = (m.activeTab + 1) % tabCount
-		case key.Matches(msg, m.keys.PrevTab):
-			newTab = (m.activeTab - 1 + tabCount) % tabCount
-		case key.Matches(msg, backupKeys.Start):
-			return m, m.openBackupForm(backupFormQuick)
-		case key.Matches(msg, backupKeys.StartCustom):
-			return m, m.openBackupForm(backupFormFull)
-		case key.Matches(msg, backupKeys.Cancel):
-			if len(m.overview.data.operations) > 0 {
-				m.confirm = &confirmAction{
-					prompt: "Cancel running backup?",
-					cmd:    cancelBackupCmd(m.client),
-				}
-			}
-			return m, nil
-		default:
-			// Forward to active tab sub-model.
-			switch m.activeTab {
-			case tabOverview:
-				if cmd := m.overview.update(msg, m.keys); cmd != nil {
-					return m, cmd
-				}
-			case tabBackups:
-				if cmd := m.backups.update(msg, m.keys); cmd != nil {
-					return m, cmd
-				}
+	return m, nil
+}
+
+// updateKeys handles key messages when no form overlay is active.
+func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// If a confirmation is pending, intercept all key input.
+	if m.confirm != nil {
+		var cmd tea.Cmd
+		if key.Matches(msg, confirmYes) {
+			cmd = m.confirm.cmd
+		}
+		m.confirm = nil
+		return m, cmd
+	}
+
+	// If the help overlay is open, dismiss on ?/esc and ignore everything else.
+	if m.showHelp {
+		if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) {
+			m.showHelp = false
+		}
+		return m, nil
+	}
+
+	var newTab tab = -1
+	switch {
+	case key.Matches(msg, m.keys.Quit):
+		m.overview.stopFollow()
+		return m, tea.Quit
+	case key.Matches(msg, m.keys.Help):
+		m.showHelp = true
+		return m, nil
+	case key.Matches(msg, m.keys.Tab1):
+		newTab = tabOverview
+	case key.Matches(msg, m.keys.Tab2):
+		newTab = tabBackups
+	case key.Matches(msg, m.keys.Tab3):
+		newTab = tabRestores
+	case key.Matches(msg, m.keys.Tab4):
+		newTab = tabConfig
+	case key.Matches(msg, m.keys.NextTab):
+		newTab = (m.activeTab + 1) % tabCount
+	case key.Matches(msg, m.keys.PrevTab):
+		newTab = (m.activeTab - 1 + tabCount) % tabCount
+	case key.Matches(msg, backupKeys.Start):
+		return m, m.openBackupForm(backupFormQuick)
+	case key.Matches(msg, backupKeys.StartCustom):
+		return m, m.openBackupForm(backupFormFull)
+	case key.Matches(msg, backupKeys.Cancel):
+		if len(m.overview.data.operations) > 0 {
+			m.confirm = &confirmAction{
+				prompt: "Cancel running backup?",
+				cmd:    cancelBackupCmd(m.client),
 			}
 		}
-		// Handle tab switch with immediate data fetch.
-		if newTab >= 0 && newTab != m.activeTab {
-			m.activeTab = newTab
-			return m, tickCmd(0)
+		return m, nil
+	default:
+		// Forward to active tab sub-model.
+		switch m.activeTab {
+		case tabOverview:
+			if cmd := m.overview.update(msg, m.keys); cmd != nil {
+				return m, cmd
+			}
+		case tabBackups:
+			if cmd := m.backups.update(msg, m.keys); cmd != nil {
+				return m, cmd
+			}
 		}
+	}
+	// Handle tab switch with immediate data fetch.
+	if newTab >= 0 && newTab != m.activeTab {
+		m.activeTab = newTab
+		return m, tickCmd(0)
 	}
 
 	return m, nil
@@ -505,66 +520,10 @@ func (m *Model) openBackupForm(kind backupFormKind) tea.Cmd {
 }
 
 // updateBackupForm forwards a message to the active backup form and handles
-// completion/abort. Window size and data messages pass through so polling
-// continues while the form is open.
+// completion/abort. Data messages are already handled by Update before this
+// is called, so only key messages and huh-internal messages arrive here.
 func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	// Window resizing applies while the form is open.
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.updateViewportDims()
-		return m, nil
-
-	// Data messages keep flowing so the status bar stays live.
-	case tickMsg:
-		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
-		if m.activeTab == tabBackups {
-			cmds = append(cmds, fetchBackupsCmd(m.client))
-		}
-		return m, tea.Batch(cmds...)
-	case overviewDataMsg:
-		m.overview.setData(msg.overviewData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
-			m.flashErr = ""
-		}
-		if len(m.overview.data.operations) > 0 {
-			m.pollInterval = activeInterval
-		} else {
-			m.pollInterval = idleInterval
-		}
-		return m, tickCmd(m.pollInterval)
-	case backupsDataMsg:
-		m.backups.setData(msg.backupsData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		}
-		return m, nil
-	case backupActionMsg:
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
-		} else {
-			m.flashErr = ""
-		}
-		return m, tickCmd(0)
-	case logFollowMsg:
-		if msg.err != nil {
-			m.overview.stopFollow()
-			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
-			return m, nil
-		}
-		m.overview.appendLogEntries(msg.entries)
-		return m, m.overview.nextLogCmd()
-	case logFollowDoneMsg:
-		m.overview.stopFollow()
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
-		}
-		return m, nil
-
-	case tea.KeyMsg:
+	if msg, ok := msg.(tea.KeyMsg); ok {
 		// Esc or quit dismisses the form.
 		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
 			m.backupForm = nil
