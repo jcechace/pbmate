@@ -169,6 +169,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case backupFormReadyMsg:
+		form, result := newBackupForm(msg.profiles)
+		m.backupForm = form
+		m.backupFormResult = result
+		return m, m.backupForm.Init()
+
 	case confirmDeleteMsg:
 		m.confirm = &confirmAction{
 			prompt: fmt.Sprintf("Delete backup %s?", msg.name),
@@ -468,12 +474,10 @@ func (m *Model) updateViewportDims() {
 
 // --- Backup form management ---
 
-// openBackupForm creates and initializes the backup form overlay.
+// openBackupForm fetches storage profiles then creates the form overlay.
+// The form is created asynchronously when backupFormReadyMsg arrives.
 func (m *Model) openBackupForm() tea.Cmd {
-	form, result := newBackupForm()
-	m.backupForm = form
-	m.backupFormResult = result
-	return m.backupForm.Init()
+	return fetchProfilesCmd(m.client)
 }
 
 // updateBackupForm forwards a message to the active backup form and handles
@@ -537,7 +541,7 @@ func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		// Esc dismisses the form.
+		// Esc or quit dismisses the form.
 		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
 			m.backupForm = nil
 			m.backupFormResult = nil
@@ -553,10 +557,14 @@ func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Check if the form completed.
 	if m.backupForm.State == huh.StateCompleted {
-		opts := m.backupFormResult.toOptions()
+		result := m.backupFormResult
 		m.backupForm = nil
 		m.backupFormResult = nil
-		return m, startBackupWithOptsCmd(m.client, opts)
+		// User declined on the confirm field.
+		if !result.confirmed {
+			return m, nil
+		}
+		return m, startBackupWithOptsCmd(m.client, result.toOptions())
 	}
 
 	// Check if the form was aborted.

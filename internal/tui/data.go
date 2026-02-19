@@ -116,6 +116,21 @@ func requestConfirmDelete(name string) tea.Cmd {
 	}
 }
 
+// backupFormReadyMsg carries fetched profiles so the backup form can be created.
+type backupFormReadyMsg struct {
+	profiles []sdk.StorageProfile
+}
+
+// fetchProfilesCmd returns a tea.Cmd that fetches storage profiles for the
+// backup form. Errors are silently ignored — the form will just show "Main".
+func fetchProfilesCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		profiles, _ := client.Config.ListProfiles(ctx)
+		return backupFormReadyMsg{profiles: profiles}
+	}
+}
+
 // startBackupWithOptsCmd returns a tea.Cmd that starts a backup with the given options.
 func startBackupWithOptsCmd(client *sdk.Client, opts sdk.StartBackupOptions) tea.Cmd {
 	return func() tea.Msg {
