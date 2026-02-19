@@ -25,6 +25,27 @@ type overviewData struct {
 // overviewDataMsg wraps overviewData as a BubbleTea message.
 type overviewDataMsg struct{ overviewData }
 
+// logFollowMsg carries a single log entry from the follow goroutine.
+type logFollowMsg struct {
+	entry sdk.LogEntry
+	err   error
+}
+
+// logFollowDoneMsg signals that the follow channel has closed.
+type logFollowDoneMsg struct{}
+
+// waitForLogEntry returns a tea.Cmd that blocks until the next log entry
+// arrives on the channel, or the channel closes.
+func waitForLogEntry(ch <-chan sdk.LogEntry) tea.Cmd {
+	return func() tea.Msg {
+		entry, ok := <-ch
+		if !ok {
+			return logFollowDoneMsg{}
+		}
+		return logFollowMsg{entry: entry}
+	}
+}
+
 // backupsData holds the result of a single backups poll cycle.
 type backupsData struct {
 	backups []sdk.Backup

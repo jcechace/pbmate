@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -45,6 +46,11 @@ type Model struct {
 	// Fetched data.
 	data    overviewData
 	bkpData backupsData
+
+	// Log follow state (reference types survive model copying).
+	logFollowing    bool
+	logFollowCancel context.CancelFunc
+	logFollowCh     <-chan sdk.LogEntry
 
 	// Sub-models.
 	overview overviewModel
@@ -97,6 +103,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case overviewDataMsg:
 		m.data = msg.overviewData
 		m.overview.setData(m.data)
+		m.overview.logFollowing = m.logFollowing
 		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
 		if len(m.data.operations) > 0 {
@@ -120,6 +127,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Trigger immediate re-fetch to pick up the change.
 		return m, tickCmd(0)
 
+	case logFollowMsg:
+		if msg.err != nil {
+			// Follow channel errored; stop following.
+			m.logFollowing = false
+			return m, nil
+		}
+		m.data.logEntries = append(m.data.logEntries, msg.entry)
+		// Keep a reasonable buffer (last 200 entries).
+		if len(m.data.logEntries) > 200 {
+			m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-200:]
+		}
+		m.overview.setLogEntries(m.data.logEntries)
+		// Read next entry from the follow channel.
+		return m, waitForLogEntry(m.logFollowCh)
+
+	case logFollowDoneMsg:
+		m.logFollowing = false
+		return m, nil
+
 	case tea.KeyMsg:
 		var newTab tab = -1
 		switch {
@@ -137,6 +163,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newTab = (m.activeTab + 1) % tabCount
 		case key.Matches(msg, m.keys.PrevTab):
 			newTab = (m.activeTab - 1 + tabCount) % tabCount
+		case key.Matches(msg, overviewKeys.Follow) && m.activeTab == tabOverview:
+			return m.toggleLogFollow()
 		default:
 			// Forward to active tab sub-model.
 			switch m.activeTab {
@@ -266,7 +294,7 @@ func (m Model) overviewContentView(height int) string {
 	clusterContent := m.overview.clusterView(innerLeftWidth, innerTopLeftHeight)
 	detailContent := m.overview.detailView()
 	statusContent := m.overview.statusView()
-	logsContent := m.overview.logsView()
+	logsContent := m.overview.logsView(innerBotRightHeight)
 
 	// Apply panel styles with titled borders.
 	clusterStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerTopLeftHeight)
@@ -412,4 +440,29 @@ func (m Model) clusterTimeText() string {
 		return "--:--"
 	}
 	return m.data.clusterTime.Time().Format("15:04")
+}
+
+// toggleLogFollow starts or stops the log follow mode.
+func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
+	if m.logFollowing {
+		// Stop following.
+		if m.logFollowCancel != nil {
+			m.logFollowCancel()
+		}
+		m.logFollowing = false
+		m.logFollowCancel = nil
+		m.logFollowCh = nil
+		m.overview.logFollowing = false
+		return m, nil
+	}
+
+	// Start following.
+	ctx, cancel := context.WithCancel(context.Background())
+	entries, _ := m.client.Logs.Follow(ctx)
+	m.logFollowing = true
+	m.logFollowCancel = cancel
+	m.logFollowCh = entries
+	m.overview.logFollowing = true
+
+	return m, waitForLogEntry(entries)
 }

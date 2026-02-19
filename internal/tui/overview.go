@@ -39,14 +39,15 @@ const (
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
-	items     []overviewItem
-	cursor    int
-	focus     panel
-	styles    *Styles
-	data      overviewData
-	collapsed map[string]bool        // RS name -> collapsed state
-	grouped   map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
-	rsNames   []string               // sorted RS names
+	items        []overviewItem
+	cursor       int
+	focus        panel
+	styles       *Styles
+	data         overviewData
+	collapsed    map[string]bool        // RS name -> collapsed state
+	grouped      map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
+	rsNames      []string               // sorted RS names
+	logFollowing bool                   // whether log follow mode is active
 }
 
 // newOverviewModel creates a new overview sub-model.
@@ -320,19 +321,53 @@ func (m *overviewModel) statusView() string {
 	return b.String()
 }
 
+// setLogEntries updates the log entries displayed in the log panel.
+func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
+	m.data.logEntries = entries
+}
+
 // logsView renders the bottom-right log panel content.
-func (m *overviewModel) logsView() string {
+func (m *overviewModel) logsView(height int) string {
+	var b strings.Builder
+
 	if len(m.data.logEntries) == 0 {
-		return m.styles.StatusMuted.Render(" No log entries")
+		b.WriteString(m.styles.StatusMuted.Render(" No log entries"))
+		return b.String()
 	}
 
-	var b strings.Builder
-	for i, entry := range m.data.logEntries {
+	// Show only the entries that fit in the available height,
+	// reserving 1 line for the mode indicator.
+	maxLines := height - 1
+	if maxLines < 1 {
+		maxLines = 1
+	}
+	entries := m.data.logEntries
+	if len(entries) > maxLines {
+		entries = entries[len(entries)-maxLines:]
+	}
+
+	for i, entry := range entries {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
 		b.WriteString(m.formatLogEntry(entry))
 	}
+
+	// Pad remaining lines.
+	rendered := strings.Count(b.String(), "\n") + 1
+	for rendered < height-1 {
+		b.WriteByte('\n')
+		rendered++
+	}
+
+	// Mode indicator on the last line.
+	b.WriteByte('\n')
+	if m.logFollowing {
+		b.WriteString(m.styles.StatusWarning.Render(" [following]"))
+	} else {
+		b.WriteString(m.styles.StatusMuted.Render(" [auto-refresh]"))
+	}
+
 	return b.String()
 }
 

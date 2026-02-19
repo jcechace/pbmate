@@ -77,12 +77,17 @@ var globalKeys = globalKeyMap{
 // overviewKeyMap defines keybindings specific to the Overview tab.
 type overviewKeyMap struct {
 	Toggle key.Binding
+	Follow key.Binding
 }
 
 var overviewKeys = overviewKeyMap{
 	Toggle: key.NewBinding(
 		key.WithKeys(" ", "enter"),
 		key.WithHelp("space", "expand/collapse"),
+	),
+	Follow: key.NewBinding(
+		key.WithKeys("f"),
+		key.WithHelp("f", "follow logs"),
 	),
 }
 
