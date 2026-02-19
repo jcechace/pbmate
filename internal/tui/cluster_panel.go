@@ -2,7 +2,8 @@ package tui
 
 import (
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
@@ -399,10 +400,6 @@ func groupAgentsByRS(agents []sdk.Agent) map[string][]sdk.Agent {
 
 // sortedKeys returns map keys sorted alphabetically.
 func sortedKeys(m map[string][]sdk.Agent) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(m))
 	return keys
 }
