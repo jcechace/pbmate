@@ -104,13 +104,23 @@ type backupActionMsg struct {
 	err    error
 }
 
-// startBackupCmd returns a tea.Cmd that starts a logical backup with defaults.
-func startBackupCmd(client *sdk.Client) tea.Cmd {
+// confirmDeleteMsg requests confirmation before deleting a backup.
+type confirmDeleteMsg struct {
+	name string
+}
+
+// requestConfirmDelete returns a tea.Cmd that requests delete confirmation.
+func requestConfirmDelete(name string) tea.Cmd {
+	return func() tea.Msg {
+		return confirmDeleteMsg{name: name}
+	}
+}
+
+// startBackupWithOptsCmd returns a tea.Cmd that starts a backup with the given options.
+func startBackupWithOptsCmd(client *sdk.Client, opts sdk.StartBackupOptions) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		_, err := client.Backups.Start(ctx, sdk.StartBackupOptions{
-			Type: sdk.BackupTypeLogical,
-		})
+		_, err := client.Backups.Start(ctx, opts)
 		return backupActionMsg{action: "start", err: err}
 	}
 }

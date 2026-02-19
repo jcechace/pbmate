@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -42,6 +43,15 @@ const (
 	panelBorderV  = 2 // vertical border: top + bottom
 )
 
+// confirmAction represents a pending y/n confirmation in the bottom bar.
+type confirmAction struct {
+	prompt string  // question displayed to the user
+	cmd    tea.Cmd // command to execute on confirmation
+}
+
+// confirmYes matches the 'y' key for confirming an action.
+var confirmYes = key.NewBinding(key.WithKeys("y"))
+
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
 	client *sdk.Client
@@ -52,6 +62,14 @@ type Model struct {
 	height       int
 	pollInterval time.Duration
 	flashErr     string // transient error message for the status bar
+
+	// Confirmation state — when non-nil, the bottom bar shows a y/n prompt
+	// and all key input is routed to the confirm handler.
+	confirm *confirmAction
+
+	// Backup form — when non-nil, a huh form overlay is active.
+	backupForm       *huh.Form
+	backupFormResult *backupFormResult
 
 	// Sub-models.
 	overview overviewModel
@@ -81,6 +99,11 @@ func (m Model) Init() tea.Cmd {
 
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// If the backup form is active, forward all messages to it.
+	if m.backupForm != nil {
+		return m.updateBackupForm(msg)
+	}
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -146,7 +169,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case confirmDeleteMsg:
+		m.confirm = &confirmAction{
+			prompt: fmt.Sprintf("Delete backup %s?", msg.name),
+			cmd:    deleteBackupCmd(m.client, msg.name),
+		}
+		return m, nil
+
 	case tea.KeyMsg:
+		// If a confirmation is pending, intercept all key input.
+		if m.confirm != nil {
+			var cmd tea.Cmd
+			if key.Matches(msg, confirmYes) {
+				cmd = m.confirm.cmd
+			}
+			m.confirm = nil
+			return m, cmd
+		}
+
 		var newTab tab = -1
 		switch {
 		case key.Matches(msg, m.keys.Quit):
@@ -165,9 +205,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.PrevTab):
 			newTab = (m.activeTab - 1 + tabCount) % tabCount
 		case key.Matches(msg, backupKeys.Start):
-			return m, startBackupCmd(m.client)
+			return m, m.openBackupForm()
 		case key.Matches(msg, backupKeys.Cancel):
-			return m, cancelBackupCmd(m.client)
+			if len(m.overview.data.operations) > 0 {
+				m.confirm = &confirmAction{
+					prompt: "Cancel running backup?",
+					cmd:    cancelBackupCmd(m.client),
+				}
+			}
+			return m, nil
 		default:
 			// Forward to active tab sub-model.
 			switch m.activeTab {
@@ -241,7 +287,12 @@ func (m Model) headerView() string {
 
 // contentView renders the active tab's content. Panels use viewports that
 // produce their allocated height; MaxHeight is a safety net against overflow.
+// When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
+	if m.backupForm != nil {
+		return renderFormOverlay(m.backupForm, m.styles, m.width, height)
+	}
+
 	switch m.activeTab {
 	case tabOverview:
 		return m.overview.view(m.width, height)
@@ -267,6 +318,10 @@ func (m Model) placeholderContent(text string, height int) string {
 // bottomBarView renders the single merged bottom bar with status HUD on the
 // left and context-sensitive keybinding hints on the right.
 func (m Model) bottomBarView() string {
+	if m.confirm != nil {
+		return m.confirmBarView()
+	}
+
 	// Left zone: operational status HUD.
 	var statusParts []string
 	if m.flashErr != "" {
@@ -291,6 +346,20 @@ func (m Model) bottomBarView() string {
 	}
 	bar := leftZone + strings.Repeat(" ", gap) + rightZone
 
+	return m.styles.BottomBar.Width(m.width).Render(bar)
+}
+
+// confirmBarView renders the bottom bar with a y/n confirmation prompt.
+func (m Model) confirmBarView() string {
+	prompt := " " + m.styles.StatusWarning.Render(m.confirm.prompt)
+	hint := m.styles.HintKey.Render("y") + " " + m.styles.HintDesc.Render("confirm") +
+		"  " + m.styles.HintKey.Render("n") + " " + m.styles.HintDesc.Render("cancel")
+
+	gap := m.width - lipgloss.Width(prompt) - lipgloss.Width(hint) - 1
+	if gap < 0 {
+		gap = 0
+	}
+	bar := prompt + strings.Repeat(" ", gap) + hint + " "
 	return m.styles.BottomBar.Width(m.width).Render(bar)
 }
 
@@ -395,4 +464,107 @@ func (m *Model) updateViewportDims() {
 
 	m.overview.resize(m.width, contentH)
 	m.backups.resize(m.width, contentH)
+}
+
+// --- Backup form management ---
+
+// openBackupForm creates and initializes the backup form overlay.
+func (m *Model) openBackupForm() tea.Cmd {
+	form, result := newBackupForm()
+	m.backupForm = form
+	m.backupFormResult = result
+	return m.backupForm.Init()
+}
+
+// updateBackupForm forwards a message to the active backup form and handles
+// completion/abort. Window size and data messages pass through so polling
+// continues while the form is open.
+func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	// Window resizing applies while the form is open.
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		m.updateViewportDims()
+		return m, nil
+
+	// Data messages keep flowing so the status bar stays live.
+	case tickMsg:
+		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
+		if m.activeTab == tabBackups {
+			cmds = append(cmds, fetchBackupsCmd(m.client))
+		}
+		return m, tea.Batch(cmds...)
+	case overviewDataMsg:
+		m.overview.setData(msg.overviewData)
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.flashErr = ""
+		}
+		if len(m.overview.data.operations) > 0 {
+			m.pollInterval = activeInterval
+		} else {
+			m.pollInterval = idleInterval
+		}
+		return m, tickCmd(m.pollInterval)
+	case backupsDataMsg:
+		m.backups.setData(msg.backupsData)
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		}
+		return m, nil
+	case backupActionMsg:
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
+		} else {
+			m.flashErr = ""
+		}
+		return m, tickCmd(0)
+	case logFollowMsg:
+		if msg.err != nil {
+			m.overview.stopFollow()
+			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
+			return m, nil
+		}
+		m.overview.appendLogEntries(msg.entries)
+		return m, m.overview.nextLogCmd()
+	case logFollowDoneMsg:
+		m.overview.stopFollow()
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
+		}
+		return m, nil
+
+	case tea.KeyMsg:
+		// Esc dismisses the form.
+		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
+			m.backupForm = nil
+			m.backupFormResult = nil
+			return m, nil
+		}
+	}
+
+	// Forward everything else to the huh form.
+	formModel, cmd := m.backupForm.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		m.backupForm = f
+	}
+
+	// Check if the form completed.
+	if m.backupForm.State == huh.StateCompleted {
+		opts := m.backupFormResult.toOptions()
+		m.backupForm = nil
+		m.backupFormResult = nil
+		return m, startBackupWithOptsCmd(m.client, opts)
+	}
+
+	// Check if the form was aborted.
+	if m.backupForm.State == huh.StateAborted {
+		m.backupForm = nil
+		m.backupFormResult = nil
+		return m, nil
+	}
+
+	return m, cmd
 }
