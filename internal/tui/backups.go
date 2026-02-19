@@ -158,6 +158,45 @@ func (m *backupsModel) detailContent() string {
 	return b.String()
 }
 
+// view renders the Backups tab with left list + right detail panels.
+func (m *backupsModel) view(totalW, totalH int) string {
+	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(totalW)
+	innerH := innerHeight(totalH)
+
+	// Set viewport dimensions (known only at View time) and render.
+	m.listVP.Width = contentLeftW
+	m.listVP.Height = innerH
+	m.detailVP.Width = contentRightW
+	m.detailVP.Height = innerH
+
+	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerH)
+	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerH)
+
+	if m.focus == panelLeft {
+		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+	if m.focus == panelRight {
+		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+
+	left := leftStyle.Render(m.listVP.View())
+	right := rightStyle.Render(m.detailVP.View())
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
+}
+
+// resize precomputes viewport dimensions so Update-time operations (scrolling)
+// use correct bounds. View-time dimension setting operates on a value copy.
+func (m *backupsModel) resize(totalW, totalH int) {
+	_, _, contentLeftW, contentRightW := horizontalSplit(totalW)
+	innerH := innerHeight(totalH)
+
+	m.listVP.Width = contentLeftW
+	m.listVP.Height = innerH
+	m.detailVP.Width = contentRightW
+	m.detailVP.Height = innerH
+}
+
 // --- Viewport content rebuilders ---
 
 func (m *backupsModel) rebuildListContent() {
@@ -167,20 +206,3 @@ func (m *backupsModel) rebuildListContent() {
 func (m *backupsModel) rebuildDetailContent() {
 	m.detailVP.SetContent(m.detailContent())
 }
-
-// --- Viewport size setters ---
-
-func (m *backupsModel) setListSize(width, height int) {
-	m.listVP.Width = width
-	m.listVP.Height = height
-}
-
-func (m *backupsModel) setDetailSize(width, height int) {
-	m.detailVP.Width = width
-	m.detailVP.Height = height
-}
-
-// --- Viewport view methods ---
-
-func (m *backupsModel) listView() string   { return m.listVP.View() }
-func (m *backupsModel) detailView() string { return m.detailVP.View() }

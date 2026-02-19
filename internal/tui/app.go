@@ -258,7 +258,7 @@ func (m Model) contentView(height int) string {
 	case tabOverview:
 		return m.overviewContentView(height)
 	case tabBackups:
-		return m.backupsContentView(height)
+		return m.backups.view(m.width, height)
 	case tabRestores:
 		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
@@ -316,34 +316,6 @@ func (m Model) overviewContentView(height int) string {
 	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, status, logs)
 
 	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
-}
-
-// backupsContentView renders the Backups tab with left list + right detail.
-func (m Model) backupsContentView(height int) string {
-	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(m.width)
-	innerH := innerHeight(height)
-
-	// Set viewport dimensions (known only at View time) and render.
-	m.backups.setListSize(contentLeftW, innerH)
-	m.backups.setDetailSize(contentRightW, innerH)
-
-	leftContent := m.backups.listView()
-	rightContent := m.backups.detailView()
-
-	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerH)
-	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerH)
-
-	if m.backups.focus == panelLeft {
-		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-	if m.backups.focus == panelRight {
-		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-
-	left := leftStyle.Render(leftContent)
-	right := rightStyle.Render(rightContent)
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
 
 // placeholderContent renders a simple placeholder for unimplemented tabs.
@@ -499,10 +471,7 @@ func (m *Model) updateViewportDims() {
 	m.overview.logVP.Height = innerHeight(bottomH)
 
 	// Backups: 2-panel full-height layout.
-	m.backups.listVP.Width = contentLeftW
-	m.backups.listVP.Height = innerHeight(contentH)
-	m.backups.detailVP.Width = contentRightW
-	m.backups.detailVP.Height = innerHeight(contentH)
+	m.backups.resize(m.width, contentH)
 }
 
 // toggleLogFollow starts or stops the log follow mode.
