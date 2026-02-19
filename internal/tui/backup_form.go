@@ -261,27 +261,8 @@ func renderFormOverlay(form *huh.Form, title string, styles Styles, contentW, co
 		Width(panelWidth).
 		Render(formView)
 
-	// Build a titled top border line: ╭─ Title ─────╮
-	bc := lipgloss.NewStyle().Foreground(borderColor)
-	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	titleStr := tc.Render(" " + title + " ")
-	titleW := lipgloss.Width(titleStr)
-
 	outerW := panelWidth + panelBorderH
-	fill := outerW - 3 - titleW // corner + pad + title + fill + corner
-	if fill < 0 {
-		fill = 0
-	}
-
-	topLine := bc.Render(border.TopLeft+border.Top) +
-		titleStr +
-		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
-
-	// Replace the auto-generated top border with our titled one.
-	lines := strings.SplitN(panel, "\n", 2)
-	if len(lines) == 2 {
-		panel = topLine + "\n" + lines[1]
-	}
+	panel = replaceTitleBorder(panel, title, outerW, border, borderColor)
 
 	// Center the panel in the content area.
 	return lipgloss.Place(contentW, contentH,

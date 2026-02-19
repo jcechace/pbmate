@@ -20,6 +20,34 @@ func newPanelViewport() viewport.Model {
 	return vp
 }
 
+// replaceTitleBorder replaces the top border of a rendered lipgloss panel
+// with a titled version: ╭─ Title ────────────╮
+// outerW is the full panel width including borders.
+func replaceTitleBorder(rendered, title string, outerW int,
+	border lipgloss.Border, borderColor lipgloss.TerminalColor,
+) string {
+	bc := lipgloss.NewStyle().Foreground(borderColor)
+	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	titleStr := tc.Render(" " + title + " ")
+	titleW := lipgloss.Width(titleStr)
+
+	// Layout: corner(1) + pad(1) + title(titleW) + fill + corner(1) = outerW
+	fill := outerW - 3 - titleW
+	if fill < 0 {
+		fill = 0
+	}
+
+	topLine := bc.Render(border.TopLeft+border.Top) +
+		titleStr +
+		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
+
+	lines := strings.SplitN(rendered, "\n", 2)
+	if len(lines) == 2 {
+		return topLine + "\n" + lines[1]
+	}
+	return topLine
+}
+
 // renderTitledPanel renders content inside a bordered panel with a title
 // embedded in the top border line: ╭─ Title ────────────╮
 // The title and border share the same color, which highlights on focus.
@@ -34,30 +62,8 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 		return rendered
 	}
 
-	// Build a replacement top border line with the title embedded.
-	bc := lipgloss.NewStyle().Foreground(borderColor)
-	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	titleStr := tc.Render(" " + title + " ")
-	titleW := lipgloss.Width(titleStr)
-
-	// Outer width = inner width (lipgloss .Width value) + left border + right border.
 	outerW := width + panelBorderH
-	// Layout: corner(1) + pad(1) + title(titleW) + fill + corner(1) = outerW
-	fill := outerW - 3 - titleW
-	if fill < 0 {
-		fill = 0
-	}
-
-	topLine := bc.Render(border.TopLeft+border.Top) +
-		titleStr +
-		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
-
-	// Replace the first line (top border) of the rendered panel.
-	lines := strings.SplitN(rendered, "\n", 2)
-	if len(lines) == 2 {
-		return topLine + "\n" + lines[1]
-	}
-	return topLine
+	return replaceTitleBorder(rendered, title, outerW, border, borderColor)
 }
 
 // helpOverlayWidth is the content width inside the help overlay panel.
@@ -133,26 +139,8 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 		Width(panelWidth).
 		Render(body)
 
-	// Build a titled top border line: ╭─ Help ─────╮
-	bc := lipgloss.NewStyle().Foreground(borderColor)
-	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	titleStr := tc.Render(" Help ")
-	titleW := lipgloss.Width(titleStr)
-
 	outerW := panelWidth + panelBorderH
-	fill := outerW - 3 - titleW
-	if fill < 0 {
-		fill = 0
-	}
-
-	topLine := bc.Render(border.TopLeft+border.Top) +
-		titleStr +
-		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
-
-	lines := strings.SplitN(panel, "\n", 2)
-	if len(lines) == 2 {
-		panel = topLine + "\n" + lines[1]
-	}
+	panel = replaceTitleBorder(panel, "Help", outerW, border, borderColor)
 
 	return lipgloss.Place(contentW, contentH,
 		lipgloss.Center, lipgloss.Center,
