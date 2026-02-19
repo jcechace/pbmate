@@ -37,6 +37,10 @@ const (
 	minLeftPanelW = 28  // minimum left panel width in characters
 	topPanelPct   = 60  // top row height as percentage of content area
 	maxLogEntries = 200 // max log entries kept in the follow buffer
+
+	panelBorderH  = 2 // horizontal border: left + right
+	panelPaddingH = 2 // horizontal padding: left + right (from Padding(0,1))
+	panelBorderV  = 2 // vertical border: top + bottom
 )
 
 // Model is the root BubbleTea model for PBMate.
@@ -210,25 +214,15 @@ func (m Model) View() string {
 		contentHeight = 0
 	}
 
-	content := m.contentView(contentHeight)
+	content := lipgloss.NewStyle().
+		MaxHeight(contentHeight).
+		Render(m.contentView(contentHeight))
 
-	output := lipgloss.JoinVertical(lipgloss.Left,
+	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
 		bottomBar,
 	)
-
-	// Clamp output to exactly m.height lines. Fluctuating line count
-	// causes BubbleTea's renderer to do a full clear+redraw (the
-	// visible "skip"). This ensures a stable frame height.
-	lines := strings.Split(output, "\n")
-	if len(lines) > m.height {
-		lines = lines[:m.height]
-	}
-	for len(lines) < m.height {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines, "\n")
 }
 
 // headerView renders the tab bar.
@@ -252,35 +246,21 @@ func (m Model) headerView() string {
 	return m.styles.Header.Width(m.width).Render(row)
 }
 
-// contentView renders the active tab's content, clamped to exactly height
-// lines. Without clamping, panels whose content exceeds their lipgloss
-// Height (which only pads, never truncates) would overflow, shifting the
-// bottom bar position between frames and causing visible flicker.
+// contentView renders the active tab's content. Panels use viewports that
+// produce their allocated height; MaxHeight is a safety net against overflow.
 func (m Model) contentView(height int) string {
-	var raw string
 	switch m.activeTab {
 	case tabOverview:
-		raw = m.overviewContentView(height)
+		return m.overviewContentView(height)
 	case tabBackups:
-		raw = m.backupsContentView(height)
+		return m.backupsContentView(height)
 	case tabRestores:
-		raw = m.placeholderContent("Restores - list restores", height)
+		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
-		raw = m.placeholderContent("Config - PBM configuration and profiles", height)
+		return m.placeholderContent("Config - PBM configuration and profiles", height)
+	default:
+		return ""
 	}
-	return clampHeight(raw, height)
-}
-
-// clampHeight ensures s has exactly n lines by truncating or padding.
-func clampHeight(s string, n int) string {
-	lines := strings.Split(s, "\n")
-	if len(lines) > n {
-		lines = lines[:n]
-	}
-	for len(lines) < n {
-		lines = append(lines, "")
-	}
-	return strings.Join(lines, "\n")
 }
 
 // overviewContentView renders the Overview tab with 4-quadrant layout:
@@ -292,44 +272,46 @@ func (m Model) overviewContentView(height int) string {
 	}
 	rightWidth := m.width - leftWidth
 
-	// Account for panel border + padding (2 border + 2 padding = 4 per panel).
-	const panelChrome = 4
-	innerLeftWidth := leftWidth - panelChrome
-	innerRightWidth := rightWidth - panelChrome
+	// Panel width is for lipgloss .Width() — the area inside borders.
+	// lipgloss subtracts padding internally before wrapping, so we only
+	// subtract the border here.
+	panelLeftW := leftWidth - panelBorderH
+	panelRightW := rightWidth - panelBorderH
+
+	// Content width is for viewports — the area inside borders AND padding.
+	contentLeftW := leftWidth - panelBorderH - panelPaddingH
+	contentRightW := rightWidth - panelBorderH - panelPaddingH
 
 	topHeight := height * topPanelPct / 100
 	bottomHeight := height - topHeight
-
-	innerTopLeftHeight := topHeight - 2    // border
-	innerTopRightHeight := topHeight - 2   // border
-	innerBotLeftHeight := bottomHeight - 2 // border
-	innerBotRightHeight := bottomHeight - 2
+	innerTopH := topHeight - panelBorderV
+	innerBotH := bottomHeight - panelBorderV
 
 	// Clamp to zero.
-	if innerLeftWidth < 0 {
-		innerLeftWidth = 0
+	if panelLeftW < 0 {
+		panelLeftW = 0
 	}
-	if innerRightWidth < 0 {
-		innerRightWidth = 0
+	if panelRightW < 0 {
+		panelRightW = 0
 	}
-	if innerTopLeftHeight < 0 {
-		innerTopLeftHeight = 0
+	if contentLeftW < 0 {
+		contentLeftW = 0
 	}
-	if innerTopRightHeight < 0 {
-		innerTopRightHeight = 0
+	if contentRightW < 0 {
+		contentRightW = 0
 	}
-	if innerBotLeftHeight < 0 {
-		innerBotLeftHeight = 0
+	if innerTopH < 0 {
+		innerTopH = 0
 	}
-	if innerBotRightHeight < 0 {
-		innerBotRightHeight = 0
+	if innerBotH < 0 {
+		innerBotH = 0
 	}
 
 	// Set viewport dimensions (known only at View time) and render.
-	m.overview.setClusterSize(innerLeftWidth, innerTopLeftHeight)
-	m.overview.setDetailSize(innerRightWidth, innerTopRightHeight)
-	m.overview.setStatusSize(innerLeftWidth, innerBotLeftHeight)
-	m.overview.setLogSize(innerRightWidth, innerBotRightHeight)
+	m.overview.setClusterSize(contentLeftW, innerTopH)
+	m.overview.setDetailSize(contentRightW, innerTopH)
+	m.overview.setStatusSize(contentLeftW, innerBotH)
+	m.overview.setLogSize(contentRightW, innerBotH)
 
 	clusterContent := m.overview.clusterView()
 	detailContent := m.overview.detailView()
@@ -337,10 +319,10 @@ func (m Model) overviewContentView(height int) string {
 	logsContent := m.overview.logsView()
 
 	// Apply panel styles with titled borders.
-	clusterStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerTopLeftHeight)
-	detailStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerTopRightHeight)
-	statusStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerBotLeftHeight)
-	logsStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerBotRightHeight)
+	clusterStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerTopH)
+	detailStyle := m.styles.RightPanel.Width(panelRightW).Height(innerTopH)
+	statusStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerBotH)
+	logsStyle := m.styles.RightPanel.Width(panelRightW).Height(innerBotH)
 
 	// Focus highlighting on the cluster panel.
 	if m.overview.focus == panelLeft {
@@ -369,30 +351,37 @@ func (m Model) backupsContentView(height int) string {
 	}
 	rightWidth := m.width - leftWidth
 
-	const panelChrome = 4
-	innerLeftWidth := leftWidth - panelChrome
-	innerRightWidth := rightWidth - panelChrome
-	innerHeight := height - 2
+	panelLeftW := leftWidth - panelBorderH
+	panelRightW := rightWidth - panelBorderH
+	contentLeftW := leftWidth - panelBorderH - panelPaddingH
+	contentRightW := rightWidth - panelBorderH - panelPaddingH
+	innerHeight := height - panelBorderV
 
-	if innerLeftWidth < 0 {
-		innerLeftWidth = 0
+	if panelLeftW < 0 {
+		panelLeftW = 0
 	}
-	if innerRightWidth < 0 {
-		innerRightWidth = 0
+	if panelRightW < 0 {
+		panelRightW = 0
+	}
+	if contentLeftW < 0 {
+		contentLeftW = 0
+	}
+	if contentRightW < 0 {
+		contentRightW = 0
 	}
 	if innerHeight < 0 {
 		innerHeight = 0
 	}
 
 	// Set viewport dimensions (known only at View time) and render.
-	m.backups.setListSize(innerLeftWidth, innerHeight)
-	m.backups.setDetailSize(innerRightWidth, innerHeight)
+	m.backups.setListSize(contentLeftW, innerHeight)
+	m.backups.setDetailSize(contentRightW, innerHeight)
 
 	leftContent := m.backups.listView()
 	rightContent := m.backups.detailView()
 
-	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerHeight)
-	rightStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerHeight)
+	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerHeight)
+	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerHeight)
 
 	if m.backups.focus == panelLeft {
 		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
