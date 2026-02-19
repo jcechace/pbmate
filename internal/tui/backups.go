@@ -60,7 +60,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		m.handleVertical(1)
 	case key.Matches(msg, keys.Up):
 		m.handleVertical(-1)
-	case key.Matches(msg, backupKeys.Delete):
+	case key.Matches(msg, keys.Delete):
 		if sel := m.selectedBackup(); sel != nil {
 			return requestConfirmDelete(sel.Name)
 		}

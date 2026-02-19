@@ -17,6 +17,7 @@ type globalKeyMap struct {
 	Back      key.Binding
 	Up        key.Binding
 	Down      key.Binding
+	Delete    key.Binding
 }
 
 var globalKeys = globalKeyMap{
@@ -72,6 +73,10 @@ var globalKeys = globalKeyMap{
 		key.WithKeys("["),
 		key.WithHelp("[", "prev panel"),
 	),
+	Delete: key.NewBinding(
+		key.WithKeys("d"),
+		key.WithHelp("d", "delete"),
+	),
 }
 
 // overviewKeyMap defines keybindings specific to the Overview tab.
@@ -101,7 +106,6 @@ type backupKeyMap struct {
 	Start       key.Binding
 	StartCustom key.Binding
 	Cancel      key.Binding
-	Delete      key.Binding
 }
 
 var backupKeys = backupKeyMap{
@@ -117,10 +121,6 @@ var backupKeys = backupKeyMap{
 		key.WithKeys("c"),
 		key.WithHelp("c", "cancel backup"),
 	),
-	Delete: key.NewBinding(
-		key.WithKeys("d"),
-		key.WithHelp("d", "delete backup"),
-	),
 }
 
 // ShortHelp returns the key bindings shown in the compact help bar.
@@ -135,6 +135,6 @@ func (k globalKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.NextPanel, k.PrevPanel},
 		{k.NextTab, k.PrevTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4},
-		{k.Help, k.Back, k.Quit},
+		{k.Delete, k.Help, k.Back, k.Quit},
 	}
 }

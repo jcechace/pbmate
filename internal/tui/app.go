@@ -67,6 +67,9 @@ type Model struct {
 	// and all key input is routed to the confirm handler.
 	confirm *confirmAction
 
+	// Help overlay — when true, the ? help panel is shown.
+	showHelp bool
+
 	// Backup form — when non-nil, a huh form overlay is active.
 	backupForm       *huh.Form
 	backupFormResult *backupFormResult
@@ -203,11 +206,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
+		// If the help overlay is open, dismiss on ?/esc and ignore everything else.
+		if m.showHelp {
+			if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) {
+				m.showHelp = false
+			}
+			return m, nil
+		}
+
 		var newTab tab = -1
 		switch {
 		case key.Matches(msg, m.keys.Quit):
 			m.overview.stopFollow()
 			return m, tea.Quit
+		case key.Matches(msg, m.keys.Help):
+			m.showHelp = true
+			return m, nil
 		case key.Matches(msg, m.keys.Tab1):
 			newTab = tabOverview
 		case key.Matches(msg, m.keys.Tab2):
@@ -307,6 +321,9 @@ func (m Model) headerView() string {
 // produce their allocated height; MaxHeight is a safety net against overflow.
 // When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
+	if m.showHelp {
+		return renderHelpOverlay(m.styles, m.width, height)
+	}
 	if m.backupForm != nil {
 		title := "Start Backup"
 		if m.backupFormKind == backupFormFull {
@@ -445,24 +462,15 @@ func (m Model) runningOpText() string {
 	return text
 }
 
-// contextBindings returns the keybinding hints appropriate for the current
-// tab and selection state.
+// contextBindings returns the keybinding hints for the bottom bar.
+// Only essential navigation and help/quit are shown; all other bindings
+// are accessible through the ? help overlay.
 func (m Model) contextBindings() []key.Binding {
-	// Navigation: panel cycling + vertical.
-	bindings := []key.Binding{m.keys.NextPanel, m.keys.PrevPanel, m.keys.Up, m.keys.Down}
-
-	// Tab-specific hints.
-	switch m.activeTab {
-	case tabOverview:
-		bindings = append(bindings, overviewKeys.Toggle, overviewKeys.Follow, overviewKeys.Wrap)
-	case tabBackups:
-		bindings = append(bindings, backupKeys.Delete)
+	return []key.Binding{
+		m.keys.NextPanel, m.keys.PrevPanel,
+		m.keys.Up, m.keys.Down,
+		m.keys.Help, m.keys.Quit,
 	}
-
-	// Global actions + help.
-	bindings = append(bindings, backupKeys.Start, backupKeys.StartCustom, backupKeys.Cancel)
-	bindings = append(bindings, m.keys.Help, m.keys.Quit)
-	return bindings
 }
 
 // clusterTimeText returns the cluster time for the status bar.

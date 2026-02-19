@@ -60,6 +60,105 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 	return topLine
 }
 
+// helpOverlayWidth is the content width inside the help overlay panel.
+const helpOverlayWidth = 38
+
+// renderHelpOverlay renders a centered help panel showing all keybindings
+// organized by category.
+func renderHelpOverlay(styles Styles, contentW, contentH int) string {
+	keyStyle := styles.HintKey
+	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
+
+	line := func(k, desc string) string {
+		return fmt.Sprintf("  %s  %s", keyStyle.Render(k), descStyle.Render(desc))
+	}
+
+	var b strings.Builder
+
+	b.WriteString(sectionStyle.Render("Navigation"))
+	b.WriteByte('\n')
+	b.WriteString(line("] / [", "next / prev panel"))
+	b.WriteByte('\n')
+	b.WriteString(line("up/k", "up"))
+	b.WriteByte('\n')
+	b.WriteString(line("down/j", "down"))
+	b.WriteByte('\n')
+	b.WriteString(line("tab", "next tab"))
+	b.WriteByte('\n')
+	b.WriteString(line("1-4", "jump to tab"))
+	b.WriteByte('\n')
+
+	b.WriteByte('\n')
+	b.WriteString(sectionStyle.Render("Actions"))
+	b.WriteByte('\n')
+	b.WriteString(line("s", "start backup"))
+	b.WriteByte('\n')
+	b.WriteString(line("S", "custom backup"))
+	b.WriteByte('\n')
+	b.WriteString(line("c", "cancel backup"))
+	b.WriteByte('\n')
+	b.WriteString(line("d", "delete"))
+	b.WriteByte('\n')
+
+	b.WriteByte('\n')
+	b.WriteString(sectionStyle.Render("Overview"))
+	b.WriteByte('\n')
+	b.WriteString(line("space", "expand / collapse"))
+	b.WriteByte('\n')
+	b.WriteString(line("f", "follow logs"))
+	b.WriteByte('\n')
+	b.WriteString(line("w", "wrap logs"))
+	b.WriteByte('\n')
+
+	b.WriteByte('\n')
+	b.WriteString(sectionStyle.Render("General"))
+	b.WriteByte('\n')
+	b.WriteString(line("?", "help"))
+	b.WriteByte('\n')
+	b.WriteString(line("esc", "back / dismiss"))
+	b.WriteByte('\n')
+	b.WriteString(line("q", "quit"))
+
+	body := b.String()
+	border := lipgloss.RoundedBorder()
+	borderColor := styles.FocusedBorderColor
+
+	panelWidth := helpOverlayWidth + panelPaddingH
+
+	panel := lipgloss.NewStyle().
+		Border(border).
+		BorderForeground(borderColor).
+		Padding(1, 1).
+		Width(panelWidth).
+		Render(body)
+
+	// Build a titled top border line: ╭─ Help ─────╮
+	bc := lipgloss.NewStyle().Foreground(borderColor)
+	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	titleStr := tc.Render(" Help ")
+	titleW := lipgloss.Width(titleStr)
+
+	outerW := panelWidth + panelBorderH
+	fill := outerW - 3 - titleW
+	if fill < 0 {
+		fill = 0
+	}
+
+	topLine := bc.Render(border.TopLeft+border.Top) +
+		titleStr +
+		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
+
+	lines := strings.SplitN(panel, "\n", 2)
+	if len(lines) == 2 {
+		panel = topLine + "\n" + lines[1]
+	}
+
+	return lipgloss.Place(contentW, contentH,
+		lipgloss.Center, lipgloss.Center,
+		panel)
+}
+
 // statusIndicator returns a colored status dot for a PBM status.
 func statusIndicator(s sdk.Status, styles *Styles) string {
 	switch {
