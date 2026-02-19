@@ -256,7 +256,7 @@ func (m Model) headerView() string {
 func (m Model) contentView(height int) string {
 	switch m.activeTab {
 	case tabOverview:
-		return m.overviewContentView(height)
+		return m.overview.view(m.width, height)
 	case tabBackups:
 		return m.backups.view(m.width, height)
 	case tabRestores:
@@ -266,56 +266,6 @@ func (m Model) contentView(height int) string {
 	default:
 		return ""
 	}
-}
-
-// overviewContentView renders the Overview tab with 4-quadrant layout:
-// top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
-func (m Model) overviewContentView(height int) string {
-	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(m.width)
-
-	topHeight := height * topPanelPct / 100
-	bottomHeight := height - topHeight
-	innerTopH := innerHeight(topHeight)
-	innerBotH := innerHeight(bottomHeight)
-
-	// Set viewport dimensions (known only at View time) and render.
-	m.overview.setClusterSize(contentLeftW, innerTopH)
-	m.overview.setDetailSize(contentRightW, innerTopH)
-	m.overview.setStatusSize(contentLeftW, innerBotH)
-	m.overview.setLogSize(contentRightW, innerBotH)
-
-	clusterContent := m.overview.clusterView()
-	detailContent := m.overview.detailView()
-	statusContent := m.overview.statusView()
-	logsContent := m.overview.logsView()
-
-	// Apply panel styles with titled borders.
-	clusterStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerTopH)
-	detailStyle := m.styles.RightPanel.Width(panelRightW).Height(innerTopH)
-	statusStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerBotH)
-	logsStyle := m.styles.RightPanel.Width(panelRightW).Height(innerBotH)
-
-	// Highlight the focused panel's border.
-	switch m.overview.focus {
-	case focusCluster:
-		clusterStyle = clusterStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusDetail:
-		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusStatus:
-		statusStyle = statusStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusLog:
-		logsStyle = logsStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-
-	cluster := clusterStyle.Render(clusterContent)
-	detail := detailStyle.Render(detailContent)
-	status := statusStyle.Render(statusContent)
-	logs := logsStyle.Render(logsContent)
-
-	topRow := lipgloss.JoinHorizontal(lipgloss.Top, cluster, detail)
-	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, status, logs)
-
-	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
 }
 
 // placeholderContent renders a simple placeholder for unimplemented tabs.
@@ -455,22 +405,7 @@ func (m *Model) updateViewportDims() {
 	chromeH := lipgloss.Height(m.headerView()) + lipgloss.Height(m.bottomBarView())
 	contentH := max(m.height-chromeH, 0)
 
-	_, _, contentLeftW, contentRightW := horizontalSplit(m.width)
-
-	// Overview: 4-quadrant layout.
-	topH := contentH * topPanelPct / 100
-	bottomH := contentH - topH
-
-	m.overview.clusterVP.Width = contentLeftW
-	m.overview.clusterVP.Height = innerHeight(topH)
-	m.overview.detailVP.Width = contentRightW
-	m.overview.detailVP.Height = innerHeight(topH)
-	m.overview.statusVP.Width = contentLeftW
-	m.overview.statusVP.Height = innerHeight(bottomH)
-	m.overview.logVP.Width = contentRightW
-	m.overview.logVP.Height = innerHeight(bottomH)
-
-	// Backups: 2-panel full-height layout.
+	m.overview.resize(m.width, contentH)
 	m.backups.resize(m.width, contentH)
 }
 

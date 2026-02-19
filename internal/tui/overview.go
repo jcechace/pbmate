@@ -436,45 +436,81 @@ func (m *overviewModel) rebuildStatusContent() {
 	m.statusVP.SetContent(m.statusContent())
 }
 
-// --- Viewport size setters ---
-// Called from View where layout dimensions are known.
+// view renders the Overview tab with 4-quadrant layout:
+// top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
+func (m *overviewModel) view(totalW, totalH int) string {
+	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(totalW)
 
-func (m *overviewModel) setClusterSize(width, height int) {
-	m.clusterVP.Width = width
-	m.clusterVP.Height = height
+	topHeight := totalH * topPanelPct / 100
+	bottomHeight := totalH - topHeight
+	innerTopH := innerHeight(topHeight)
+	innerBotH := innerHeight(bottomHeight)
+
+	// Set viewport dimensions (known only at View time).
+	m.clusterVP.Width = contentLeftW
+	m.clusterVP.Height = innerTopH
+	m.detailVP.Width = contentRightW
+	m.detailVP.Height = innerTopH
+	m.statusVP.Width = contentLeftW
+	m.statusVP.Height = innerBotH
+	m.logVP.Width = contentRightW
+	m.logVP.Height = innerBotH
+	if m.logPinned {
+		m.logVP.GotoBottom()
+	}
+
+	// Apply panel styles with focus-highlighted border.
+	clusterStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerTopH)
+	detailStyle := m.styles.RightPanel.Width(panelRightW).Height(innerTopH)
+	statusStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerBotH)
+	logsStyle := m.styles.RightPanel.Width(panelRightW).Height(innerBotH)
+
+	switch m.focus {
+	case focusCluster:
+		clusterStyle = clusterStyle.BorderForeground(m.styles.FocusedBorderColor)
+	case focusDetail:
+		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
+	case focusStatus:
+		statusStyle = statusStyle.BorderForeground(m.styles.FocusedBorderColor)
+	case focusLog:
+		logsStyle = logsStyle.BorderForeground(m.styles.FocusedBorderColor)
+	}
+
+	topRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		clusterStyle.Render(m.clusterVP.View()),
+		detailStyle.Render(m.detailVP.View()),
+	)
+	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top,
+		statusStyle.Render(m.statusVP.View()),
+		logsStyle.Render(m.logVP.View()),
+	)
+
+	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
 }
 
-func (m *overviewModel) setDetailSize(width, height int) {
-	m.detailVP.Width = width
-	m.detailVP.Height = height
+// resize precomputes viewport dimensions so Update-time operations (scrolling,
+// GotoBottom) use correct bounds. View-time dimension setting operates on a
+// value copy and doesn't persist.
+func (m *overviewModel) resize(totalW, totalH int) {
+	_, _, contentLeftW, contentRightW := horizontalSplit(totalW)
+
+	topH := totalH * topPanelPct / 100
+	bottomH := totalH - topH
+
+	m.clusterVP.Width = contentLeftW
+	m.clusterVP.Height = innerHeight(topH)
+	m.detailVP.Width = contentRightW
+	m.detailVP.Height = innerHeight(topH)
+	m.statusVP.Width = contentLeftW
+	m.statusVP.Height = innerHeight(bottomH)
+	m.logVP.Width = contentRightW
+	m.logVP.Height = innerHeight(bottomH)
 }
-
-func (m *overviewModel) setStatusSize(width, height int) {
-	m.statusVP.Width = width
-	m.statusVP.Height = height
-}
-
-// --- Viewport view methods ---
-// Each returns the viewport's rendered output (exactly Height lines).
-
-func (m *overviewModel) clusterView() string { return m.clusterVP.View() }
-func (m *overviewModel) detailView() string  { return m.detailVP.View() }
-func (m *overviewModel) statusView() string  { return m.statusVP.View() }
 
 // setLogEntries updates the log entries displayed in the log panel.
 func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
 	m.data.logEntries = entries
 	m.rebuildLogContent()
-}
-
-// setLogSize updates the viewport dimensions for the log panel.
-// Called from View where layout dimensions are known.
-func (m *overviewModel) setLogSize(width, height int) {
-	m.logVP.Width = width
-	m.logVP.Height = height
-	if m.logPinned {
-		m.logVP.GotoBottom()
-	}
 }
 
 // rebuildLogContent reconstructs the viewport content from log entries
@@ -524,11 +560,6 @@ func (m *overviewModel) rebuildLogContent() {
 	if m.logVP.Height > 0 && m.logPinned {
 		m.logVP.GotoBottom()
 	}
-}
-
-// logsView renders the log panel using the viewport.
-func (m *overviewModel) logsView() string {
-	return m.logVP.View()
 }
 
 // formatLogEntry formats a single log entry for the log panel.
