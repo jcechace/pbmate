@@ -189,8 +189,12 @@ Single merged bar replacing the previous two-bar (status + help) design.
   - Active operation detected: 2s
 - Overview always fetches cluster + status data (needed for bottom bar HUD).
 - Tab-specific data fetched only for the active tab.
-- **Log panel**: polls every 5s in normal mode; streams via `Logs.Follow()`
-  goroutine in follow mode.
+- **Data ownership**: Sub-models own their data. Root Model has no data fields;
+  it reads `m.overview.data` directly for the status bar HUD and adaptive
+  polling. This avoids fragile sync-back patterns between root and sub-models.
+- **Log panel**: auto-refreshes every poll cycle in normal mode; streams via
+  `Logs.Follow()` goroutine in follow mode. Follow-mode log entries are
+  preserved across poll cycles by `overview.setData()`.
 - **Stable cursor**: selection tracked by item identity (agent node name,
   backup name), not by list index. Prevents cursor jumping on data refresh.
 
@@ -200,7 +204,9 @@ Single merged bar replacing the previous two-bar (status + help) design.
   gray = cancelled/stale.
 - **Status indicators**: `●` (filled green) = healthy/done, `●` (filled red) =
   error, `○` (empty/dim) = stale/cancelled. Shape + color for accessibility.
-- Bordered panels with lipgloss `RoundedBorder`.
+- Bordered panels with lipgloss `RoundedBorder` and **titled top borders**:
+  `╭─ Cluster ─────╮`. Title color matches the border color (primary when
+  focused, subtle when unfocused).
 - Adaptive colors (`lipgloss.AdaptiveColor`) for light/dark terminals.
 - Compact, information-dense -- no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
@@ -221,15 +227,18 @@ pbmate/
 ├── main.go                    # Entry point: flags, SDK client, tea.Program
 ├── internal/
 │   └── tui/
-│       ├── app.go             # Root model: Init, Update, View, tab routing
-│       ├── keys.go            # Key bindings (global + per-view keymaps)
-│       ├── styles.go          # Lipgloss styles, colors, borders
+│       ├── app.go             # Root model: Init, Update, View, tab routing, bottom bar
+│       ├── overview.go        # Overview tab: layout, focus, follow state, status panel
+│       ├── cluster_panel.go   # Cluster tree + detail viewports (extracted from overview)
+│       ├── backups.go         # Backups tab: list + detail panels
+│       ├── log_panel.go       # Reusable log viewer: viewport, pin/wrap/follow
+│       ├── data.go            # Data fetching commands, message types, action commands
+│       ├── render.go          # Shared rendering: titled panels, status dots, backup detail
+│       ├── layout.go          # Layout helpers: horizontalSplit, innerHeight, panel type
+│       ├── keys.go            # Key bindings (global + per-tab keymaps)
+│       ├── styles.go          # Lipgloss styles derived from theme
 │       ├── theme.go           # Theme definitions (Catppuccin + adaptive)
 │       ├── poll.go            # Tick intervals and tick command
-│       ├── data.go            # Data fetching commands and message types
-│       ├── render.go          # Shared rendering helpers
-│       ├── overview.go        # Overview tab (cluster tree + detail + status + logs)
-│       ├── backups.go         # Backups tab (list + detail with sub-tabs)
 │       ├── restores.go        # Restores tab (planned -- Phase 5d)
 │       └── config.go          # Config tab (planned -- Phase 5d)
 ```

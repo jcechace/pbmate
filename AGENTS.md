@@ -171,15 +171,18 @@ pbmate/
 ├── main.go                 # TUI entry point: --uri and --theme flags
 ├── internal/
 │   └── tui/
-│       ├── app.go          # Root model: layout, tab routing, bottom bar, global keys
-│       ├── keys.go         # Key bindings (global + per-tab keymaps)
-│       ├── styles.go       # Lipgloss styles, colors, borders
-│       ├── theme.go        # Theme definitions (Catppuccin + adaptive)
-│       ├── poll.go         # Tick intervals and adaptive polling
+│       ├── app.go          # Root model: tab routing, bottom bar, global keys
+│       ├── overview.go     # Overview tab: layout, focus, follow state, status panel
+│       ├── cluster_panel.go # Cluster tree + detail viewports (from overview)
+│       ├── backups.go      # Backups tab (list + detail panels)
+│       ├── log_panel.go    # Reusable log viewer: viewport, pin/wrap/follow
 │       ├── data.go         # Data fetching commands and message types
-│       ├── render.go       # Shared rendering helpers, viewport factory
-│       ├── overview.go     # Overview tab (4-quadrant: cluster, detail, status, logs)
-│       └── backups.go      # Backups tab (list + detail panels)
+│       ├── render.go       # Shared rendering: titled panels, status dots, detail
+│       ├── layout.go       # Layout helpers, panel type, dimension math
+│       ├── keys.go         # Key bindings (global + per-tab keymaps)
+│       ├── styles.go       # Lipgloss styles derived from theme
+│       ├── theme.go        # Theme definitions (Catppuccin + adaptive)
+│       └── poll.go         # Tick intervals and adaptive polling
 ├── mcp/
 │   └── go.mod              # MCP module: github.com/jcechace/pbmate/mcp
 ```

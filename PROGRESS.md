@@ -73,6 +73,18 @@
 - [x] Redesign panel focus: 4-quadrant `[]` cycling, per-panel Up/Down dispatch
 - [x] Move start/cancel backup actions (`s`/`c`) to global scope
 
+### Phase 5b+: Architecture refactoring (complete)
+- [x] Extract layout helpers (horizontalSplit, innerHeight) into layout.go
+- [x] Make backupsModel self-contained with view() and resize()
+- [x] Make overviewModel self-contained with view() and resize()
+- [x] Add SectionHeader and Bold to Styles, move relativeTime to render.go
+- [x] Extract logPanel as a reusable component (log_panel.go)
+- [x] Move log follow state from root Model into overviewModel
+- [x] Move shared panel type to layout.go
+- [x] Eliminate data duplication between root Model and sub-models
+- [x] Extract clusterPanel from overviewModel (cluster_panel.go)
+- [x] Add panel titles to border rendering (╭─ Title ─────╮)
+
 ### Phase 5c: Interactions (planned)
 - [ ] Inline y/n confirmation for destructive actions (delete, cancel)
 - [ ] `huh` form for start backup (type, compression, profile)
