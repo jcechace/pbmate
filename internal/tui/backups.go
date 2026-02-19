@@ -5,11 +5,14 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
+
+const maxBackupNameList = 22 // max backup name length in the backup list
 
 // backupsModel is the sub-model for the Backups tab.
 type backupsModel struct {
@@ -18,14 +21,20 @@ type backupsModel struct {
 	cursor  int
 	focus   panel
 	styles  *Styles
+
+	// Panel viewports — each produces exactly its allocated height.
+	listVP   viewport.Model
+	detailVP viewport.Model
 }
 
 // newBackupsModel creates a new backups sub-model.
 func newBackupsModel(client *sdk.Client, styles *Styles) backupsModel {
 	return backupsModel{
-		client: client,
-		styles: styles,
-		focus:  panelLeft,
+		client:   client,
+		styles:   styles,
+		focus:    panelLeft,
+		listVP:   newPanelViewport(),
+		detailVP: newPanelViewport(),
 	}
 }
 
@@ -35,6 +44,8 @@ func (m *backupsModel) setData(d backupsData) {
 	if m.cursor >= len(m.backups) {
 		m.cursor = max(0, len(m.backups)-1)
 	}
+	m.rebuildListContent()
+	m.rebuildDetailContent()
 }
 
 // update handles key messages for the Backups tab.
@@ -45,14 +56,20 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		if m.cursor < len(m.backups)-1 {
 			m.cursor++
 		}
+		m.rebuildListContent()
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.Up):
 		if m.cursor > 0 {
 			m.cursor--
 		}
+		m.rebuildListContent()
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.Left):
 		m.focus = panelLeft
+		m.rebuildListContent()
 	case key.Matches(msg, keys.Right):
 		m.focus = panelRight
+		m.rebuildListContent()
 	case key.Matches(msg, backupKeys.Start):
 		return startBackupCmd(m.client)
 	case key.Matches(msg, backupKeys.Cancel):
@@ -73,8 +90,8 @@ func (m *backupsModel) selectedBackup() *sdk.Backup {
 	return nil
 }
 
-// leftView renders the backup list for the left panel.
-func (m *backupsModel) leftView(width, height int) string {
+// listContent builds the backup list content string.
+func (m *backupsModel) listContent() string {
 	if len(m.backups) == 0 {
 		return m.styles.StatusMuted.Render("No backups")
 	}
@@ -105,8 +122,8 @@ func (m *backupsModel) leftView(width, height int) string {
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
 	name := bk.Name
-	if len(name) > 22 {
-		name = name[:22]
+	if len(name) > maxBackupNameList {
+		name = name[:maxBackupNameList]
 	}
 	size := ""
 	if bk.Size > 0 {
@@ -115,8 +132,8 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	return fmt.Sprintf("%s %s  %s  %s", ind, name, bk.Type, size)
 }
 
-// detailView renders the full detail for the selected backup.
-func (m *backupsModel) detailView() string {
+// detailContent builds the detail content string for the selected backup.
+func (m *backupsModel) detailContent() string {
 	sel := m.selectedBackup()
 	if sel == nil {
 		return m.styles.StatusMuted.Render("No selection")
@@ -125,3 +142,30 @@ func (m *backupsModel) detailView() string {
 	renderBackupDetail(&b, sel, m.styles)
 	return b.String()
 }
+
+// --- Viewport content rebuilders ---
+
+func (m *backupsModel) rebuildListContent() {
+	m.listVP.SetContent(m.listContent())
+}
+
+func (m *backupsModel) rebuildDetailContent() {
+	m.detailVP.SetContent(m.detailContent())
+}
+
+// --- Viewport size setters ---
+
+func (m *backupsModel) setListSize(width, height int) {
+	m.listVP.Width = width
+	m.listVP.Height = height
+}
+
+func (m *backupsModel) setDetailSize(width, height int) {
+	m.detailVP.Width = width
+	m.detailVP.Height = height
+}
+
+// --- Viewport view methods ---
+
+func (m *backupsModel) listView() string   { return m.listVP.View() }
+func (m *backupsModel) detailView() string { return m.detailVP.View() }

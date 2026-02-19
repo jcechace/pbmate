@@ -7,10 +7,18 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
+)
+
+// Display truncation limits.
+const (
+	maxBackupNameOverview = 16 // max backup name length in the overview status panel
+	maxAgentVersionLen    = 5  // max agent version length in the cluster panel
+	statusLabelWidth      = 10 // fixed label column width in the status panel
 )
 
 // itemKind identifies the type of item in the overview list.
@@ -48,6 +56,12 @@ type overviewModel struct {
 	grouped      map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
 	rsNames      []string               // sorted RS names
 	logFollowing bool                   // whether log follow mode is active
+
+	// Panel viewports — each produces exactly its allocated height.
+	clusterVP viewport.Model
+	detailVP  viewport.Model
+	statusVP  viewport.Model
+	logVP     viewport.Model
 }
 
 // newOverviewModel creates a new overview sub-model.
@@ -56,6 +70,10 @@ func newOverviewModel(styles *Styles) overviewModel {
 		styles:    styles,
 		focus:     panelLeft,
 		collapsed: make(map[string]bool),
+		clusterVP: newPanelViewport(),
+		detailVP:  newPanelViewport(),
+		statusVP:  newPanelViewport(),
+		logVP:     newPanelViewport(),
 	}
 }
 
@@ -65,6 +83,8 @@ func (m *overviewModel) setData(d overviewData) {
 	m.grouped = groupAgentsByRS(d.agents)
 	m.rsNames = sortedKeys(m.grouped)
 	m.rebuildItems()
+	m.rebuildStatusContent()
+	m.rebuildLogContent()
 }
 
 // rebuildItems reconstructs the flat item list from grouped data,
@@ -123,6 +143,8 @@ func (m *overviewModel) rebuildItems() {
 		}
 	}
 	m.ensureSelectable(1)
+	m.rebuildClusterContent()
+	m.rebuildDetailContent()
 }
 
 // update handles key messages for the overview tab.
@@ -130,14 +152,21 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 	switch {
 	case key.Matches(msg, keys.Down):
 		m.moveCursor(1)
+		m.rebuildClusterContent()
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.Up):
 		m.moveCursor(-1)
+		m.rebuildClusterContent()
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.Left):
 		m.focus = panelLeft
+		m.rebuildClusterContent()
 	case key.Matches(msg, keys.Right):
 		m.focus = panelRight
+		m.rebuildClusterContent()
 	case key.Matches(msg, overviewKeys.Toggle):
 		m.toggleCollapse()
+		// rebuildItems (called by toggleCollapse) already rebuilds cluster + detail.
 	}
 }
 
@@ -206,8 +235,8 @@ func (m *overviewModel) selectedItem() *overviewItem {
 	return nil
 }
 
-// detailView renders the detail panel content for the selected item.
-func (m *overviewModel) detailView() string {
+// detailContent builds the detail panel content string for the selected item.
+func (m *overviewModel) detailContent() string {
 	sel := m.selectedItem()
 	if sel == nil {
 		return m.styles.StatusMuted.Render("No selection")
@@ -263,11 +292,10 @@ func (m *overviewModel) renderRSDetail(b *strings.Builder, rsName string) {
 	}
 }
 
-// statusView renders the bottom-left status panel with PITR, ops, latest
-// backup, and storage info.
-func (m *overviewModel) statusView() string {
+// statusContent builds the bottom-left status panel content string.
+func (m *overviewModel) statusContent() string {
 	var b strings.Builder
-	label := lipgloss.NewStyle().Bold(true).Width(10)
+	label := lipgloss.NewStyle().Bold(true).Width(statusLabelWidth)
 
 	// PITR status.
 	pitrVal := m.styles.StatusMuted.Render("--")
@@ -300,8 +328,8 @@ func (m *overviewModel) statusView() string {
 		latest := m.data.recentBackups[0]
 		ind := statusIndicator(latest.Status, m.styles)
 		name := latest.Name
-		if len(name) > 16 {
-			name = name[:16]
+		if len(name) > maxBackupNameOverview {
+			name = name[:maxBackupNameOverview]
 		}
 		age := ""
 		if !latest.StartTS.IsZero() {
@@ -321,46 +349,79 @@ func (m *overviewModel) statusView() string {
 	return b.String()
 }
 
+// --- Viewport content rebuilders ---
+// Each rebuilds the content string and sets it on the viewport.
+// Called during Update when data or selection changes.
+
+func (m *overviewModel) rebuildClusterContent() {
+	m.clusterVP.SetContent(m.clusterContent())
+}
+
+func (m *overviewModel) rebuildDetailContent() {
+	m.detailVP.SetContent(m.detailContent())
+}
+
+func (m *overviewModel) rebuildStatusContent() {
+	m.statusVP.SetContent(m.statusContent())
+}
+
+// --- Viewport size setters ---
+// Called from View where layout dimensions are known.
+
+func (m *overviewModel) setClusterSize(width, height int) {
+	m.clusterVP.Width = width
+	m.clusterVP.Height = height
+}
+
+func (m *overviewModel) setDetailSize(width, height int) {
+	m.detailVP.Width = width
+	m.detailVP.Height = height
+}
+
+func (m *overviewModel) setStatusSize(width, height int) {
+	m.statusVP.Width = width
+	m.statusVP.Height = height
+}
+
+// --- Viewport view methods ---
+// Each returns the viewport's rendered output (exactly Height lines).
+
+func (m *overviewModel) clusterView() string { return m.clusterVP.View() }
+func (m *overviewModel) detailView() string  { return m.detailVP.View() }
+func (m *overviewModel) statusView() string  { return m.statusVP.View() }
+
 // setLogEntries updates the log entries displayed in the log panel.
 func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
 	m.data.logEntries = entries
+	m.rebuildLogContent()
 }
 
-// logsView renders the bottom-right log panel content.
-func (m *overviewModel) logsView(height int) string {
+// setLogSize updates the viewport dimensions for the log panel and
+// re-anchors the scroll position. Called from View where layout
+// dimensions are known.
+func (m *overviewModel) setLogSize(width, height int) {
+	m.logVP.Width = width
+	m.logVP.Height = height
+	m.logVP.GotoBottom()
+}
+
+// rebuildLogContent reconstructs the viewport content from log entries
+// and the mode indicator.
+func (m *overviewModel) rebuildLogContent() {
 	var b strings.Builder
 
 	if len(m.data.logEntries) == 0 {
 		b.WriteString(m.styles.StatusMuted.Render(" No log entries"))
-		return b.String()
-	}
-
-	// Show only the entries that fit in the available height,
-	// reserving 1 line for the mode indicator.
-	maxLines := height - 1
-	if maxLines < 1 {
-		maxLines = 1
-	}
-	entries := m.data.logEntries
-	if len(entries) > maxLines {
-		entries = entries[len(entries)-maxLines:]
-	}
-
-	for i, entry := range entries {
-		if i > 0 {
-			b.WriteByte('\n')
+	} else {
+		for i, entry := range m.data.logEntries {
+			if i > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(m.formatLogEntry(entry))
 		}
-		b.WriteString(m.formatLogEntry(entry))
 	}
 
-	// Pad remaining lines.
-	rendered := strings.Count(b.String(), "\n") + 1
-	for rendered < height-1 {
-		b.WriteByte('\n')
-		rendered++
-	}
-
-	// Mode indicator on the last line.
+	// Mode indicator as the last line.
 	b.WriteByte('\n')
 	if m.logFollowing {
 		b.WriteString(m.styles.StatusWarning.Render(" [following]"))
@@ -368,7 +429,12 @@ func (m *overviewModel) logsView(height int) string {
 		b.WriteString(m.styles.StatusMuted.Render(" [auto-refresh]"))
 	}
 
-	return b.String()
+	m.logVP.SetContent(b.String())
+}
+
+// logsView renders the log panel using the viewport.
+func (m *overviewModel) logsView() string {
+	return m.logVP.View()
 }
 
 // formatLogEntry formats a single log entry for the log panel.
@@ -422,8 +488,8 @@ func (m *overviewModel) renderAgentDetail(b *strings.Builder, a *sdk.Agent) {
 	b.WriteByte('\n')
 }
 
-// clusterView renders the left panel content (cluster agents only).
-func (m *overviewModel) clusterView(width, height int) string {
+// clusterContent builds the left panel content string (cluster agents).
+func (m *overviewModel) clusterContent() string {
 	cursor := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
 
 	var b strings.Builder
@@ -464,8 +530,8 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 		indicator := agentIndicator(a, m.styles)
 		role := a.Role.String()
 		ver := a.Version
-		if len(ver) > 5 {
-			ver = ver[:5]
+		if len(ver) > maxAgentVersionLen {
+			ver = ver[:maxAgentVersionLen]
 		}
 		return fmt.Sprintf("  %s %s  %s  %s", indicator, a.Node, role, ver)
 	}

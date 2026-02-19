@@ -9,6 +9,11 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
+const (
+	logFetchCount      = 50 // number of recent log entries to fetch per poll
+	recentBackupsLimit = 1  // number of recent backups to fetch for the overview
+)
+
 // overviewData holds the result of a single overview poll cycle.
 type overviewData struct {
 	agents        []sdk.Agent
@@ -25,24 +30,42 @@ type overviewData struct {
 // overviewDataMsg wraps overviewData as a BubbleTea message.
 type overviewDataMsg struct{ overviewData }
 
-// logFollowMsg carries a single log entry from the follow goroutine.
+// logFollowMsg carries one or more log entries from the follow goroutine.
+// Entries are batched: the cmd blocks for the first entry then drains all
+// additionally buffered entries without blocking.
 type logFollowMsg struct {
-	entry sdk.LogEntry
-	err   error
+	entries []sdk.LogEntry
+	err     error
 }
 
 // logFollowDoneMsg signals that the follow channel has closed.
 type logFollowDoneMsg struct{}
 
-// waitForLogEntry returns a tea.Cmd that blocks until the next log entry
-// arrives on the channel, or the channel closes.
+// waitForLogEntry returns a tea.Cmd that blocks until at least one entry
+// arrives on the channel, then drains any additional buffered entries so
+// they are delivered as a single batch (one Update / one re-render).
 func waitForLogEntry(ch <-chan sdk.LogEntry) tea.Cmd {
 	return func() tea.Msg {
+		// Block for the first entry.
 		entry, ok := <-ch
 		if !ok {
 			return logFollowDoneMsg{}
 		}
-		return logFollowMsg{entry: entry}
+		batch := []sdk.LogEntry{entry}
+
+		// Drain any additional entries that are already buffered.
+		for {
+			select {
+			case e, ok := <-ch:
+				if !ok {
+					// Channel closed mid-drain; deliver what we have.
+					return logFollowMsg{entries: batch}
+				}
+				batch = append(batch, e)
+			default:
+				return logFollowMsg{entries: batch}
+			}
+		}
 	}
 }
 
@@ -123,7 +146,7 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 		}
 		d.timelines = timelines
 
-		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 1})
+		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
 		if err != nil && d.err == nil {
 			d.err = err
 		}
@@ -146,7 +169,7 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 
 		// Fetch recent log entries (skip when follow mode is streaming them).
 		if !skipLogs {
-			logs, err := client.Logs.Get(ctx, 50)
+			logs, err := client.Logs.Get(ctx, logFetchCount)
 			if err != nil && d.err == nil {
 				d.err = err
 			}

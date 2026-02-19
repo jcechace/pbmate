@@ -17,6 +17,8 @@ type Styles struct {
 
 	// Bottom bar (merged status + help).
 	BottomBar lipgloss.Style
+	HintKey   lipgloss.Style // bold key name in bottom bar hints
+	HintDesc  lipgloss.Style // description text in bottom bar hints
 
 	// Status indicator styles.
 	StatusOK      lipgloss.Style
@@ -54,7 +56,14 @@ func NewStyles(t Theme) Styles {
 
 		BottomBar: lipgloss.NewStyle().
 			Foreground(t.Highlight).
-			Background(t.StatusBarBg),
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderTop(true).
+			BorderForeground(t.Subtle),
+		HintKey: lipgloss.NewStyle().
+			Bold(true).
+			Foreground(t.Highlight),
+		HintDesc: lipgloss.NewStyle().
+			Foreground(t.Subtle),
 
 		StatusOK:      lipgloss.NewStyle().Foreground(t.OK),
 		StatusError:   lipgloss.NewStyle().Foreground(t.Error),

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -31,6 +30,14 @@ var tabNames = [tabCount]string{
 	"Restores",
 	"Config",
 }
+
+// Layout constants.
+const (
+	leftPanelPct  = 30  // left panel width as percentage of terminal width
+	minLeftPanelW = 28  // minimum left panel width in characters
+	topPanelPct   = 60  // top row height as percentage of content area
+	maxLogEntries = 200 // max log entries kept in the follow buffer
+)
 
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
@@ -57,13 +64,10 @@ type Model struct {
 	backups  backupsModel
 
 	keys globalKeyMap
-	help help.Model
 }
 
 // New creates a new root model with the given theme.
 func New(client *sdk.Client, theme Theme) Model {
-	h := help.New()
-	h.ShortSeparator = "  "
 	s := NewStyles(theme)
 	return Model{
 		client:       client,
@@ -73,7 +77,6 @@ func New(client *sdk.Client, theme Theme) Model {
 		overview:     newOverviewModel(&s),
 		backups:      newBackupsModel(client, &s),
 		keys:         globalKeys,
-		help:         h,
 	}
 }
 
@@ -88,7 +91,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.help.Width = msg.Width
 		return m, nil
 
 	case tickMsg:
@@ -107,8 +109,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.logEntries = m.data.logEntries
 		}
 		m.data = msg.overviewData
-		m.overview.setData(m.data)
+		// Set logFollowing before setData so rebuildLogContent uses the
+		// current state for the mode indicator.
 		m.overview.logFollowing = m.logFollowing
+		m.overview.setData(m.data)
 		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
 		if len(m.data.operations) > 0 {
@@ -138,13 +142,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.logFollowing = false
 			return m, nil
 		}
-		m.data.logEntries = append(m.data.logEntries, msg.entry)
-		// Keep a reasonable buffer (last 200 entries).
-		if len(m.data.logEntries) > 200 {
-			m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-200:]
+		m.data.logEntries = append(m.data.logEntries, msg.entries...)
+		if len(m.data.logEntries) > maxLogEntries {
+			m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-maxLogEntries:]
 		}
 		m.overview.setLogEntries(m.data.logEntries)
-		// Read next entry from the follow channel.
+		// Wait for the next batch from the follow channel.
 		return m, waitForLogEntry(m.logFollowCh)
 
 	case logFollowDoneMsg:
@@ -209,11 +212,23 @@ func (m Model) View() string {
 
 	content := m.contentView(contentHeight)
 
-	return lipgloss.JoinVertical(lipgloss.Left,
+	output := lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
 		bottomBar,
 	)
+
+	// Clamp output to exactly m.height lines. Fluctuating line count
+	// causes BubbleTea's renderer to do a full clear+redraw (the
+	// visible "skip"). This ensures a stable frame height.
+	lines := strings.Split(output, "\n")
+	if len(lines) > m.height {
+		lines = lines[:m.height]
+	}
+	for len(lines) < m.height {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // headerView renders the tab bar.
@@ -237,27 +252,43 @@ func (m Model) headerView() string {
 	return m.styles.Header.Width(m.width).Render(row)
 }
 
-// contentView renders the active tab's content.
+// contentView renders the active tab's content, clamped to exactly height
+// lines. Without clamping, panels whose content exceeds their lipgloss
+// Height (which only pads, never truncates) would overflow, shifting the
+// bottom bar position between frames and causing visible flicker.
 func (m Model) contentView(height int) string {
+	var raw string
 	switch m.activeTab {
 	case tabOverview:
-		return m.overviewContentView(height)
+		raw = m.overviewContentView(height)
 	case tabBackups:
-		return m.backupsContentView(height)
+		raw = m.backupsContentView(height)
 	case tabRestores:
-		return m.placeholderContent("Restores - list restores", height)
+		raw = m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
-		return m.placeholderContent("Config - PBM configuration and profiles", height)
+		raw = m.placeholderContent("Config - PBM configuration and profiles", height)
 	}
-	return ""
+	return clampHeight(raw, height)
+}
+
+// clampHeight ensures s has exactly n lines by truncating or padding.
+func clampHeight(s string, n int) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) > n {
+		lines = lines[:n]
+	}
+	for len(lines) < n {
+		lines = append(lines, "")
+	}
+	return strings.Join(lines, "\n")
 }
 
 // overviewContentView renders the Overview tab with 4-quadrant layout:
 // top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
 func (m Model) overviewContentView(height int) string {
-	leftWidth := m.width * 30 / 100
-	if leftWidth < 28 {
-		leftWidth = 28
+	leftWidth := m.width * leftPanelPct / 100
+	if leftWidth < minLeftPanelW {
+		leftWidth = minLeftPanelW
 	}
 	rightWidth := m.width - leftWidth
 
@@ -266,8 +297,7 @@ func (m Model) overviewContentView(height int) string {
 	innerLeftWidth := leftWidth - panelChrome
 	innerRightWidth := rightWidth - panelChrome
 
-	// Vertical split: top row ~60%, bottom row ~40%.
-	topHeight := height * 60 / 100
+	topHeight := height * topPanelPct / 100
 	bottomHeight := height - topHeight
 
 	innerTopLeftHeight := topHeight - 2    // border
@@ -295,11 +325,16 @@ func (m Model) overviewContentView(height int) string {
 		innerBotRightHeight = 0
 	}
 
-	// Render panel contents.
-	clusterContent := m.overview.clusterView(innerLeftWidth, innerTopLeftHeight)
+	// Set viewport dimensions (known only at View time) and render.
+	m.overview.setClusterSize(innerLeftWidth, innerTopLeftHeight)
+	m.overview.setDetailSize(innerRightWidth, innerTopRightHeight)
+	m.overview.setStatusSize(innerLeftWidth, innerBotLeftHeight)
+	m.overview.setLogSize(innerRightWidth, innerBotRightHeight)
+
+	clusterContent := m.overview.clusterView()
 	detailContent := m.overview.detailView()
 	statusContent := m.overview.statusView()
-	logsContent := m.overview.logsView(innerBotRightHeight)
+	logsContent := m.overview.logsView()
 
 	// Apply panel styles with titled borders.
 	clusterStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerTopLeftHeight)
@@ -328,9 +363,9 @@ func (m Model) overviewContentView(height int) string {
 
 // backupsContentView renders the Backups tab with left list + right detail.
 func (m Model) backupsContentView(height int) string {
-	leftWidth := m.width * 30 / 100
-	if leftWidth < 28 {
-		leftWidth = 28
+	leftWidth := m.width * leftPanelPct / 100
+	if leftWidth < minLeftPanelW {
+		leftWidth = minLeftPanelW
 	}
 	rightWidth := m.width - leftWidth
 
@@ -349,7 +384,11 @@ func (m Model) backupsContentView(height int) string {
 		innerHeight = 0
 	}
 
-	leftContent := m.backups.leftView(innerLeftWidth, innerHeight)
+	// Set viewport dimensions (known only at View time) and render.
+	m.backups.setListSize(innerLeftWidth, innerHeight)
+	m.backups.setDetailSize(innerRightWidth, innerHeight)
+
+	leftContent := m.backups.listView()
 	rightContent := m.backups.detailView()
 
 	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerHeight)
@@ -384,29 +423,59 @@ func (m Model) bottomBarView() string {
 	if m.flashErr != "" {
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
 	} else {
+		statusParts = append(statusParts, m.clusterTimeText())
 		statusParts = append(statusParts, m.pitrStatusText())
 		statusParts = append(statusParts, m.runningOpText())
-		statusParts = append(statusParts, m.clusterTimeText())
 	}
-	leftZone := strings.Join(statusParts, "  ")
+	leftZone := " " + strings.Join(statusParts, "  ")
 
-	// Right zone: context-sensitive keybinding hints.
+	// Right zone: context-sensitive keybinding hints, truncated to fit.
 	bindings := m.contextBindings()
-	rightZone := m.help.ShortHelpView(bindings)
+	const hintPadding = 2 // 1 char padding on each side
+	availWidth := m.width - lipgloss.Width(leftZone) - hintPadding
+	rightZone := m.renderHints(bindings, availWidth) + " "
 
-	// Compose: status left, hints right, separated by a divider.
-	divider := m.styles.StatusMuted.Render(" │ ")
-	leftWidth := lipgloss.Width(leftZone)
-	rightWidth := lipgloss.Width(rightZone)
-	dividerWidth := lipgloss.Width(divider)
-	gap := m.width - leftWidth - rightWidth - dividerWidth - 1 // 1 for left padding
+	// Compose: left-aligned status, gap, right-aligned hints.
+	gap := m.width - lipgloss.Width(leftZone) - lipgloss.Width(rightZone)
 	if gap < 0 {
 		gap = 0
 	}
-
-	bar := " " + leftZone + strings.Repeat(" ", gap) + divider + rightZone
+	bar := leftZone + strings.Repeat(" ", gap) + rightZone
 
 	return m.styles.BottomBar.Width(m.width).Render(bar)
+}
+
+// renderHints formats keybinding hints for the bottom bar using
+// foreground-only styles. Bindings that exceed maxWidth are dropped.
+func (m Model) renderHints(bindings []key.Binding, maxWidth int) string {
+	const hintSep = "  "
+	var parts []string
+	totalWidth := 0
+
+	for _, b := range bindings {
+		if !b.Enabled() {
+			continue
+		}
+		keys := b.Help().Key
+		desc := b.Help().Desc
+		if keys == "" || desc == "" {
+			continue
+		}
+		hint := m.styles.HintKey.Render(keys) + " " + m.styles.HintDesc.Render(desc)
+		hintWidth := lipgloss.Width(hint)
+
+		// Account for separator before this hint (if not the first).
+		sepWidth := 0
+		if len(parts) > 0 {
+			sepWidth = lipgloss.Width(hintSep)
+		}
+		if totalWidth+sepWidth+hintWidth > maxWidth {
+			break
+		}
+		totalWidth += sepWidth + hintWidth
+		parts = append(parts, hint)
+	}
+	return strings.Join(parts, hintSep)
 }
 
 // pitrStatusText returns a short PITR status string for the status bar.
@@ -473,6 +542,7 @@ func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 		m.logFollowCancel = nil
 		m.logFollowCh = nil
 		m.overview.logFollowing = false
+		m.overview.rebuildLogContent()
 		return m, nil
 	}
 
@@ -483,6 +553,7 @@ func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries
 	m.overview.logFollowing = true
+	m.overview.rebuildLogContent()
 
 	return m, waitForLogEntry(entries)
 }

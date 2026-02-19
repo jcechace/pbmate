@@ -5,10 +5,20 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
+
+// newPanelViewport creates a viewport for use inside a panel. Keybindings
+// and mouse are disabled so they don't conflict with global navigation.
+func newPanelViewport() viewport.Model {
+	vp := viewport.New(0, 0)
+	vp.KeyMap = viewport.KeyMap{}
+	vp.MouseWheelEnabled = false
+	return vp
+}
 
 // statusIndicator returns a colored status dot for a PBM status.
 func statusIndicator(s sdk.Status, styles *Styles) string {
