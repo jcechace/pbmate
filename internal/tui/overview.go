@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -58,6 +59,7 @@ const (
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
+	client    *sdk.Client
 	items     []overviewItem
 	cursor    int
 	focus     overviewFocus
@@ -67,6 +69,10 @@ type overviewModel struct {
 	grouped   map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
 	rsNames   []string               // sorted RS names
 
+	// Log follow state (reference types survive model copying).
+	logFollowCancel context.CancelFunc
+	logFollowCh     <-chan sdk.LogEntry
+
 	// Panel viewports — each produces exactly its allocated height.
 	clusterVP viewport.Model
 	detailVP  viewport.Model
@@ -75,8 +81,9 @@ type overviewModel struct {
 }
 
 // newOverviewModel creates a new overview sub-model.
-func newOverviewModel(styles *Styles) overviewModel {
+func newOverviewModel(client *sdk.Client, styles *Styles) overviewModel {
 	return overviewModel{
+		client:    client,
 		styles:    styles,
 		focus:     focusCluster,
 		collapsed: make(map[string]bool),
@@ -85,6 +92,50 @@ func newOverviewModel(styles *Styles) overviewModel {
 		statusVP:  newPanelViewport(),
 		logs:      newLogPanel(styles),
 	}
+}
+
+// isFollowing reports whether log follow mode is active.
+func (m *overviewModel) isFollowing() bool {
+	return m.logs.following
+}
+
+// toggleFollow starts or stops the log follow mode and returns a command
+// to begin listening for log entries.
+func (m *overviewModel) toggleFollow() tea.Cmd {
+	if m.logs.following {
+		// Stop following.
+		if m.logFollowCancel != nil {
+			m.logFollowCancel()
+		}
+		m.logFollowCancel = nil
+		m.logFollowCh = nil
+		m.logs.setFollowing(false)
+		return nil
+	}
+
+	// Start following — pin to bottom so new entries auto-scroll.
+	ctx, cancel := context.WithCancel(context.Background())
+	entries, _ := m.client.Logs.Follow(ctx)
+	m.logFollowCancel = cancel
+	m.logFollowCh = entries
+	m.logs.setFollowing(true)
+
+	return waitForLogEntry(entries)
+}
+
+// appendLogEntries adds streamed log entries from follow mode, trims to
+// maxLogEntries, and updates the log panel.
+func (m *overviewModel) appendLogEntries(entries []sdk.LogEntry) {
+	m.data.logEntries = append(m.data.logEntries, entries...)
+	if len(m.data.logEntries) > maxLogEntries {
+		m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-maxLogEntries:]
+	}
+	m.logs.setEntries(m.data.logEntries)
+}
+
+// nextLogCmd returns a command that waits for the next follow log batch.
+func (m *overviewModel) nextLogCmd() tea.Cmd {
+	return waitForLogEntry(m.logFollowCh)
 }
 
 // setData rebuilds the item list from fresh overview data.
@@ -158,7 +209,8 @@ func (m *overviewModel) rebuildItems() {
 }
 
 // update handles key messages for the overview tab.
-func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
+// Returns a tea.Cmd if an action was triggered, nil otherwise.
+func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	switch {
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)
@@ -170,9 +222,12 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 		m.handleVertical(-1)
 	case key.Matches(msg, overviewKeys.Toggle) && m.focus == focusCluster:
 		m.toggleCollapse()
+	case key.Matches(msg, overviewKeys.Follow):
+		return m.toggleFollow()
 	case key.Matches(msg, overviewKeys.Wrap):
 		m.logs.toggleWrap()
 	}
+	return nil
 }
 
 // cyclePanel moves focus to the next or previous panel in Z-order
@@ -477,12 +532,6 @@ func (m *overviewModel) resize(totalW, totalH int) {
 	m.statusVP.Height = innerHeight(bottomH)
 	m.logs.vp.Width = contentRightW
 	m.logs.vp.Height = innerHeight(bottomH)
-}
-
-// setLogEntries updates the log entries displayed in the log panel.
-func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
-	m.data.logEntries = entries
-	m.logs.setEntries(entries)
 }
 
 // renderAgentDetail writes agent detail to the builder.

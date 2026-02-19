@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -58,11 +57,6 @@ type Model struct {
 	data    overviewData
 	bkpData backupsData
 
-	// Log follow state (reference types survive model copying).
-	logFollowing    bool
-	logFollowCancel context.CancelFunc
-	logFollowCh     <-chan sdk.LogEntry
-
 	// Sub-models.
 	overview overviewModel
 	backups  backupsModel
@@ -78,7 +72,7 @@ func New(client *sdk.Client, theme Theme) Model {
 		styles:       s,
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
-		overview:     newOverviewModel(&s),
+		overview:     newOverviewModel(client, &s),
 		backups:      newBackupsModel(client, &s),
 		keys:         globalKeys,
 	}
@@ -101,7 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.logFollowing)}
+		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
 		if m.activeTab == tabBackups {
 			cmds = append(cmds, fetchBackupsCmd(m.client))
 		}
@@ -110,12 +104,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case overviewDataMsg:
 		// Preserve follow-mode log entries; the poll doesn't fetch logs
 		// during follow, so msg.logEntries would be nil.
-		if m.logFollowing {
+		if m.overview.isFollowing() {
 			msg.logEntries = m.data.logEntries
 		}
 		m.data = msg.overviewData
-		// Sync follow state before setData so the mode indicator is correct.
-		m.overview.logs.setFollowing(m.logFollowing)
 		m.overview.setData(m.data)
 		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
@@ -143,19 +135,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logFollowMsg:
 		if msg.err != nil {
 			// Follow channel errored; stop following.
-			m.logFollowing = false
+			m.overview.logs.setFollowing(false)
 			return m, nil
 		}
-		m.data.logEntries = append(m.data.logEntries, msg.entries...)
-		if len(m.data.logEntries) > maxLogEntries {
-			m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-maxLogEntries:]
-		}
-		m.overview.setLogEntries(m.data.logEntries)
+		m.overview.appendLogEntries(msg.entries)
+		m.data.logEntries = m.overview.data.logEntries
 		// Wait for the next batch from the follow channel.
-		return m, waitForLogEntry(m.logFollowCh)
+		return m, m.overview.nextLogCmd()
 
 	case logFollowDoneMsg:
-		m.logFollowing = false
+		m.overview.logs.setFollowing(false)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -175,8 +164,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newTab = (m.activeTab + 1) % tabCount
 		case key.Matches(msg, m.keys.PrevTab):
 			newTab = (m.activeTab - 1 + tabCount) % tabCount
-		case key.Matches(msg, overviewKeys.Follow) && m.activeTab == tabOverview:
-			return m.toggleLogFollow()
 		case key.Matches(msg, backupKeys.Start):
 			return m, startBackupCmd(m.client)
 		case key.Matches(msg, backupKeys.Cancel):
@@ -185,7 +172,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Forward to active tab sub-model.
 			switch m.activeTab {
 			case tabOverview:
-				m.overview.update(msg, m.keys)
+				if cmd := m.overview.update(msg, m.keys); cmd != nil {
+					return m, cmd
+				}
 			case tabBackups:
 				if cmd := m.backups.update(msg, m.keys); cmd != nil {
 					return m, cmd
@@ -406,29 +395,4 @@ func (m *Model) updateViewportDims() {
 
 	m.overview.resize(m.width, contentH)
 	m.backups.resize(m.width, contentH)
-}
-
-// toggleLogFollow starts or stops the log follow mode.
-func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
-	if m.logFollowing {
-		// Stop following.
-		if m.logFollowCancel != nil {
-			m.logFollowCancel()
-		}
-		m.logFollowing = false
-		m.logFollowCancel = nil
-		m.logFollowCh = nil
-		m.overview.logs.setFollowing(false)
-		return m, nil
-	}
-
-	// Start following — pin to bottom so new entries auto-scroll.
-	ctx, cancel := context.WithCancel(context.Background())
-	entries, _ := m.client.Logs.Follow(ctx)
-	m.logFollowing = true
-	m.logFollowCancel = cancel
-	m.logFollowCh = entries
-	m.overview.logs.setFollowing(true)
-
-	return m, waitForLogEntry(entries)
 }
