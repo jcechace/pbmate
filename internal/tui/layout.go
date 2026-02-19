@@ -1,5 +1,14 @@
 package tui
 
+// panel identifies which panel has focus in a two-panel layout.
+type panel int
+
+const (
+	panelLeft panel = iota
+	panelRight
+	panelCount // sentinel for cycling
+)
+
 // horizontalSplit computes left/right panel and content widths from the total
 // terminal width. Panel widths are for lipgloss .Width() (area inside borders).
 // Content widths are for viewports (area inside borders AND padding).

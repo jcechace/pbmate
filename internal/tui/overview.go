@@ -37,15 +37,6 @@ type overviewItem struct {
 	selectable bool       // whether the cursor can land here
 }
 
-// panel identifies which panel has focus in a two-panel layout.
-type panel int
-
-const (
-	panelLeft panel = iota
-	panelRight
-	panelCount // sentinel for cycling
-)
-
 // overviewFocus identifies which quadrant has focus in the overview layout.
 type overviewFocus int
 
