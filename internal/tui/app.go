@@ -91,7 +91,7 @@ func New(client *sdk.Client, theme Theme) Model {
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
 		overview:     newOverviewModel(client, &s),
-		backups:      newBackupsModel(client, &s),
+		backups:      newBackupsModel(&s),
 		keys:         globalKeys,
 	}
 }

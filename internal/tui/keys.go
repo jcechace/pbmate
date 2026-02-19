@@ -122,19 +122,3 @@ var backupKeys = backupKeyMap{
 		key.WithHelp("c", "cancel backup"),
 	),
 }
-
-// ShortHelp returns the key bindings shown in the compact help bar.
-func (k globalKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{
-		k.Help, k.Quit, k.NextTab, k.Up, k.Down,
-	}
-}
-
-// FullHelp returns key bindings for the expanded help view.
-func (k globalKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{
-		{k.Up, k.Down, k.NextPanel, k.PrevPanel},
-		{k.NextTab, k.PrevTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4},
-		{k.Delete, k.Help, k.Back, k.Quit},
-	}
-}

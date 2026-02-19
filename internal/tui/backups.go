@@ -16,7 +16,6 @@ const maxBackupNameList = 22 // max backup name length in the backup list
 
 // backupsModel is the sub-model for the Backups tab.
 type backupsModel struct {
-	client  *sdk.Client
 	backups []sdk.Backup
 	cursor  int
 	focus   panel
@@ -28,9 +27,8 @@ type backupsModel struct {
 }
 
 // newBackupsModel creates a new backups sub-model.
-func newBackupsModel(client *sdk.Client, styles *Styles) backupsModel {
+func newBackupsModel(styles *Styles) backupsModel {
 	return backupsModel{
-		client:   client,
 		styles:   styles,
 		focus:    panelLeft,
 		listVP:   newPanelViewport(),
