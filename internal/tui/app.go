@@ -165,13 +165,10 @@ func (m Model) View() string {
 	}
 
 	header := m.headerView()
-	statusBar := m.statusBarView()
-	helpBar := m.helpBarView()
+	bottomBar := m.bottomBarView()
 
 	// Calculate remaining height for content.
-	chromeHeight := lipgloss.Height(header) +
-		lipgloss.Height(statusBar) +
-		lipgloss.Height(helpBar)
+	chromeHeight := lipgloss.Height(header) + lipgloss.Height(bottomBar)
 	contentHeight := m.height - chromeHeight
 	if contentHeight < 0 {
 		contentHeight = 0
@@ -182,8 +179,7 @@ func (m Model) View() string {
 	return lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
-		statusBar,
-		helpBar,
+		bottomBar,
 	)
 }
 
@@ -338,44 +334,65 @@ func (m Model) placeholderContent(text string, height int) string {
 		Render(text)
 }
 
-// statusBarView renders the bottom status bar with live cluster info.
-func (m Model) statusBarView() string {
+// bottomBarView renders the single merged bottom bar with status HUD on the
+// left and context-sensitive keybinding hints on the right.
+func (m Model) bottomBarView() string {
+	// Left zone: operational status HUD.
+	var statusParts []string
 	if m.flashErr != "" {
-		return m.styles.StatusBar.Width(m.width).
-			Render("  " + m.styles.StatusError.Render(m.flashErr))
+		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
+	} else {
+		statusParts = append(statusParts, m.pitrStatusText())
+		statusParts = append(statusParts, m.runningOpText())
+		statusParts = append(statusParts, m.clusterTimeText())
+	}
+	leftZone := strings.Join(statusParts, "  ")
+
+	// Right zone: context-sensitive keybinding hints.
+	bindings := m.keys.ShortHelp()
+	if m.activeTab == tabBackups {
+		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
+	}
+	rightZone := m.help.ShortHelpView(bindings)
+
+	// Compose: status left, hints right, separated by a divider.
+	divider := m.styles.StatusMuted.Render(" │ ")
+	leftWidth := lipgloss.Width(leftZone)
+	rightWidth := lipgloss.Width(rightZone)
+	dividerWidth := lipgloss.Width(divider)
+	gap := m.width - leftWidth - rightWidth - dividerWidth - 1 // 1 for left padding
+	if gap < 0 {
+		gap = 0
 	}
 
-	pitr := m.pitrStatusText()
-	op := m.runningOpText()
-	cluster := m.clusterTimeText()
+	bar := " " + leftZone + strings.Repeat(" ", gap) + divider + rightZone
 
-	bar := fmt.Sprintf("  %s  |  %s  |  %s", pitr, op, cluster)
-	return m.styles.StatusBar.Width(m.width).Render(bar)
+	return m.styles.BottomBar.Width(m.width).Render(bar)
 }
 
 // pitrStatusText returns a short PITR status string for the status bar.
 func (m Model) pitrStatusText() string {
 	if m.data.pitr == nil {
-		return "PITR: --"
+		return "PITR:--"
 	}
 	if !m.data.pitr.Enabled {
-		return "PITR: off"
+		return "PITR:off"
 	}
 	if m.data.pitr.Running {
-		return "PITR: on"
+		return "PITR:on"
 	}
-	return "PITR: enabled (not running)"
+	return "PITR:paused"
 }
 
 // runningOpText returns a short running operation string for the status bar.
 func (m Model) runningOpText() string {
 	if len(m.data.operations) == 0 {
-		return "Op: none"
+		return "Op:none"
 	}
 	op := m.data.operations[0]
-	text := fmt.Sprintf("Op: %s", op.Type)
+	text := fmt.Sprintf("Op:%s", op.Type)
 	if len(m.data.operations) > 1 {
-		text += fmt.Sprintf(" (+%d)", len(m.data.operations)-1)
+		text += fmt.Sprintf("(+%d)", len(m.data.operations)-1)
 	}
 	return text
 }
@@ -383,17 +400,7 @@ func (m Model) runningOpText() string {
 // clusterTimeText returns the cluster time for the status bar.
 func (m Model) clusterTimeText() string {
 	if m.data.clusterTime.IsZero() {
-		return "Cluster: --"
+		return "--:--"
 	}
-	return fmt.Sprintf("Cluster: %s",
-		m.data.clusterTime.Time().Format("15:04:05"))
-}
-
-// helpBarView renders the keybinding help at the bottom.
-func (m Model) helpBarView() string {
-	bindings := m.keys.ShortHelp()
-	if m.activeTab == tabBackups {
-		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
-	}
-	return m.styles.HelpBar.Width(m.width).Render(m.help.ShortHelpView(bindings))
+	return m.data.clusterTime.Time().Format("15:04")
 }
