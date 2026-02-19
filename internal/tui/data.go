@@ -168,58 +168,44 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 		ctx := context.Background()
 		var d overviewData
 
-		agents, err := client.Cluster.Agents(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
+		// setErr records the first error encountered across all fetches.
+		setErr := func(err error) {
+			if err != nil && d.err == nil {
+				d.err = err
+			}
 		}
-		d.agents = agents
 
-		ops, err := client.Cluster.RunningOperations(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
-		}
-		d.operations = ops
+		var err error
 
-		pitr, err := client.PITR.Status(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
-		}
-		d.pitr = pitr
+		d.agents, err = client.Cluster.Agents(ctx)
+		setErr(err)
 
-		timelines, err := client.PITR.Timelines(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
-		}
-		d.timelines = timelines
+		d.operations, err = client.Cluster.RunningOperations(ctx)
+		setErr(err)
 
-		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
-		if err != nil && d.err == nil {
-			d.err = err
-		}
-		d.recentBackups = backups
+		d.pitr, err = client.PITR.Status(ctx)
+		setErr(err)
 
-		ct, err := client.Cluster.ClusterTime(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
-		}
-		d.clusterTime = ct
+		d.timelines, err = client.PITR.Timelines(ctx)
+		setErr(err)
+
+		d.recentBackups, err = client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
+		setErr(err)
+
+		d.clusterTime, err = client.Cluster.ClusterTime(ctx)
+		setErr(err)
 
 		// Fetch config for storage info.
 		cfg, err := client.Config.Get(ctx)
-		if err != nil && d.err == nil {
-			d.err = err
-		}
+		setErr(err)
 		if cfg != nil {
 			d.storageName = formatStorageSummary(cfg.Storage)
 		}
 
 		// Fetch recent log entries (skip when follow mode is streaming them).
 		if !skipLogs {
-			logs, err := client.Logs.Get(ctx, logFetchCount)
-			if err != nil && d.err == nil {
-				d.err = err
-			}
-			d.logEntries = logs
+			d.logEntries, err = client.Logs.Get(ctx, logFetchCount)
+			setErr(err)
 		}
 
 		return overviewDataMsg{d}
