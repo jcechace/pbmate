@@ -74,6 +74,18 @@ var globalKeys = globalKeyMap{
 	),
 }
 
+// overviewKeyMap defines keybindings specific to the Overview tab.
+type overviewKeyMap struct {
+	Toggle key.Binding
+}
+
+var overviewKeys = overviewKeyMap{
+	Toggle: key.NewBinding(
+		key.WithKeys(" ", "enter"),
+		key.WithHelp("space", "expand/collapse"),
+	),
+}
+
 // backupKeyMap defines keybindings specific to the Backups tab.
 type backupKeyMap struct {
 	Start  key.Binding

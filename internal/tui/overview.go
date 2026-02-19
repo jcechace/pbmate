@@ -17,17 +17,15 @@ import (
 type itemKind int
 
 const (
-	itemSectionHeader itemKind = iota
-	itemRSHeader
+	itemRSHeader itemKind = iota
 	itemAgent
 )
 
 // overviewItem is a single row in the overview left panel.
 type overviewItem struct {
 	kind       itemKind
-	label      string     // rendered display text (without selection highlight)
 	agent      *sdk.Agent // set when kind == itemAgent
-	rsName     string     // set when kind == itemRSHeader
+	rsName     string     // set for itemRSHeader and itemAgent
 	selectable bool       // whether the cursor can land here
 }
 
@@ -41,52 +39,87 @@ const (
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
-	items  []overviewItem
-	cursor int
-	focus  panel
-	styles *Styles
-	data   overviewData
+	items     []overviewItem
+	cursor    int
+	focus     panel
+	styles    *Styles
+	data      overviewData
+	collapsed map[string]bool        // RS name -> collapsed state
+	grouped   map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
+	rsNames   []string               // sorted RS names
 }
 
 // newOverviewModel creates a new overview sub-model.
 func newOverviewModel(styles *Styles) overviewModel {
 	return overviewModel{
-		styles: styles,
-		focus:  panelLeft,
+		styles:    styles,
+		focus:     panelLeft,
+		collapsed: make(map[string]bool),
 	}
 }
 
 // setData rebuilds the item list from fresh overview data.
 func (m *overviewModel) setData(d overviewData) {
 	m.data = d
+	m.grouped = groupAgentsByRS(d.agents)
+	m.rsNames = sortedKeys(m.grouped)
+	m.rebuildItems()
+}
+
+// rebuildItems reconstructs the flat item list from grouped data,
+// respecting collapsed state.
+func (m *overviewModel) rebuildItems() {
+	// Remember currently selected item identity for cursor stability.
+	var selectedNode string
+	var selectedRS string
+	if sel := m.selectedItem(); sel != nil {
+		switch sel.kind {
+		case itemAgent:
+			selectedNode = sel.agent.Node
+		case itemRSHeader:
+			selectedRS = sel.rsName
+		}
+	}
 
 	var items []overviewItem
-
-	// Build cluster agent tree grouped by replica set.
-	grouped := groupAgentsByRS(d.agents)
-	rsNames := sortedKeys(grouped)
-
-	for _, rs := range rsNames {
+	for _, rs := range m.rsNames {
 		items = append(items, overviewItem{
-			kind:   itemRSHeader,
-			label:  rs,
-			rsName: rs,
+			kind:       itemRSHeader,
+			rsName:     rs,
+			selectable: true,
 		})
-		for i := range grouped[rs] {
-			a := &grouped[rs][i]
-			items = append(items, overviewItem{
-				kind:       itemAgent,
-				agent:      a,
-				selectable: true,
-			})
+		if !m.collapsed[rs] {
+			for i := range m.grouped[rs] {
+				a := &m.grouped[rs][i]
+				items = append(items, overviewItem{
+					kind:       itemAgent,
+					agent:      a,
+					rsName:     rs,
+					selectable: true,
+				})
+			}
 		}
 	}
 
 	m.items = items
 
-	// Ensure cursor is on a selectable item.
-	if m.cursor >= len(m.items) {
-		m.cursor = 0
+	// Restore cursor to the same item if possible.
+	m.cursor = 0
+	if selectedNode != "" {
+		for i, item := range m.items {
+			if item.kind == itemAgent && item.agent.Node == selectedNode {
+				m.cursor = i
+				return
+			}
+		}
+	}
+	if selectedRS != "" {
+		for i, item := range m.items {
+			if item.kind == itemRSHeader && item.rsName == selectedRS {
+				m.cursor = i
+				return
+			}
+		}
 	}
 	m.ensureSelectable(1)
 }
@@ -102,7 +135,28 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 		m.focus = panelLeft
 	case key.Matches(msg, keys.Right):
 		m.focus = panelRight
+	case key.Matches(msg, overviewKeys.Toggle):
+		m.toggleCollapse()
 	}
+}
+
+// toggleCollapse expands or collapses the RS group under the cursor.
+func (m *overviewModel) toggleCollapse() {
+	sel := m.selectedItem()
+	if sel == nil {
+		return
+	}
+	var rs string
+	switch sel.kind {
+	case itemRSHeader:
+		rs = sel.rsName
+	case itemAgent:
+		rs = sel.rsName
+	default:
+		return
+	}
+	m.collapsed[rs] = !m.collapsed[rs]
+	m.rebuildItems()
 }
 
 // moveCursor moves the cursor by delta, skipping non-selectable items.
@@ -151,18 +205,61 @@ func (m *overviewModel) selectedItem() *overviewItem {
 	return nil
 }
 
-// detailView renders the detail panel content for the selected agent.
+// detailView renders the detail panel content for the selected item.
 func (m *overviewModel) detailView() string {
 	sel := m.selectedItem()
 	if sel == nil {
 		return m.styles.StatusMuted.Render("No selection")
 	}
-	if sel.kind == itemAgent {
-		var b strings.Builder
+	var b strings.Builder
+	switch sel.kind {
+	case itemAgent:
 		m.renderAgentDetail(&b, sel.agent)
-		return b.String()
+	case itemRSHeader:
+		m.renderRSDetail(&b, sel.rsName)
 	}
-	return m.styles.StatusMuted.Render("No selection")
+	return b.String()
+}
+
+// renderRSDetail writes replica set summary detail to the builder.
+func (m *overviewModel) renderRSDetail(b *strings.Builder, rsName string) {
+	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+	b.WriteString(header.Render("Replica Set"))
+	b.WriteByte('\n')
+
+	agents := m.grouped[rsName]
+	fmt.Fprintf(b, "  Name:    %s\n", rsName)
+	fmt.Fprintf(b, "  Agents:  %d\n", len(agents))
+
+	var ok, stale, errCount int
+	for i := range agents {
+		a := &agents[i]
+		switch {
+		case a.Stale:
+			stale++
+		case !a.OK || len(a.Errors) > 0:
+			errCount++
+		default:
+			ok++
+		}
+	}
+	fmt.Fprintf(b, "  Healthy: %s\n", m.styles.StatusOK.Render(fmt.Sprintf("%d", ok)))
+	if stale > 0 {
+		fmt.Fprintf(b, "  Stale:   %s\n", m.styles.StatusMuted.Render(fmt.Sprintf("%d", stale)))
+	}
+	if errCount > 0 {
+		fmt.Fprintf(b, "  Error:   %s\n", m.styles.StatusError.Render(fmt.Sprintf("%d", errCount)))
+	}
+	b.WriteByte('\n')
+
+	// List agents in this RS.
+	b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Agents"))
+	b.WriteByte('\n')
+	for i := range agents {
+		a := &agents[i]
+		ind := agentIndicator(a, m.styles)
+		fmt.Fprintf(b, "  %s %s  %s  %s\n", ind, a.Node, a.Role, a.Version)
+	}
 }
 
 // statusView renders the bottom-left status panel with PITR, ops, latest
@@ -318,10 +415,14 @@ func (m *overviewModel) clusterView(width, height int) string {
 func (m *overviewModel) renderItem(item overviewItem) string {
 	switch item.kind {
 	case itemRSHeader:
-		return lipgloss.NewStyle().
-			Bold(true).
-			Foreground(m.styles.FocusedBorderColor).
-			Render(fmt.Sprintf("▾ %s", item.rsName))
+		rsStyle := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+		if m.collapsed[item.rsName] {
+			// Collapsed: show ▸ with inline agent status dots and count.
+			agents := m.grouped[item.rsName]
+			dots := m.agentDots(agents)
+			return fmt.Sprintf("%s %s (%d)", rsStyle.Render("▸ "+item.rsName), dots, len(agents))
+		}
+		return rsStyle.Render("▾ " + item.rsName)
 
 	case itemAgent:
 		a := item.agent
@@ -334,6 +435,15 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 		return fmt.Sprintf("  %s %s  %s  %s", indicator, a.Node, role, ver)
 	}
 	return ""
+}
+
+// agentDots returns a string of status indicator dots for a slice of agents.
+func (m *overviewModel) agentDots(agents []sdk.Agent) string {
+	var b strings.Builder
+	for i := range agents {
+		b.WriteString(agentIndicator(&agents[i], m.styles))
+	}
+	return b.String()
 }
 
 // relativeTime returns a human-readable relative time string.
