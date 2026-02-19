@@ -121,9 +121,9 @@ func (m *backupsModel) listContent() string {
 		line := m.renderBackupLine(&bk)
 		if i == m.cursor {
 			if m.focus == panelLeft {
-				line = cursor.Render("▶ ") + lipgloss.NewStyle().Bold(true).Render(line)
+				line = cursor.Render("▶ ") + m.styles.Bold.Render(line)
 			} else {
-				line = "  " + lipgloss.NewStyle().Bold(true).Render(line)
+				line = "  " + m.styles.Bold.Render(line)
 			}
 		} else {
 			line = "  " + line

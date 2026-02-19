@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -50,8 +49,7 @@ func agentIndicator(a *sdk.Agent, styles *Styles) string {
 
 // renderBackupDetail writes full backup detail to the builder.
 func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
-	b.WriteString(header.Render("Backup"))
+	b.WriteString(styles.SectionHeader.Render("Backup"))
 	b.WriteByte('\n')
 
 	fmt.Fprintf(b, "  Name:        %s\n", bk.Name)
@@ -90,7 +88,7 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 
 	if len(bk.Replsets) > 0 {
 		b.WriteByte('\n')
-		b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Replica Sets"))
+		b.WriteString(styles.Bold.Render("  Replica Sets"))
 		b.WriteByte('\n')
 		for _, rs := range bk.Replsets {
 			rsInd := statusIndicator(rs.Status, styles)
@@ -119,5 +117,32 @@ func humanBytes(b int64) string {
 		return fmt.Sprintf("%.1fKB", float64(b)/float64(kb))
 	default:
 		return fmt.Sprintf("%dB", b)
+	}
+}
+
+// relativeTime returns a human-readable relative time string.
+func relativeTime(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		m := int(d.Minutes())
+		if m == 1 {
+			return "1m ago"
+		}
+		return fmt.Sprintf("%dm ago", m)
+	case d < 24*time.Hour:
+		h := int(d.Hours())
+		if h == 1 {
+			return "1h ago"
+		}
+		return fmt.Sprintf("%dh ago", h)
+	default:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1d ago"
+		}
+		return fmt.Sprintf("%dd ago", days)
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -324,8 +323,7 @@ func (m *overviewModel) detailContent() string {
 
 // renderRSDetail writes replica set summary detail to the builder.
 func (m *overviewModel) renderRSDetail(b *strings.Builder, rsName string) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
-	b.WriteString(header.Render("Replica Set"))
+	b.WriteString(m.styles.SectionHeader.Render("Replica Set"))
 	b.WriteByte('\n')
 
 	agents := m.grouped[rsName]
@@ -354,7 +352,7 @@ func (m *overviewModel) renderRSDetail(b *strings.Builder, rsName string) {
 	b.WriteByte('\n')
 
 	// List agents in this RS.
-	b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Agents"))
+	b.WriteString(m.styles.Bold.Render("  Agents"))
 	b.WriteByte('\n')
 	for i := range agents {
 		a := &agents[i]
@@ -366,7 +364,7 @@ func (m *overviewModel) renderRSDetail(b *strings.Builder, rsName string) {
 // statusContent builds the bottom-left status panel content string.
 func (m *overviewModel) statusContent() string {
 	var b strings.Builder
-	label := lipgloss.NewStyle().Bold(true).Width(statusLabelWidth)
+	label := m.styles.Bold.Width(statusLabelWidth)
 
 	// PITR status.
 	pitrVal := m.styles.StatusMuted.Render("--")
@@ -585,8 +583,7 @@ func (m *overviewModel) severityStyle(sev sdk.LogSeverity) lipgloss.Style {
 
 // renderAgentDetail writes agent detail to the builder.
 func (m *overviewModel) renderAgentDetail(b *strings.Builder, a *sdk.Agent) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
-	b.WriteString(header.Render("Agent"))
+	b.WriteString(m.styles.SectionHeader.Render("Agent"))
 	b.WriteByte('\n')
 
 	fmt.Fprintf(b, "  Node:        %s\n", a.Node)
@@ -625,9 +622,9 @@ func (m *overviewModel) clusterContent() string {
 		line := m.renderItem(item)
 		if i == m.cursor && item.selectable {
 			if m.focus == focusCluster {
-				line = cursor.Render("▶ ") + lipgloss.NewStyle().Bold(true).Render(line)
+				line = cursor.Render("▶ ") + m.styles.Bold.Render(line)
 			} else {
-				line = "  " + lipgloss.NewStyle().Bold(true).Render(line)
+				line = "  " + m.styles.Bold.Render(line)
 			}
 		} else {
 			line = "  " + line
@@ -641,7 +638,7 @@ func (m *overviewModel) clusterContent() string {
 func (m *overviewModel) renderItem(item overviewItem) string {
 	switch item.kind {
 	case itemRSHeader:
-		rsStyle := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
+		rsStyle := m.styles.SectionHeader
 		if m.collapsed[item.rsName] {
 			// Collapsed: show ▸ with inline agent status dots and count.
 			agents := m.grouped[item.rsName]
@@ -670,33 +667,6 @@ func (m *overviewModel) agentDots(agents []sdk.Agent) string {
 		b.WriteString(agentIndicator(&agents[i], m.styles))
 	}
 	return b.String()
-}
-
-// relativeTime returns a human-readable relative time string.
-func relativeTime(t time.Time) string {
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		m := int(d.Minutes())
-		if m == 1 {
-			return "1m ago"
-		}
-		return fmt.Sprintf("%dm ago", m)
-	case d < 24*time.Hour:
-		h := int(d.Hours())
-		if h == 1 {
-			return "1h ago"
-		}
-		return fmt.Sprintf("%dh ago", h)
-	default:
-		days := int(d.Hours() / 24)
-		if days == 1 {
-			return "1d ago"
-		}
-		return fmt.Sprintf("%dd ago", days)
-	}
 }
 
 // groupAgentsByRS groups agents by their replica set name.

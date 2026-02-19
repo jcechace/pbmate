@@ -20,6 +20,10 @@ type Styles struct {
 	HintKey   lipgloss.Style // bold key name in bottom bar hints
 	HintDesc  lipgloss.Style // description text in bottom bar hints
 
+	// Text styles.
+	SectionHeader lipgloss.Style // bold + primary color, for detail panel headings
+	Bold          lipgloss.Style // bold text, for selected items
+
 	// Status indicator styles.
 	StatusOK      lipgloss.Style
 	StatusError   lipgloss.Style
@@ -64,6 +68,9 @@ func NewStyles(t Theme) Styles {
 			Foreground(t.Highlight),
 		HintDesc: lipgloss.NewStyle().
 			Foreground(t.Subtle),
+
+		SectionHeader: lipgloss.NewStyle().Bold(true).Foreground(t.Primary),
+		Bold:          lipgloss.NewStyle().Bold(true),
 
 		StatusOK:      lipgloss.NewStyle().Foreground(t.OK),
 		StatusError:   lipgloss.NewStyle().Foreground(t.Error),
