@@ -12,8 +12,8 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// max agent version length in the cluster panel.
-const maxAgentVersionLen = 5
+// max agent version length in the cluster panel tree listing.
+const maxAgentVersionLen = 8
 
 // itemKind identifies the type of item in the cluster tree.
 type itemKind int

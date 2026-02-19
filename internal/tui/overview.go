@@ -193,6 +193,15 @@ func (m *overviewModel) statusContent() string {
 	}
 	fmt.Fprintf(&b, " %s %s\n", label.Render("PITR"), pitrVal)
 
+	// PITR range (latest timeline).
+	if len(m.data.timelines) > 0 {
+		latest := m.data.timelines[len(m.data.timelines)-1]
+		start := latest.Start.Time().Format("Jan 02 15:04")
+		end := latest.End.Time().Format("Jan 02 15:04")
+		rangeVal := fmt.Sprintf("%s → %s", start, end)
+		fmt.Fprintf(&b, " %s %s\n", label.Render(""), rangeVal)
+	}
+
 	// Running operation.
 	opVal := m.styles.StatusMuted.Render("none")
 	if len(m.data.operations) > 0 {
