@@ -53,19 +53,19 @@
 - [x] Backup actions: start, cancel, delete
 - [x] Shared rendering helpers (render.go)
 
-### Phase 5b: TUI redesign (in progress)
+### Phase 5b: TUI redesign (complete)
 - [x] TUI design research (lazydocker, lazygit, k9s, gh-dash, btop, ctop, dry, dolphie)
 - [x] Revised TUI.md with new 4-quadrant Overview layout
-- [ ] Drop Logs tab -- change from 5 to 4 tabs
-- [ ] Merge two bottom bars into single bar (status HUD left, hints right)
-- [ ] Redesign Overview: remove Recent Backups, 4-quadrant layout
-- [ ] Collapsible RS groups with inline status indicators
-- [ ] Status panel (PITR, op, latest backup with relative age, storage)
-- [ ] Fetch config/storage and latest backup data for status panel
-- [ ] Log panel in Overview bottom-right (5s refresh)
-- [ ] Follow mode toggle (`f`) for log panel
-- [ ] Stable cursor -- track selection by item identity, not index
-- [ ] Context-sensitive action hints in bottom bar
+- [x] Drop Logs tab -- change from 5 to 4 tabs
+- [x] Merge two bottom bars into single bar (status HUD left, hints right)
+- [x] Redesign Overview: remove Recent Backups, 4-quadrant layout
+- [x] Collapsible RS groups with inline status indicators
+- [x] Status panel (PITR, op, latest backup with relative age, storage)
+- [x] Fetch config/storage and latest backup data for status panel
+- [x] Log panel in Overview bottom-right (5s refresh + 50 entries)
+- [x] Follow mode toggle (`f`) for log panel via LogService.Follow
+- [x] Stable cursor -- track selection by item identity, not index
+- [x] Context-sensitive action hints in bottom bar
 
 ### Phase 5c: Interactions (planned)
 - [ ] Inline y/n confirmation for destructive actions (delete, cancel)
