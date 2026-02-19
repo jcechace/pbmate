@@ -16,6 +16,8 @@ type overviewData struct {
 	timelines     []sdk.Timeline
 	recentBackups []sdk.Backup
 	clusterTime   sdk.Timestamp
+	storageName   string // main storage type + path summary
+	logEntries    []sdk.LogEntry
 	err           error
 }
 

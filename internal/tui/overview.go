@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -19,17 +20,15 @@ const (
 	itemSectionHeader itemKind = iota
 	itemRSHeader
 	itemAgent
-	itemBackup
 )
 
 // overviewItem is a single row in the overview left panel.
 type overviewItem struct {
 	kind       itemKind
-	label      string      // rendered display text (without selection highlight)
-	agent      *sdk.Agent  // set when kind == itemAgent
-	backup     *sdk.Backup // set when kind == itemBackup
-	rsName     string      // set when kind == itemRSHeader
-	selectable bool        // whether the cursor can land here
+	label      string     // rendered display text (without selection highlight)
+	agent      *sdk.Agent // set when kind == itemAgent
+	rsName     string     // set when kind == itemRSHeader
+	selectable bool       // whether the cursor can land here
 }
 
 // panel identifies which panel has focus.
@@ -63,12 +62,7 @@ func (m *overviewModel) setData(d overviewData) {
 
 	var items []overviewItem
 
-	// Section: Cluster (agents grouped by replica set).
-	items = append(items, overviewItem{
-		kind:  itemSectionHeader,
-		label: "Cluster",
-	})
-
+	// Build cluster agent tree grouped by replica set.
 	grouped := groupAgentsByRS(d.agents)
 	rsNames := sortedKeys(grouped)
 
@@ -86,21 +80,6 @@ func (m *overviewModel) setData(d overviewData) {
 				selectable: true,
 			})
 		}
-	}
-
-	// Section: Recent Backups.
-	items = append(items, overviewItem{
-		kind:  itemSectionHeader,
-		label: "Recent Backups",
-	})
-
-	for i := range d.recentBackups {
-		b := &d.recentBackups[i]
-		items = append(items, overviewItem{
-			kind:       itemBackup,
-			backup:     b,
-			selectable: true,
-		})
 	}
 
 	m.items = items
@@ -172,28 +151,113 @@ func (m *overviewModel) selectedItem() *overviewItem {
 	return nil
 }
 
-// detailView renders the detail panel content for the selected item.
+// detailView renders the detail panel content for the selected agent.
 func (m *overviewModel) detailView() string {
 	sel := m.selectedItem()
 	if sel == nil {
 		return m.styles.StatusMuted.Render("No selection")
 	}
-	var b strings.Builder
-	switch sel.kind {
-	case itemAgent:
+	if sel.kind == itemAgent {
+		var b strings.Builder
 		m.renderAgentDetail(&b, sel.agent)
-	case itemBackup:
-		renderBackupDetail(&b, sel.backup, m.styles)
+		return b.String()
+	}
+	return m.styles.StatusMuted.Render("No selection")
+}
+
+// statusView renders the bottom-left status panel with PITR, ops, latest
+// backup, and storage info.
+func (m *overviewModel) statusView() string {
+	var b strings.Builder
+	label := lipgloss.NewStyle().Bold(true).Width(10)
+
+	// PITR status.
+	pitrVal := m.styles.StatusMuted.Render("--")
+	if m.data.pitr != nil {
+		switch {
+		case !m.data.pitr.Enabled:
+			pitrVal = m.styles.StatusMuted.Render("off")
+		case m.data.pitr.Running:
+			pitrVal = m.styles.StatusOK.Render("on (running)")
+		default:
+			pitrVal = m.styles.StatusWarning.Render("enabled (paused)")
+		}
+	}
+	fmt.Fprintf(&b, " %s %s\n", label.Render("PITR"), pitrVal)
+
+	// Running operation.
+	opVal := m.styles.StatusMuted.Render("none")
+	if len(m.data.operations) > 0 {
+		op := m.data.operations[0]
+		opVal = m.styles.StatusWarning.Render(fmt.Sprintf("%s %s", op.Type, m.styles.StatusWarning.Render("●")))
+		if len(m.data.operations) > 1 {
+			opVal += m.styles.StatusMuted.Render(fmt.Sprintf(" (+%d)", len(m.data.operations)-1))
+		}
+	}
+	fmt.Fprintf(&b, " %s %s\n", label.Render("Op"), opVal)
+
+	// Latest backup.
+	latestVal := m.styles.StatusMuted.Render("none")
+	if len(m.data.recentBackups) > 0 {
+		latest := m.data.recentBackups[0]
+		ind := statusIndicator(latest.Status, m.styles)
+		name := latest.Name
+		if len(name) > 16 {
+			name = name[:16]
+		}
+		age := ""
+		if !latest.StartTS.IsZero() {
+			age = " (" + relativeTime(latest.StartTS) + ")"
+		}
+		latestVal = fmt.Sprintf("%s %s%s", ind, name, m.styles.StatusMuted.Render(age))
+	}
+	fmt.Fprintf(&b, " %s %s\n", label.Render("Latest"), latestVal)
+
+	// Storage info (will be populated when config data is fetched).
+	storageVal := m.styles.StatusMuted.Render("--")
+	if m.data.storageName != "" {
+		storageVal = m.data.storageName
+	}
+	fmt.Fprintf(&b, " %s %s\n", label.Render("Storage"), storageVal)
+
+	return b.String()
+}
+
+// logsView renders the bottom-right log panel content.
+func (m *overviewModel) logsView() string {
+	if len(m.data.logEntries) == 0 {
+		return m.styles.StatusMuted.Render(" No log entries")
+	}
+
+	var b strings.Builder
+	for i, entry := range m.data.logEntries {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(m.formatLogEntry(entry))
 	}
 	return b.String()
 }
 
-// statusView renders the running operations and PITR status.
-func (m *overviewModel) statusView() string {
-	var b strings.Builder
-	m.renderOperationsSection(&b)
-	m.renderPITRSection(&b)
-	return b.String()
+// formatLogEntry formats a single log entry for the log panel.
+func (m *overviewModel) formatLogEntry(entry sdk.LogEntry) string {
+	ts := entry.Timestamp.Format("15:04:05")
+	sev := m.severityStyle(entry.Severity).Render(entry.Severity.String()[:1])
+	return fmt.Sprintf(" %s %s %s", m.styles.StatusMuted.Render(ts), sev, entry.Message)
+}
+
+// severityStyle returns the style for a log severity level.
+func (m *overviewModel) severityStyle(sev sdk.LogSeverity) lipgloss.Style {
+	switch {
+	case sev.Equal(sdk.LogSeverityError), sev.Equal(sdk.LogSeverityFatal):
+		return m.styles.StatusError
+	case sev.Equal(sdk.LogSeverityWarning):
+		return m.styles.StatusWarning
+	case sev.Equal(sdk.LogSeverityDebug):
+		return m.styles.StatusMuted
+	default:
+		return lipgloss.NewStyle()
+	}
 }
 
 // renderAgentDetail writes agent detail to the builder.
@@ -226,66 +290,8 @@ func (m *overviewModel) renderAgentDetail(b *strings.Builder, a *sdk.Agent) {
 	b.WriteByte('\n')
 }
 
-// renderOperationsSection writes the running operations section.
-func (m *overviewModel) renderOperationsSection(b *strings.Builder) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
-	b.WriteString(header.Render("Running Operations"))
-	b.WriteByte('\n')
-
-	if len(m.data.operations) == 0 {
-		b.WriteString(m.styles.StatusMuted.Render("  none"))
-		b.WriteByte('\n')
-	} else {
-		for _, op := range m.data.operations {
-			fmt.Fprintf(b, "  %s %s  %s\n", m.styles.StatusWarning.Render("●"), op.Type, op.OPID)
-		}
-	}
-	b.WriteByte('\n')
-}
-
-// renderPITRSection writes the PITR status section.
-func (m *overviewModel) renderPITRSection(b *strings.Builder) {
-	header := lipgloss.NewStyle().Bold(true).Foreground(m.styles.FocusedBorderColor)
-	b.WriteString(header.Render("PITR"))
-	b.WriteByte('\n')
-
-	pitr := m.data.pitr
-	if pitr == nil {
-		b.WriteString(m.styles.StatusMuted.Render("  no data"))
-		b.WriteByte('\n')
-		return
-	}
-
-	enabledStr := m.styles.StatusMuted.Render("false")
-	if pitr.Enabled {
-		enabledStr = m.styles.StatusOK.Render("true")
-	}
-	fmt.Fprintf(b, "  Enabled: %s\n", enabledStr)
-
-	runningStr := m.styles.StatusMuted.Render("false")
-	if pitr.Running {
-		runningStr = m.styles.StatusOK.Render("true")
-	}
-	fmt.Fprintf(b, "  Running: %s\n", runningStr)
-
-	if pitr.Error != "" {
-		fmt.Fprintf(b, "  Error:   %s\n", m.styles.StatusError.Render(pitr.Error))
-	}
-
-	if len(m.data.timelines) > 0 {
-		b.WriteByte('\n')
-		b.WriteString(lipgloss.NewStyle().Bold(true).Render("  Timelines"))
-		b.WriteByte('\n')
-		for _, tl := range m.data.timelines {
-			start := tl.Start.Time().Format("2006-01-02 15:04:05")
-			end := tl.End.Time().Format("2006-01-02 15:04:05")
-			fmt.Fprintf(b, "  %s -> %s\n", start, end)
-		}
-	}
-}
-
-// leftView renders the left panel content.
-func (m *overviewModel) leftView(width, height int) string {
+// clusterView renders the left panel content (cluster agents only).
+func (m *overviewModel) clusterView(width, height int) string {
 	cursor := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
 
 	var b strings.Builder
@@ -311,14 +317,11 @@ func (m *overviewModel) leftView(width, height int) string {
 // renderItem renders a single item line for the left panel.
 func (m *overviewModel) renderItem(item overviewItem) string {
 	switch item.kind {
-	case itemSectionHeader:
+	case itemRSHeader:
 		return lipgloss.NewStyle().
 			Bold(true).
 			Foreground(m.styles.FocusedBorderColor).
-			Render(fmt.Sprintf("── %s ──", item.label))
-
-	case itemRSHeader:
-		return fmt.Sprintf("  %s", item.label)
+			Render(fmt.Sprintf("▾ %s", item.rsName))
 
 	case itemAgent:
 		a := item.agent
@@ -328,18 +331,36 @@ func (m *overviewModel) renderItem(item overviewItem) string {
 		if len(ver) > 5 {
 			ver = ver[:5]
 		}
-		return fmt.Sprintf("    %s %s  %s  %s", indicator, a.Node, role, ver)
-
-	case itemBackup:
-		b := item.backup
-		indicator := statusIndicator(b.Status, m.styles)
-		name := b.Name
-		if len(name) > 20 {
-			name = name[:20]
-		}
-		return fmt.Sprintf("  %s %s  %s  %s", indicator, name, b.Type, b.Status)
+		return fmt.Sprintf("  %s %s  %s  %s", indicator, a.Node, role, ver)
 	}
 	return ""
+}
+
+// relativeTime returns a human-readable relative time string.
+func relativeTime(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		m := int(d.Minutes())
+		if m == 1 {
+			return "1m ago"
+		}
+		return fmt.Sprintf("%dm ago", m)
+	case d < 24*time.Hour:
+		h := int(d.Hours())
+		if h == 1 {
+			return "1h ago"
+		}
+		return fmt.Sprintf("%dh ago", h)
+	default:
+		days := int(d.Hours() / 24)
+		if days == 1 {
+			return "1d ago"
+		}
+		return fmt.Sprintf("%dd ago", days)
+	}
 }
 
 // groupAgentsByRS groups agents by their replica set name.

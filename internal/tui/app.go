@@ -219,7 +219,8 @@ func (m Model) contentView(height int) string {
 	return ""
 }
 
-// overviewContentView renders the Overview tab with left/right panels.
+// overviewContentView renders the Overview tab with 4-quadrant layout:
+// top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
 func (m Model) overviewContentView(height int) string {
 	leftWidth := m.width * 30 / 100
 	if leftWidth < 28 {
@@ -232,13 +233,14 @@ func (m Model) overviewContentView(height int) string {
 	innerLeftWidth := leftWidth - panelChrome
 	innerRightWidth := rightWidth - panelChrome
 
-	// Right side: two panels stacked vertically.
-	// Top detail panel gets 70%, bottom status panel gets 30%.
-	topHeight := (height * 70 / 100)
+	// Vertical split: top row ~60%, bottom row ~40%.
+	topHeight := height * 60 / 100
 	bottomHeight := height - topHeight
-	innerTopHeight := topHeight - 2       // border
-	innerBottomHeight := bottomHeight - 2 // border
-	innerLeftHeight := height - 2         // border
+
+	innerTopLeftHeight := topHeight - 2    // border
+	innerTopRightHeight := topHeight - 2   // border
+	innerBotLeftHeight := bottomHeight - 2 // border
+	innerBotRightHeight := bottomHeight - 2
 
 	// Clamp to zero.
 	if innerLeftWidth < 0 {
@@ -247,41 +249,48 @@ func (m Model) overviewContentView(height int) string {
 	if innerRightWidth < 0 {
 		innerRightWidth = 0
 	}
-	if innerLeftHeight < 0 {
-		innerLeftHeight = 0
+	if innerTopLeftHeight < 0 {
+		innerTopLeftHeight = 0
 	}
-	if innerTopHeight < 0 {
-		innerTopHeight = 0
+	if innerTopRightHeight < 0 {
+		innerTopRightHeight = 0
 	}
-	if innerBottomHeight < 0 {
-		innerBottomHeight = 0
+	if innerBotLeftHeight < 0 {
+		innerBotLeftHeight = 0
+	}
+	if innerBotRightHeight < 0 {
+		innerBotRightHeight = 0
 	}
 
 	// Render panel contents.
-	leftContent := m.overview.leftView(innerLeftWidth, innerLeftHeight)
+	clusterContent := m.overview.clusterView(innerLeftWidth, innerTopLeftHeight)
 	detailContent := m.overview.detailView()
 	statusContent := m.overview.statusView()
+	logsContent := m.overview.logsView()
 
-	// Apply panel styles.
-	leftStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerLeftHeight)
-	detailStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerTopHeight)
-	statusStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerBottomHeight)
+	// Apply panel styles with titled borders.
+	clusterStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerTopLeftHeight)
+	detailStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerTopRightHeight)
+	statusStyle := m.styles.LeftPanel.Width(innerLeftWidth).Height(innerBotLeftHeight)
+	logsStyle := m.styles.RightPanel.Width(innerRightWidth).Height(innerBotRightHeight)
 
-	// Focus highlighting.
+	// Focus highlighting on the cluster panel.
 	if m.overview.focus == panelLeft {
-		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
+		clusterStyle = clusterStyle.BorderForeground(m.styles.FocusedBorderColor)
 	}
 	if m.overview.focus == panelRight {
 		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
 	}
 
-	left := leftStyle.Render(leftContent)
+	cluster := clusterStyle.Render(clusterContent)
 	detail := detailStyle.Render(detailContent)
 	status := statusStyle.Render(statusContent)
+	logs := logsStyle.Render(logsContent)
 
-	rightColumn := lipgloss.JoinVertical(lipgloss.Left, detail, status)
+	topRow := lipgloss.JoinHorizontal(lipgloss.Top, cluster, detail)
+	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top, status, logs)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, left, rightColumn)
+	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
 }
 
 // backupsContentView renders the Backups tab with left list + right detail.
