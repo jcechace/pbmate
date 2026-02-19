@@ -271,46 +271,12 @@ func (m Model) contentView(height int) string {
 // overviewContentView renders the Overview tab with 4-quadrant layout:
 // top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
 func (m Model) overviewContentView(height int) string {
-	leftWidth := m.width * leftPanelPct / 100
-	if leftWidth < minLeftPanelW {
-		leftWidth = minLeftPanelW
-	}
-	rightWidth := m.width - leftWidth
-
-	// Panel width is for lipgloss .Width() — the area inside borders.
-	// lipgloss subtracts padding internally before wrapping, so we only
-	// subtract the border here.
-	panelLeftW := leftWidth - panelBorderH
-	panelRightW := rightWidth - panelBorderH
-
-	// Content width is for viewports — the area inside borders AND padding.
-	contentLeftW := leftWidth - panelBorderH - panelPaddingH
-	contentRightW := rightWidth - panelBorderH - panelPaddingH
+	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(m.width)
 
 	topHeight := height * topPanelPct / 100
 	bottomHeight := height - topHeight
-	innerTopH := topHeight - panelBorderV
-	innerBotH := bottomHeight - panelBorderV
-
-	// Clamp to zero.
-	if panelLeftW < 0 {
-		panelLeftW = 0
-	}
-	if panelRightW < 0 {
-		panelRightW = 0
-	}
-	if contentLeftW < 0 {
-		contentLeftW = 0
-	}
-	if contentRightW < 0 {
-		contentRightW = 0
-	}
-	if innerTopH < 0 {
-		innerTopH = 0
-	}
-	if innerBotH < 0 {
-		innerBotH = 0
-	}
+	innerTopH := innerHeight(topHeight)
+	innerBotH := innerHeight(bottomHeight)
 
 	// Set viewport dimensions (known only at View time) and render.
 	m.overview.setClusterSize(contentLeftW, innerTopH)
@@ -354,43 +320,18 @@ func (m Model) overviewContentView(height int) string {
 
 // backupsContentView renders the Backups tab with left list + right detail.
 func (m Model) backupsContentView(height int) string {
-	leftWidth := m.width * leftPanelPct / 100
-	if leftWidth < minLeftPanelW {
-		leftWidth = minLeftPanelW
-	}
-	rightWidth := m.width - leftWidth
-
-	panelLeftW := leftWidth - panelBorderH
-	panelRightW := rightWidth - panelBorderH
-	contentLeftW := leftWidth - panelBorderH - panelPaddingH
-	contentRightW := rightWidth - panelBorderH - panelPaddingH
-	innerHeight := height - panelBorderV
-
-	if panelLeftW < 0 {
-		panelLeftW = 0
-	}
-	if panelRightW < 0 {
-		panelRightW = 0
-	}
-	if contentLeftW < 0 {
-		contentLeftW = 0
-	}
-	if contentRightW < 0 {
-		contentRightW = 0
-	}
-	if innerHeight < 0 {
-		innerHeight = 0
-	}
+	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(m.width)
+	innerH := innerHeight(height)
 
 	// Set viewport dimensions (known only at View time) and render.
-	m.backups.setListSize(contentLeftW, innerHeight)
-	m.backups.setDetailSize(contentRightW, innerHeight)
+	m.backups.setListSize(contentLeftW, innerH)
+	m.backups.setDetailSize(contentRightW, innerH)
 
 	leftContent := m.backups.listView()
 	rightContent := m.backups.detailView()
 
-	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerHeight)
-	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerHeight)
+	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerH)
+	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerH)
 
 	if m.backups.focus == panelLeft {
 		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
@@ -540,59 +481,28 @@ func (m *Model) updateViewportDims() {
 		return
 	}
 	chromeH := lipgloss.Height(m.headerView()) + lipgloss.Height(m.bottomBarView())
-	contentH := m.height - chromeH
-	if contentH < 0 {
-		contentH = 0
-	}
+	contentH := max(m.height-chromeH, 0)
 
-	leftW := m.width * leftPanelPct / 100
-	if leftW < minLeftPanelW {
-		leftW = minLeftPanelW
-	}
-	rightW := m.width - leftW
-
-	contentLeftW := leftW - panelBorderH - panelPaddingH
-	contentRightW := rightW - panelBorderH - panelPaddingH
-
-	if contentLeftW < 0 {
-		contentLeftW = 0
-	}
-	if contentRightW < 0 {
-		contentRightW = 0
-	}
+	_, _, contentLeftW, contentRightW := horizontalSplit(m.width)
 
 	// Overview: 4-quadrant layout.
 	topH := contentH * topPanelPct / 100
 	bottomH := contentH - topH
-	innerTopH := topH - panelBorderV
-	innerBotH := bottomH - panelBorderV
-
-	if innerTopH < 0 {
-		innerTopH = 0
-	}
-	if innerBotH < 0 {
-		innerBotH = 0
-	}
 
 	m.overview.clusterVP.Width = contentLeftW
-	m.overview.clusterVP.Height = innerTopH
+	m.overview.clusterVP.Height = innerHeight(topH)
 	m.overview.detailVP.Width = contentRightW
-	m.overview.detailVP.Height = innerTopH
+	m.overview.detailVP.Height = innerHeight(topH)
 	m.overview.statusVP.Width = contentLeftW
-	m.overview.statusVP.Height = innerBotH
+	m.overview.statusVP.Height = innerHeight(bottomH)
 	m.overview.logVP.Width = contentRightW
-	m.overview.logVP.Height = innerBotH
+	m.overview.logVP.Height = innerHeight(bottomH)
 
 	// Backups: 2-panel full-height layout.
-	innerH := contentH - panelBorderV
-	if innerH < 0 {
-		innerH = 0
-	}
-
 	m.backups.listVP.Width = contentLeftW
-	m.backups.listVP.Height = innerH
+	m.backups.listVP.Height = innerHeight(contentH)
 	m.backups.detailVP.Width = contentRightW
-	m.backups.detailVP.Height = innerH
+	m.backups.detailVP.Height = innerHeight(contentH)
 }
 
 // toggleLogFollow starts or stops the log follow mode.
