@@ -95,7 +95,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.updateLogViewportDims()
+		m.updateViewportDims()
 		return m, nil
 
 	case tickMsg:
@@ -178,6 +178,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			newTab = (m.activeTab - 1 + tabCount) % tabCount
 		case key.Matches(msg, overviewKeys.Follow) && m.activeTab == tabOverview:
 			return m.toggleLogFollow()
+		case key.Matches(msg, backupKeys.Start):
+			return m, startBackupCmd(m.client)
+		case key.Matches(msg, backupKeys.Cancel):
+			return m, cancelBackupCmd(m.client)
 		default:
 			// Forward to active tab sub-model.
 			switch m.activeTab {
@@ -325,12 +329,16 @@ func (m Model) overviewContentView(height int) string {
 	statusStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerBotH)
 	logsStyle := m.styles.RightPanel.Width(panelRightW).Height(innerBotH)
 
-	// Focus highlighting on the cluster panel.
-	if m.overview.focus == panelLeft {
+	// Highlight the focused panel's border.
+	switch m.overview.focus {
+	case focusCluster:
 		clusterStyle = clusterStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-	if m.overview.focus == panelRight {
+	case focusDetail:
 		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
+	case focusStatus:
+		statusStyle = statusStyle.BorderForeground(m.styles.FocusedBorderColor)
+	case focusLog:
+		logsStyle = logsStyle.BorderForeground(m.styles.FocusedBorderColor)
 	}
 
 	cluster := clusterStyle.Render(clusterContent)
@@ -498,17 +506,19 @@ func (m Model) runningOpText() string {
 // contextBindings returns the keybinding hints appropriate for the current
 // tab and selection state.
 func (m Model) contextBindings() []key.Binding {
-	// Always include navigation essentials.
-	bindings := []key.Binding{m.keys.Up, m.keys.Down}
+	// Navigation: panel cycling + vertical.
+	bindings := []key.Binding{m.keys.NextPanel, m.keys.PrevPanel, m.keys.Up, m.keys.Down}
 
+	// Tab-specific hints.
 	switch m.activeTab {
 	case tabOverview:
 		bindings = append(bindings, overviewKeys.Toggle, overviewKeys.Follow, overviewKeys.Wrap)
-		bindings = append(bindings, backupKeys.Start)
 	case tabBackups:
-		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
+		bindings = append(bindings, backupKeys.Delete)
 	}
 
+	// Global actions + help.
+	bindings = append(bindings, backupKeys.Start, backupKeys.Cancel)
 	bindings = append(bindings, m.keys.Help, m.keys.Quit)
 	return bindings
 }
@@ -521,11 +531,11 @@ func (m Model) clusterTimeText() string {
 	return m.data.clusterTime.Time().Format("15:04")
 }
 
-// updateLogViewportDims precomputes the log viewport dimensions from the
-// current terminal size. This allows Update-time operations (scrolling,
-// GotoBottom) to use correct bounds, since View-time dimension setting
-// operates on a value copy and doesn't persist.
-func (m *Model) updateLogViewportDims() {
+// updateViewportDims precomputes all viewport dimensions from the current
+// terminal size. This allows Update-time operations (scrolling, GotoBottom)
+// to use correct bounds, since View-time dimension setting operates on a
+// value copy and doesn't persist.
+func (m *Model) updateViewportDims() {
 	if m.width == 0 || m.height == 0 {
 		return
 	}
@@ -541,19 +551,48 @@ func (m *Model) updateLogViewportDims() {
 	}
 	rightW := m.width - leftW
 
-	w := rightW - panelBorderH - panelPaddingH
-	bottomH := contentH - contentH*topPanelPct/100
-	h := bottomH - panelBorderV
+	contentLeftW := leftW - panelBorderH - panelPaddingH
+	contentRightW := rightW - panelBorderH - panelPaddingH
 
-	if w < 0 {
-		w = 0
+	if contentLeftW < 0 {
+		contentLeftW = 0
 	}
-	if h < 0 {
-		h = 0
+	if contentRightW < 0 {
+		contentRightW = 0
 	}
 
-	m.overview.logVP.Width = w
-	m.overview.logVP.Height = h
+	// Overview: 4-quadrant layout.
+	topH := contentH * topPanelPct / 100
+	bottomH := contentH - topH
+	innerTopH := topH - panelBorderV
+	innerBotH := bottomH - panelBorderV
+
+	if innerTopH < 0 {
+		innerTopH = 0
+	}
+	if innerBotH < 0 {
+		innerBotH = 0
+	}
+
+	m.overview.clusterVP.Width = contentLeftW
+	m.overview.clusterVP.Height = innerTopH
+	m.overview.detailVP.Width = contentRightW
+	m.overview.detailVP.Height = innerTopH
+	m.overview.statusVP.Width = contentLeftW
+	m.overview.statusVP.Height = innerBotH
+	m.overview.logVP.Width = contentRightW
+	m.overview.logVP.Height = innerBotH
+
+	// Backups: 2-panel full-height layout.
+	innerH := contentH - panelBorderV
+	if innerH < 0 {
+		innerH = 0
+	}
+
+	m.backups.listVP.Width = contentLeftW
+	m.backups.listVP.Height = innerH
+	m.backups.detailVP.Width = contentRightW
+	m.backups.detailVP.Height = innerH
 }
 
 // toggleLogFollow starts or stops the log follow mode.

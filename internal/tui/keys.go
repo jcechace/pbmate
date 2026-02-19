@@ -4,19 +4,19 @@ import "github.com/charmbracelet/bubbles/key"
 
 // globalKeyMap defines keybindings available in all views.
 type globalKeyMap struct {
-	Quit    key.Binding
-	Tab1    key.Binding
-	Tab2    key.Binding
-	Tab3    key.Binding
-	Tab4    key.Binding
-	NextTab key.Binding
-	PrevTab key.Binding
-	Help    key.Binding
-	Back    key.Binding
-	Up      key.Binding
-	Down    key.Binding
-	Left    key.Binding
-	Right   key.Binding
+	Quit      key.Binding
+	Tab1      key.Binding
+	Tab2      key.Binding
+	Tab3      key.Binding
+	Tab4      key.Binding
+	NextTab   key.Binding
+	PrevTab   key.Binding
+	NextPanel key.Binding
+	PrevPanel key.Binding
+	Help      key.Binding
+	Back      key.Binding
+	Up        key.Binding
+	Down      key.Binding
 }
 
 var globalKeys = globalKeyMap{
@@ -64,13 +64,13 @@ var globalKeys = globalKeyMap{
 		key.WithKeys("down", "j"),
 		key.WithHelp("down/j", "down"),
 	),
-	Left: key.NewBinding(
-		key.WithKeys("left", "h"),
-		key.WithHelp("left/h", "left panel"),
+	NextPanel: key.NewBinding(
+		key.WithKeys("]"),
+		key.WithHelp("]", "next panel"),
 	),
-	Right: key.NewBinding(
-		key.WithKeys("right", "l"),
-		key.WithHelp("right/l", "right panel"),
+	PrevPanel: key.NewBinding(
+		key.WithKeys("["),
+		key.WithHelp("[", "prev panel"),
 	),
 }
 
@@ -128,7 +128,7 @@ func (k globalKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns key bindings for the expanded help view.
 func (k globalKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Left, k.Right},
+		{k.Up, k.Down, k.NextPanel, k.PrevPanel},
 		{k.NextTab, k.PrevTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4},
 		{k.Help, k.Back, k.Quit},
 	}

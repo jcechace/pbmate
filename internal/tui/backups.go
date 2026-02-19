@@ -52,34 +52,49 @@ func (m *backupsModel) setData(d backupsData) {
 // Returns a tea.Cmd if an action was triggered, nil otherwise.
 func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	switch {
+	case key.Matches(msg, keys.NextPanel):
+		m.cyclePanel(1)
+	case key.Matches(msg, keys.PrevPanel):
+		m.cyclePanel(-1)
 	case key.Matches(msg, keys.Down):
-		if m.cursor < len(m.backups)-1 {
-			m.cursor++
-		}
-		m.rebuildListContent()
-		m.rebuildDetailContent()
+		m.handleVertical(1)
 	case key.Matches(msg, keys.Up):
-		if m.cursor > 0 {
-			m.cursor--
-		}
-		m.rebuildListContent()
-		m.rebuildDetailContent()
-	case key.Matches(msg, keys.Left):
-		m.focus = panelLeft
-		m.rebuildListContent()
-	case key.Matches(msg, keys.Right):
-		m.focus = panelRight
-		m.rebuildListContent()
-	case key.Matches(msg, backupKeys.Start):
-		return startBackupCmd(m.client)
-	case key.Matches(msg, backupKeys.Cancel):
-		return cancelBackupCmd(m.client)
+		m.handleVertical(-1)
 	case key.Matches(msg, backupKeys.Delete):
 		if sel := m.selectedBackup(); sel != nil {
 			return deleteBackupCmd(m.client, sel.Name)
 		}
 	}
 	return nil
+}
+
+// cyclePanel moves focus to the next or previous panel.
+func (m *backupsModel) cyclePanel(delta int) {
+	old := m.focus
+	m.focus = panel((int(m.focus) + delta + int(panelCount)) % int(panelCount))
+	if m.focus != old {
+		m.rebuildListContent() // update cursor ▶ visibility
+	}
+}
+
+// handleVertical dispatches Up/Down to the focused panel.
+func (m *backupsModel) handleVertical(delta int) {
+	switch m.focus {
+	case panelLeft:
+		if delta > 0 && m.cursor < len(m.backups)-1 {
+			m.cursor++
+		} else if delta < 0 && m.cursor > 0 {
+			m.cursor--
+		}
+		m.rebuildListContent()
+		m.rebuildDetailContent()
+	case panelRight:
+		if delta > 0 {
+			m.detailVP.ScrollDown(delta)
+		} else {
+			m.detailVP.ScrollUp(-delta)
+		}
+	}
 }
 
 // selectedBackup returns the currently selected backup, or nil.

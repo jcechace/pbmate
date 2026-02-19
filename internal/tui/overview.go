@@ -37,19 +37,31 @@ type overviewItem struct {
 	selectable bool       // whether the cursor can land here
 }
 
-// panel identifies which panel has focus.
+// panel identifies which panel has focus in a two-panel layout.
 type panel int
 
 const (
 	panelLeft panel = iota
 	panelRight
+	panelCount // sentinel for cycling
+)
+
+// overviewFocus identifies which quadrant has focus in the overview layout.
+type overviewFocus int
+
+const (
+	focusCluster       overviewFocus = iota // top-left
+	focusDetail                             // top-right
+	focusStatus                             // bottom-left
+	focusLog                                // bottom-right
+	overviewFocusCount                      // sentinel for cycling
 )
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
 	items        []overviewItem
 	cursor       int
-	focus        panel
+	focus        overviewFocus
 	styles       *Styles
 	data         overviewData
 	collapsed    map[string]bool        // RS name -> collapsed state
@@ -71,7 +83,7 @@ type overviewModel struct {
 func newOverviewModel(styles *Styles) overviewModel {
 	return overviewModel{
 		styles:    styles,
-		focus:     panelLeft,
+		focus:     focusCluster,
 		collapsed: make(map[string]bool),
 		logPinned: true,
 		clusterVP: newPanelViewport(),
@@ -154,34 +166,49 @@ func (m *overviewModel) rebuildItems() {
 // update handles key messages for the overview tab.
 func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 	switch {
+	case key.Matches(msg, keys.NextPanel):
+		m.cyclePanel(1)
+	case key.Matches(msg, keys.PrevPanel):
+		m.cyclePanel(-1)
 	case key.Matches(msg, keys.Down):
-		if m.focus == panelRight {
-			m.scrollLog(1)
-		} else {
-			m.moveCursor(1)
-			m.rebuildClusterContent()
-			m.rebuildDetailContent()
-		}
+		m.handleVertical(1)
 	case key.Matches(msg, keys.Up):
-		if m.focus == panelRight {
-			m.scrollLog(-1)
-		} else {
-			m.moveCursor(-1)
-			m.rebuildClusterContent()
-			m.rebuildDetailContent()
-		}
-	case key.Matches(msg, keys.Left):
-		m.focus = panelLeft
-		m.rebuildClusterContent()
-	case key.Matches(msg, keys.Right):
-		m.focus = panelRight
-		m.rebuildClusterContent()
-	case key.Matches(msg, overviewKeys.Toggle):
+		m.handleVertical(-1)
+	case key.Matches(msg, overviewKeys.Toggle) && m.focus == focusCluster:
 		m.toggleCollapse()
-		// rebuildItems (called by toggleCollapse) already rebuilds cluster + detail.
 	case key.Matches(msg, overviewKeys.Wrap):
 		m.logWrap = !m.logWrap
 		m.rebuildLogContent()
+	}
+}
+
+// cyclePanel moves focus to the next or previous panel in Z-order
+// (Cluster → Detail → Status → Log).
+func (m *overviewModel) cyclePanel(delta int) {
+	old := m.focus
+	m.focus = overviewFocus((int(m.focus) + delta + int(overviewFocusCount)) % int(overviewFocusCount))
+	if m.focus != old {
+		m.rebuildClusterContent() // update cursor ▶ visibility
+	}
+}
+
+// handleVertical dispatches Up/Down to the focused panel.
+func (m *overviewModel) handleVertical(delta int) {
+	switch m.focus {
+	case focusCluster:
+		if delta > 0 {
+			m.moveCursor(1)
+		} else {
+			m.moveCursor(-1)
+		}
+		m.rebuildClusterContent()
+		m.rebuildDetailContent()
+	case focusDetail:
+		m.scrollDetail(delta)
+	case focusLog:
+		m.scrollLog(delta)
+	case focusStatus:
+		// Status panel has few static lines; scrolling is not useful.
 	}
 }
 
@@ -240,6 +267,15 @@ func (m *overviewModel) ensureSelectable(dir int) {
 		return
 	}
 	m.moveCursor(dir)
+}
+
+// scrollDetail scrolls the detail viewport by delta lines.
+func (m *overviewModel) scrollDetail(delta int) {
+	if delta > 0 {
+		m.detailVP.ScrollDown(delta)
+	} else {
+		m.detailVP.ScrollUp(-delta)
+	}
 }
 
 // scrollLog scrolls the log viewport by delta lines and updates the
@@ -483,9 +519,9 @@ func (m *overviewModel) rebuildLogContent() {
 	m.logLineCount = strings.Count(content, "\n") + 1
 	m.logVP.SetContent(content)
 
-	// Auto-scroll: always in non-follow mode (polled content is replaced
-	// entirely), in follow mode only when pinned to bottom.
-	if m.logVP.Height > 0 && (!m.logFollowing || m.logPinned) {
+	// Auto-scroll to bottom when pinned. Scrolling up unpins; reaching
+	// the bottom or starting follow re-pins.
+	if m.logVP.Height > 0 && m.logPinned {
 		m.logVP.GotoBottom()
 	}
 }
@@ -557,7 +593,7 @@ func (m *overviewModel) clusterContent() string {
 		}
 		line := m.renderItem(item)
 		if i == m.cursor && item.selectable {
-			if m.focus == panelLeft {
+			if m.focus == focusCluster {
 				line = cursor.Render("▶ ") + lipgloss.NewStyle().Bold(true).Render(line)
 			} else {
 				line = "  " + lipgloss.NewStyle().Bold(true).Render(line)
