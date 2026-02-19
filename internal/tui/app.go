@@ -70,6 +70,7 @@ type Model struct {
 	// Backup form — when non-nil, a huh form overlay is active.
 	backupForm       *huh.Form
 	backupFormResult *backupFormResult
+	backupFormKind   backupFormKind
 
 	// Sub-models.
 	overview overviewModel
@@ -170,9 +171,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case backupFormReadyMsg:
-		form, result := newBackupForm(msg.profiles)
+		var form *huh.Form
+		var result *backupFormResult
+		switch msg.kind {
+		case backupFormQuick:
+			form, result = newQuickBackupForm()
+		case backupFormFull:
+			form, result = newFullBackupForm(msg.profiles, nil)
+		}
+		result.profiles = msg.profiles
 		m.backupForm = form
 		m.backupFormResult = result
+		m.backupFormKind = msg.kind
 		return m, m.backupForm.Init()
 
 	case confirmDeleteMsg:
@@ -211,7 +221,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.PrevTab):
 			newTab = (m.activeTab - 1 + tabCount) % tabCount
 		case key.Matches(msg, backupKeys.Start):
-			return m, m.openBackupForm()
+			return m, m.openBackupForm(backupFormQuick)
+		case key.Matches(msg, backupKeys.StartCustom):
+			return m, m.openBackupForm(backupFormFull)
 		case key.Matches(msg, backupKeys.Cancel):
 			if len(m.overview.data.operations) > 0 {
 				m.confirm = &confirmAction{
@@ -296,7 +308,11 @@ func (m Model) headerView() string {
 // When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
 	if m.backupForm != nil {
-		return renderFormOverlay(m.backupForm, m.styles, m.width, height)
+		title := "Start Backup"
+		if m.backupFormKind == backupFormFull {
+			title = "Configure Backup"
+		}
+		return renderFormOverlay(m.backupForm, title, m.styles, m.width, height)
 	}
 
 	switch m.activeTab {
@@ -444,7 +460,7 @@ func (m Model) contextBindings() []key.Binding {
 	}
 
 	// Global actions + help.
-	bindings = append(bindings, backupKeys.Start, backupKeys.Cancel)
+	bindings = append(bindings, backupKeys.Start, backupKeys.StartCustom, backupKeys.Cancel)
 	bindings = append(bindings, m.keys.Help, m.keys.Quit)
 	return bindings
 }
@@ -476,8 +492,8 @@ func (m *Model) updateViewportDims() {
 
 // openBackupForm fetches storage profiles then creates the form overlay.
 // The form is created asynchronously when backupFormReadyMsg arrives.
-func (m *Model) openBackupForm() tea.Cmd {
-	return fetchProfilesCmd(m.client)
+func (m *Model) openBackupForm(kind backupFormKind) tea.Cmd {
+	return fetchProfilesCmd(m.client, kind)
 }
 
 // updateBackupForm forwards a message to the active backup form and handles
@@ -547,6 +563,10 @@ func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.backupFormResult = nil
 			return m, nil
 		}
+		// 'c' on the quick form transitions to the full wizard.
+		if m.backupFormKind == backupFormQuick && msg.String() == "c" {
+			return m, m.transitionToFullForm()
+		}
 	}
 
 	// Forward everything else to the huh form.
@@ -558,9 +578,13 @@ func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Check if the form completed.
 	if m.backupForm.State == huh.StateCompleted {
 		result := m.backupFormResult
+		// Quick form: "Customize" was selected (confirmed == false).
+		if m.backupFormKind == backupFormQuick && !result.confirmed {
+			return m, m.transitionToFullForm()
+		}
 		m.backupForm = nil
 		m.backupFormResult = nil
-		// User declined on the confirm field.
+		// Full form: user declined on the final confirm.
 		if !result.confirmed {
 			return m, nil
 		}
@@ -575,4 +599,15 @@ func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, cmd
+}
+
+// transitionToFullForm switches from the quick confirm to the full wizard,
+// carrying over the current result values and cached profiles.
+func (m *Model) transitionToFullForm() tea.Cmd {
+	prev := m.backupFormResult
+	form, result := newFullBackupForm(prev.profiles, prev)
+	m.backupForm = form
+	m.backupFormResult = result
+	m.backupFormKind = backupFormFull
+	return m.backupForm.Init()
 }

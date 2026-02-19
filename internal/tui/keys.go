@@ -98,15 +98,20 @@ var overviewKeys = overviewKeyMap{
 
 // backupKeyMap defines keybindings specific to the Backups tab.
 type backupKeyMap struct {
-	Start  key.Binding
-	Cancel key.Binding
-	Delete key.Binding
+	Start       key.Binding
+	StartCustom key.Binding
+	Cancel      key.Binding
+	Delete      key.Binding
 }
 
 var backupKeys = backupKeyMap{
 	Start: key.NewBinding(
 		key.WithKeys("s"),
-		key.WithHelp("s", "start backup"),
+		key.WithHelp("s", "backup"),
+	),
+	StartCustom: key.NewBinding(
+		key.WithKeys("S"),
+		key.WithHelp("S", "custom backup"),
 	),
 	Cancel: key.NewBinding(
 		key.WithKeys("c"),

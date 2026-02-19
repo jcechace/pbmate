@@ -15,12 +15,25 @@ import (
 // excluding border and padding.
 const backupFormInnerWidth = 40
 
-// backupFormResult holds the user's selections from the start backup form.
+// backupFormKind distinguishes between the quick confirm and the full wizard.
+type backupFormKind int
+
+const (
+	backupFormQuick backupFormKind = iota
+	backupFormFull
+)
+
+// backupFormResult holds the user's selections from the backup form.
 type backupFormResult struct {
 	backupType  string
 	compression string
 	configName  string
-	confirmed   bool
+	namespaces  string
+	incrBase    bool
+	confirmed   bool // true = start, false = customize (quick form only)
+
+	// Profiles are stored for handoff from quick → full form.
+	profiles []sdk.StorageProfile
 }
 
 // toOptions converts the form result into SDK StartBackupOptions.
@@ -50,7 +63,7 @@ func (r backupFormResult) toOptions() sdk.StartBackupOptions {
 	case "zstd":
 		opts.Compression = sdk.CompressionTypeZSTD
 	}
-	// "default" → zero value, server decides.
+	// "default" / "none" → zero value, server decides.
 
 	if r.configName != "main" {
 		cn, err := sdk.NewConfigName(r.configName)
@@ -59,12 +72,23 @@ func (r backupFormResult) toOptions() sdk.StartBackupOptions {
 		}
 	}
 
+	if r.namespaces != "" && r.namespaces != "*.*" {
+		opts.Namespaces = strings.Split(r.namespaces, ",")
+		for i := range opts.Namespaces {
+			opts.Namespaces[i] = strings.TrimSpace(opts.Namespaces[i])
+		}
+	}
+
+	opts.IncrBase = r.incrBase
+
 	return opts
 }
 
-// newBackupForm creates a huh.Form for starting a backup.
-// profiles is the list of named storage profiles (may be empty).
-func newBackupForm(profiles []sdk.StorageProfile) (*huh.Form, *backupFormResult) {
+// --- Quick backup form ---
+
+// newQuickBackupForm creates a compact confirm form for starting a backup
+// with defaults. The user can confirm ("Start") or choose to customize.
+func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
@@ -72,7 +96,47 @@ func newBackupForm(profiles []sdk.StorageProfile) (*huh.Form, *backupFormResult)
 		confirmed:   true,
 	}
 
-	// Build profile options: Main is always first.
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Title("Start Backup").
+				Description("Logical backup to **Main** storage\nwith server default compression."),
+
+			huh.NewConfirm().
+				Affirmative("Start").
+				Negative("Customize").
+				Value(&result.confirmed),
+		),
+	).
+		WithTheme(huh.ThemeCatppuccin()).
+		WithWidth(backupFormInnerWidth).
+		WithShowHelp(false).
+		WithShowErrors(false).
+		WithKeyMap(backupFormKeyMap())
+
+	return form, result
+}
+
+// --- Full backup wizard ---
+
+// newFullBackupForm creates a multi-group wizard form for configuring a backup.
+// initialResult carries values from the quick form (or defaults if opened
+// directly via S). profiles is the list of named storage profiles.
+func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult) (*huh.Form, *backupFormResult) {
+	result := &backupFormResult{
+		backupType:  "logical",
+		compression: "default",
+		configName:  "main",
+		confirmed:   true,
+		profiles:    profiles,
+	}
+	if initial != nil {
+		result.backupType = initial.backupType
+		result.compression = initial.compression
+		result.configName = initial.configName
+	}
+
+	// Profile options: Main is always first.
 	profileOpts := []huh.Option[string]{
 		huh.NewOption("Main", "main"),
 	}
@@ -81,16 +145,24 @@ func newBackupForm(profiles []sdk.StorageProfile) (*huh.Form, *backupFormResult)
 	}
 
 	form := huh.NewForm(
+		// Group 1: Type & Profile.
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Backup Type").
 				Options(
 					huh.NewOption("Logical", "logical"),
-					huh.NewOption("Physical", "physical"),
 					huh.NewOption("Incremental", "incremental"),
 				).
 				Value(&result.backupType),
 
+			huh.NewSelect[string]().
+				Title("Profile").
+				Options(profileOpts...).
+				Value(&result.configName),
+		),
+
+		// Group 2: Compression.
+		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Compression").
 				Options(
@@ -104,22 +176,51 @@ func newBackupForm(profiles []sdk.StorageProfile) (*huh.Form, *backupFormResult)
 					huh.NewOption("None", "none"),
 				).
 				Value(&result.compression),
+		),
 
-			huh.NewSelect[string]().
-				Title("Profile").
-				Options(profileOpts...).
-				Value(&result.configName),
+		// Group 3: Advanced — logical-specific options.
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Namespaces").
+				Placeholder("*.*  (all)").
+				Value(&result.namespaces),
+		).WithHideFunc(func() bool {
+			return result.backupType != "logical"
+		}),
 
+		// Group 4: Advanced — incremental-specific options.
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use as incremental base?").
+				Description("Starts a new incremental backup chain.").
+				Affirmative("Yes").
+				Negative("No").
+				Value(&result.incrBase),
+		).WithHideFunc(func() bool {
+			return result.backupType != "incremental"
+		}),
+
+		// Group 5: Final confirmation.
+		huh.NewGroup(
 			huh.NewConfirm().
 				TitleFunc(func() string {
 					return fmt.Sprintf("Start %s backup?", result.backupType)
 				}, &result.backupType).
+				Affirmative("Start").
+				Negative("Cancel").
 				Value(&result.confirmed),
 		),
-	).WithShowHelp(false).WithShowErrors(false).WithKeyMap(backupFormKeyMap())
+	).
+		WithTheme(huh.ThemeCatppuccin()).
+		WithWidth(backupFormInnerWidth).
+		WithShowHelp(false).
+		WithShowErrors(false).
+		WithKeyMap(backupFormKeyMap())
 
 	return form, result
 }
+
+// --- Shared ---
 
 // backupFormKeyMap returns a huh KeyMap with ] and [ added to field
 // navigation alongside the default tab/shift+tab/enter bindings.
@@ -130,6 +231,10 @@ func backupFormKeyMap() *huh.KeyMap {
 	km.Select.Prev = key.NewBinding(key.WithKeys("shift+tab", "["))
 	km.Confirm.Next = key.NewBinding(key.WithKeys("enter", "tab", "]"))
 	km.Confirm.Prev = key.NewBinding(key.WithKeys("shift+tab", "["))
+	km.Note.Next = key.NewBinding(key.WithKeys("enter", "tab", "]"))
+	km.Note.Prev = key.NewBinding(key.WithKeys("shift+tab", "["))
+	km.Input.Next = key.NewBinding(key.WithKeys("enter", "tab", "]"))
+	km.Input.Prev = key.NewBinding(key.WithKeys("shift+tab", "["))
 
 	return km
 }
@@ -137,7 +242,7 @@ func backupFormKeyMap() *huh.KeyMap {
 // renderFormOverlay renders the form centered over the content area inside
 // a bordered panel with a title in the top border, using the same approach
 // as renderTitledPanel.
-func renderFormOverlay(form *huh.Form, styles Styles, contentW, contentH int) string {
+func renderFormOverlay(form *huh.Form, title string, styles Styles, contentW, contentH int) string {
 	formView := form.View()
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor
@@ -153,11 +258,11 @@ func renderFormOverlay(form *huh.Form, styles Styles, contentW, contentH int) st
 		Width(panelWidth).
 		Render(formView)
 
-	// Build a titled top border line: ╭─ Start Backup ─────╮
+	// Build a titled top border line: ╭─ Title ─────╮
 	bc := lipgloss.NewStyle().Foreground(borderColor)
 	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	title := tc.Render(" Start Backup ")
-	titleW := lipgloss.Width(title)
+	titleStr := tc.Render(" " + title + " ")
+	titleW := lipgloss.Width(titleStr)
 
 	outerW := panelWidth + panelBorderH
 	fill := outerW - 3 - titleW // corner + pad + title + fill + corner
@@ -166,7 +271,7 @@ func renderFormOverlay(form *huh.Form, styles Styles, contentW, contentH int) st
 	}
 
 	topLine := bc.Render(border.TopLeft+border.Top) +
-		title +
+		titleStr +
 		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
 
 	// Replace the auto-generated top border with our titled one.
