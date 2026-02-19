@@ -94,13 +94,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tickMsg:
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.client)}
+		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.logFollowing)}
 		if m.activeTab == tabBackups {
 			cmds = append(cmds, fetchBackupsCmd(m.client))
 		}
 		return m, tea.Batch(cmds...)
 
 	case overviewDataMsg:
+		// Preserve follow-mode log entries; the poll doesn't fetch logs
+		// during follow, so msg.logEntries would be nil.
+		if m.logFollowing {
+			msg.logEntries = m.data.logEntries
+		}
 		m.data = msg.overviewData
 		m.overview.setData(m.data)
 		m.overview.logFollowing = m.logFollowing

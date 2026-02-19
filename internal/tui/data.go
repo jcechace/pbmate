@@ -92,8 +92,9 @@ func deleteBackupCmd(client *sdk.Client, name string) tea.Cmd {
 
 // fetchOverviewCmd returns a tea.Cmd that fetches all overview data from the
 // SDK client. Errors from individual calls are coalesced into the first
-// encountered error; partial data is still returned.
-func fetchOverviewCmd(client *sdk.Client) tea.Cmd {
+// encountered error; partial data is still returned. When skipLogs is true,
+// log fetching is skipped (e.g. during follow mode where logs stream separately).
+func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		var d overviewData
@@ -143,12 +144,14 @@ func fetchOverviewCmd(client *sdk.Client) tea.Cmd {
 			d.storageName = formatStorageSummary(cfg.Storage)
 		}
 
-		// Fetch recent log entries.
-		logs, err := client.Logs.Get(ctx, 50)
-		if err != nil && d.err == nil {
-			d.err = err
+		// Fetch recent log entries (skip when follow mode is streaming them).
+		if !skipLogs {
+			logs, err := client.Logs.Get(ctx, 50)
+			if err != nil && d.err == nil {
+				d.err = err
+			}
+			d.logEntries = logs
 		}
-		d.logEntries = logs
 
 		return overviewDataMsg{d}
 	}
