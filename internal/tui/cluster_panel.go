@@ -146,6 +146,9 @@ func (p *clusterPanel) resize(clusterW, clusterH, detailW, detailH int) {
 // rebuildItems reconstructs the flat item list from grouped data,
 // respecting collapsed state. Preserves cursor position by item identity.
 func (p *clusterPanel) rebuildItems() {
+	defer p.rebuildClusterContent()
+	defer p.rebuildDetailContent()
+
 	// Remember currently selected item identity for cursor stability.
 	var selectedNode string
 	var selectedRS string
@@ -186,8 +189,6 @@ func (p *clusterPanel) rebuildItems() {
 		for i, item := range p.items {
 			if item.kind == itemAgent && item.agent.Node == selectedNode {
 				p.cursor = i
-				p.rebuildClusterContent()
-				p.rebuildDetailContent()
 				return
 			}
 		}
@@ -196,15 +197,11 @@ func (p *clusterPanel) rebuildItems() {
 		for i, item := range p.items {
 			if item.kind == itemRSHeader && item.rsName == selectedRS {
 				p.cursor = i
-				p.rebuildClusterContent()
-				p.rebuildDetailContent()
 				return
 			}
 		}
 	}
 	p.ensureSelectable(1)
-	p.rebuildClusterContent()
-	p.rebuildDetailContent()
 }
 
 // ensureSelectable moves cursor to the nearest selectable item in the given
