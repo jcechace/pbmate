@@ -3,8 +3,10 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/sync/errgroup"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -160,54 +162,92 @@ func deleteBackupCmd(client *sdk.Client, name string) tea.Cmd {
 }
 
 // fetchOverviewCmd returns a tea.Cmd that fetches all overview data from the
-// SDK client. Errors from individual calls are coalesced into the first
-// encountered error; partial data is still returned. When skipLogs is true,
-// log fetching is skipped (e.g. during follow mode where logs stream separately).
+// SDK client concurrently. Errors from individual calls are coalesced into
+// the first encountered error; partial data is still returned. When skipLogs
+// is true, log fetching is skipped (e.g. during follow mode where logs stream
+// separately).
 func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
 		var d overviewData
 
-		// setErr records the first error encountered across all fetches.
+		// setErr records the first error encountered; goroutine-safe.
+		var mu sync.Mutex
 		setErr := func(err error) {
-			if err != nil && d.err == nil {
-				d.err = err
+			if err != nil {
+				mu.Lock()
+				if d.err == nil {
+					d.err = err
+				}
+				mu.Unlock()
 			}
 		}
 
-		var err error
+		// All fetches are independent reads — run them concurrently.
+		// Goroutines always return nil so errgroup never cancels early.
+		g, gctx := errgroup.WithContext(ctx)
 
-		d.agents, err = client.Cluster.Agents(ctx)
-		setErr(err)
-
-		d.operations, err = client.Cluster.RunningOperations(ctx)
-		setErr(err)
-
-		d.pitr, err = client.PITR.Status(ctx)
-		setErr(err)
-
-		d.timelines, err = client.PITR.Timelines(ctx)
-		setErr(err)
-
-		d.recentBackups, err = client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
-		setErr(err)
-
-		d.clusterTime, err = client.Cluster.ClusterTime(ctx)
-		setErr(err)
-
-		// Fetch config for storage info.
-		cfg, err := client.Config.Get(ctx)
-		setErr(err)
-		if cfg != nil {
-			d.storageName = formatStorageSummary(cfg.Storage)
-		}
-
-		// Fetch recent log entries (skip when follow mode is streaming them).
-		if !skipLogs {
-			d.logEntries, err = client.Logs.Get(ctx, logFetchCount)
+		g.Go(func() error {
+			v, err := client.Cluster.Agents(gctx)
+			d.agents = v
 			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.Cluster.RunningOperations(gctx)
+			d.operations = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.PITR.Status(gctx)
+			d.pitr = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.PITR.Timelines(gctx)
+			d.timelines = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.Backups.List(gctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
+			d.recentBackups = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.Cluster.ClusterTime(gctx)
+			d.clusterTime = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			cfg, err := client.Config.Get(gctx)
+			setErr(err)
+			if cfg != nil {
+				d.storageName = formatStorageSummary(cfg.Storage)
+			}
+			return nil
+		})
+
+		if !skipLogs {
+			g.Go(func() error {
+				v, err := client.Logs.Get(gctx, logFetchCount)
+				d.logEntries = v
+				setErr(err)
+				return nil
+			})
 		}
 
+		_ = g.Wait()
 		return overviewDataMsg{d}
 	}
 }
