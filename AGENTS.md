@@ -198,6 +198,8 @@ pbmate/
 - Commit in small increments -- one logical change per commit.
 - Commit messages: first line is a brief summary (imperative mood, ~50 chars).
   For complex changes, follow with an empty line and a multiline description.
+- Prefix commit messages with module scope: `[sdk]`, `[tui]`, or `[mcp]`.
+  General commits (AGENTS.md, PROGRESS.md, Taskfile) have no prefix.
 - Never push to remote. Pushing is always done by the human developer.
 
 ## TUI Design
