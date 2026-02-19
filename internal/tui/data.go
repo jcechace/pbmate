@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -100,7 +101,7 @@ func fetchOverviewCmd(client *sdk.Client) tea.Cmd {
 		}
 		d.timelines = timelines
 
-		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 5})
+		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 1})
 		if err != nil && d.err == nil {
 			d.err = err
 		}
@@ -111,6 +112,22 @@ func fetchOverviewCmd(client *sdk.Client) tea.Cmd {
 			d.err = err
 		}
 		d.clusterTime = ct
+
+		// Fetch config for storage info.
+		cfg, err := client.Config.Get(ctx)
+		if err != nil && d.err == nil {
+			d.err = err
+		}
+		if cfg != nil {
+			d.storageName = formatStorageSummary(cfg.Storage)
+		}
+
+		// Fetch recent log entries.
+		logs, err := client.Logs.Get(ctx, 50)
+		if err != nil && d.err == nil {
+			d.err = err
+		}
+		d.logEntries = logs
 
 		return overviewDataMsg{d}
 	}
@@ -123,4 +140,15 @@ func fetchBackupsCmd(client *sdk.Client) tea.Cmd {
 		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{})
 		return backupsDataMsg{backupsData{backups: backups, err: err}}
 	}
+}
+
+// formatStorageSummary returns a compact string describing the storage config.
+func formatStorageSummary(s sdk.StorageConfig) string {
+	if s.Type.IsZero() {
+		return ""
+	}
+	if s.Path != "" {
+		return fmt.Sprintf("%s %s", s.Type, s.Path)
+	}
+	return s.Type.String()
 }
