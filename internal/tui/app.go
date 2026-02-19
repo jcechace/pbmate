@@ -114,9 +114,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			msg.logEntries = m.data.logEntries
 		}
 		m.data = msg.overviewData
-		// Set logFollowing before setData so rebuildLogContent uses the
-		// current state for the mode indicator.
-		m.overview.logFollowing = m.logFollowing
+		// Sync follow state before setData so the mode indicator is correct.
+		m.overview.logs.setFollowing(m.logFollowing)
 		m.overview.setData(m.data)
 		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
@@ -419,8 +418,7 @@ func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 		m.logFollowing = false
 		m.logFollowCancel = nil
 		m.logFollowCh = nil
-		m.overview.logFollowing = false
-		m.overview.rebuildLogContent()
+		m.overview.logs.setFollowing(false)
 		return m, nil
 	}
 
@@ -430,9 +428,7 @@ func (m Model) toggleLogFollow() (tea.Model, tea.Cmd) {
 	m.logFollowing = true
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries
-	m.overview.logFollowing = true
-	m.overview.logPinned = true
-	m.overview.rebuildLogContent()
+	m.overview.logs.setFollowing(true)
 
 	return m, waitForLogEntry(entries)
 }

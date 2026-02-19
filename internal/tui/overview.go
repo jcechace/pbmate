@@ -58,24 +58,20 @@ const (
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
-	items        []overviewItem
-	cursor       int
-	focus        overviewFocus
-	styles       *Styles
-	data         overviewData
-	collapsed    map[string]bool        // RS name -> collapsed state
-	grouped      map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
-	rsNames      []string               // sorted RS names
-	logFollowing bool                   // whether log follow mode is active
-	logPinned    bool                   // auto-scroll log to bottom on new content
-	logWrap      bool                   // word-wrap log lines to viewport width
-	logLineCount int                    // total lines in log viewport content
+	items     []overviewItem
+	cursor    int
+	focus     overviewFocus
+	styles    *Styles
+	data      overviewData
+	collapsed map[string]bool        // RS name -> collapsed state
+	grouped   map[string][]sdk.Agent // RS name -> agents (for collapsed indicators)
+	rsNames   []string               // sorted RS names
 
 	// Panel viewports — each produces exactly its allocated height.
 	clusterVP viewport.Model
 	detailVP  viewport.Model
 	statusVP  viewport.Model
-	logVP     viewport.Model
+	logs      logPanel
 }
 
 // newOverviewModel creates a new overview sub-model.
@@ -84,11 +80,10 @@ func newOverviewModel(styles *Styles) overviewModel {
 		styles:    styles,
 		focus:     focusCluster,
 		collapsed: make(map[string]bool),
-		logPinned: true,
 		clusterVP: newPanelViewport(),
 		detailVP:  newPanelViewport(),
 		statusVP:  newPanelViewport(),
-		logVP:     newPanelViewport(),
+		logs:      newLogPanel(styles),
 	}
 }
 
@@ -99,7 +94,7 @@ func (m *overviewModel) setData(d overviewData) {
 	m.rsNames = sortedKeys(m.grouped)
 	m.rebuildItems()
 	m.rebuildStatusContent()
-	m.rebuildLogContent()
+	m.logs.setEntries(d.logEntries)
 }
 
 // rebuildItems reconstructs the flat item list from grouped data,
@@ -176,8 +171,7 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) {
 	case key.Matches(msg, overviewKeys.Toggle) && m.focus == focusCluster:
 		m.toggleCollapse()
 	case key.Matches(msg, overviewKeys.Wrap):
-		m.logWrap = !m.logWrap
-		m.rebuildLogContent()
+		m.logs.toggleWrap()
 	}
 }
 
@@ -205,7 +199,7 @@ func (m *overviewModel) handleVertical(delta int) {
 	case focusDetail:
 		m.scrollDetail(delta)
 	case focusLog:
-		m.scrollLog(delta)
+		m.logs.scroll(delta)
 	case focusStatus:
 		// Status panel has few static lines; scrolling is not useful.
 	}
@@ -275,26 +269,6 @@ func (m *overviewModel) scrollDetail(delta int) {
 	} else {
 		m.detailVP.ScrollUp(-delta)
 	}
-}
-
-// scrollLog scrolls the log viewport by delta lines and updates the
-// pinned state based on whether the viewport is at the bottom.
-func (m *overviewModel) scrollLog(delta int) {
-	if delta > 0 {
-		m.logVP.ScrollDown(delta)
-	} else {
-		m.logVP.ScrollUp(-delta)
-	}
-	m.logPinned = m.logAtBottom()
-}
-
-// logAtBottom reports whether the log viewport is scrolled to the bottom.
-func (m *overviewModel) logAtBottom() bool {
-	maxY := m.logLineCount - m.logVP.Height
-	if maxY <= 0 {
-		return true // content fits in viewport
-	}
-	return m.logVP.YOffset >= maxY
 }
 
 // selectedItem returns the currently selected item, or nil if none.
@@ -451,10 +425,10 @@ func (m *overviewModel) view(totalW, totalH int) string {
 	m.detailVP.Height = innerTopH
 	m.statusVP.Width = contentLeftW
 	m.statusVP.Height = innerBotH
-	m.logVP.Width = contentRightW
-	m.logVP.Height = innerBotH
-	if m.logPinned {
-		m.logVP.GotoBottom()
+	m.logs.vp.Width = contentRightW
+	m.logs.vp.Height = innerBotH
+	if m.logs.pinned {
+		m.logs.vp.GotoBottom()
 	}
 
 	// Apply panel styles with focus-highlighted border.
@@ -480,7 +454,7 @@ func (m *overviewModel) view(totalW, totalH int) string {
 	)
 	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top,
 		statusStyle.Render(m.statusVP.View()),
-		logsStyle.Render(m.logVP.View()),
+		logsStyle.Render(m.logs.view()),
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)
@@ -501,84 +475,14 @@ func (m *overviewModel) resize(totalW, totalH int) {
 	m.detailVP.Height = innerHeight(topH)
 	m.statusVP.Width = contentLeftW
 	m.statusVP.Height = innerHeight(bottomH)
-	m.logVP.Width = contentRightW
-	m.logVP.Height = innerHeight(bottomH)
+	m.logs.vp.Width = contentRightW
+	m.logs.vp.Height = innerHeight(bottomH)
 }
 
 // setLogEntries updates the log entries displayed in the log panel.
 func (m *overviewModel) setLogEntries(entries []sdk.LogEntry) {
 	m.data.logEntries = entries
-	m.rebuildLogContent()
-}
-
-// rebuildLogContent reconstructs the viewport content from log entries
-// and the mode indicator.
-func (m *overviewModel) rebuildLogContent() {
-	var b strings.Builder
-
-	if len(m.data.logEntries) == 0 {
-		b.WriteString(m.styles.StatusMuted.Render(" No log entries"))
-	} else {
-		for i, entry := range m.data.logEntries {
-			if i > 0 {
-				b.WriteByte('\n')
-			}
-			b.WriteString(m.formatLogEntry(entry))
-		}
-	}
-
-	// Mode indicator as the last line.
-	b.WriteByte('\n')
-	mode := "auto-refresh"
-	if m.logFollowing {
-		mode = "following"
-	}
-	if m.logWrap {
-		mode += "+wrap"
-	}
-	if m.logFollowing {
-		b.WriteString(m.styles.StatusWarning.Render(" [" + mode + "]"))
-	} else {
-		b.WriteString(m.styles.StatusMuted.Render(" [" + mode + "]"))
-	}
-
-	content := b.String()
-
-	// When wrapping is enabled, word-wrap lines to viewport width.
-	// This produces more lines but shows full log messages.
-	if m.logWrap && m.logVP.Width > 0 {
-		content = lipgloss.NewStyle().Width(m.logVP.Width).Render(content)
-	}
-
-	m.logLineCount = strings.Count(content, "\n") + 1
-	m.logVP.SetContent(content)
-
-	// Auto-scroll to bottom when pinned. Scrolling up unpins; reaching
-	// the bottom or starting follow re-pins.
-	if m.logVP.Height > 0 && m.logPinned {
-		m.logVP.GotoBottom()
-	}
-}
-
-// formatLogEntry formats a single log entry for the log panel.
-func (m *overviewModel) formatLogEntry(entry sdk.LogEntry) string {
-	ts := entry.Timestamp.Format("15:04:05")
-	sev := m.severityStyle(entry.Severity).Render(entry.Severity.String()[:1])
-	return fmt.Sprintf(" %s %s %s", m.styles.StatusMuted.Render(ts), sev, entry.Message)
-}
-
-// severityStyle returns the style for a log severity level.
-func (m *overviewModel) severityStyle(sev sdk.LogSeverity) lipgloss.Style {
-	switch {
-	case sev.Equal(sdk.LogSeverityError), sev.Equal(sdk.LogSeverityFatal):
-		return m.styles.StatusError
-	case sev.Equal(sdk.LogSeverityWarning):
-		return m.styles.StatusWarning
-	case sev.Equal(sdk.LogSeverityDebug):
-		return m.styles.StatusMuted
-	default:
-		return lipgloss.NewStyle()
-	}
+	m.logs.setEntries(entries)
 }
 
 // renderAgentDetail writes agent detail to the builder.
