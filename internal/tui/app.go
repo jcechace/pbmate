@@ -53,10 +53,6 @@ type Model struct {
 	pollInterval time.Duration
 	flashErr     string // transient error message for the status bar
 
-	// Fetched data.
-	data    overviewData
-	bkpData backupsData
-
 	// Sub-models.
 	overview overviewModel
 	backups  backupsModel
@@ -102,16 +98,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case overviewDataMsg:
-		// Preserve follow-mode log entries; the poll doesn't fetch logs
-		// during follow, so msg.logEntries would be nil.
-		if m.overview.isFollowing() {
-			msg.logEntries = m.data.logEntries
-		}
-		m.data = msg.overviewData
-		m.overview.setData(m.data)
+		m.overview.setData(msg.overviewData)
 		m.flashErr = "" // clear flash on successful poll
 		// Adaptive polling: faster when operations are running.
-		if len(m.data.operations) > 0 {
+		if len(m.overview.data.operations) > 0 {
 			m.pollInterval = activeInterval
 		} else {
 			m.pollInterval = idleInterval
@@ -119,8 +109,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(m.pollInterval)
 
 	case backupsDataMsg:
-		m.bkpData = msg.backupsData
-		m.backups.setData(m.bkpData)
+		m.backups.setData(msg.backupsData)
 		return m, nil
 
 	case backupActionMsg:
@@ -139,7 +128,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.overview.appendLogEntries(msg.entries)
-		m.data.logEntries = m.overview.data.logEntries
 		// Wait for the next batch from the follow channel.
 		return m, m.overview.nextLogCmd()
 
@@ -329,13 +317,13 @@ func (m Model) renderHints(bindings []key.Binding, maxWidth int) string {
 
 // pitrStatusText returns a short PITR status string for the status bar.
 func (m Model) pitrStatusText() string {
-	if m.data.pitr == nil {
+	if m.overview.data.pitr == nil {
 		return "PITR:--"
 	}
-	if !m.data.pitr.Enabled {
+	if !m.overview.data.pitr.Enabled {
 		return "PITR:off"
 	}
-	if m.data.pitr.Running {
+	if m.overview.data.pitr.Running {
 		return "PITR:on"
 	}
 	return "PITR:paused"
@@ -343,13 +331,13 @@ func (m Model) pitrStatusText() string {
 
 // runningOpText returns a short running operation string for the status bar.
 func (m Model) runningOpText() string {
-	if len(m.data.operations) == 0 {
+	if len(m.overview.data.operations) == 0 {
 		return "Op:none"
 	}
-	op := m.data.operations[0]
+	op := m.overview.data.operations[0]
 	text := fmt.Sprintf("Op:%s", op.Type)
-	if len(m.data.operations) > 1 {
-		text += fmt.Sprintf("(+%d)", len(m.data.operations)-1)
+	if len(m.overview.data.operations) > 1 {
+		text += fmt.Sprintf("(+%d)", len(m.overview.data.operations)-1)
 	}
 	return text
 }
@@ -376,10 +364,10 @@ func (m Model) contextBindings() []key.Binding {
 
 // clusterTimeText returns the cluster time for the status bar.
 func (m Model) clusterTimeText() string {
-	if m.data.clusterTime.IsZero() {
+	if m.overview.data.clusterTime.IsZero() {
 		return "--:--"
 	}
-	return m.data.clusterTime.Time().Format("15:04")
+	return m.overview.data.clusterTime.Time().Format("15:04")
 }
 
 // updateViewportDims precomputes all viewport dimensions from the current

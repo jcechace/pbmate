@@ -130,7 +130,12 @@ func (m *overviewModel) nextLogCmd() tea.Cmd {
 }
 
 // setData rebuilds the item list from fresh overview data.
+// During follow mode the poll skips log fetching (logEntries will be nil),
+// so we preserve the existing follow-accumulated entries.
 func (m *overviewModel) setData(d overviewData) {
+	if m.isFollowing() && d.logEntries == nil {
+		d.logEntries = m.data.logEntries
+	}
 	m.data = d
 	m.grouped = groupAgentsByRS(d.agents)
 	m.rsNames = sortedKeys(m.grouped)
