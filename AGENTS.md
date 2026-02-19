@@ -118,6 +118,11 @@ with an unexported `value` field, exported singleton instances, and a
   volumes (backups, restores, agents) are always small. Direct DB interaction
   is acceptable only when no reasonable exported PBM API exists (currently the
   only exception is command dispatch, since `ctrl.sendCommand` is unexported).
+- No magic constants. Numeric and string literals that control behavior must be
+  named constants (e.g. `const maxLogEntries = 200`), not bare literals
+  scattered through the code.
+- Prefer `bubbles` components (viewport, table, list, etc.) over hand-rolled
+  rendering logic. Less custom code is better.
 
 ## Project Structure
 
