@@ -96,19 +96,22 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 		confirmed:   true,
 	}
 
+	theme := huh.ThemeCatppuccin()
+	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Start Backup").
-				Description("Logical backup to **Main** storage\nwith server default compression."),
+				Description("Logical backup to **Main** storage."),
 
 			huh.NewConfirm().
 				Affirmative("Start").
-				Negative("Customize").
+				Negative("Customize (c)").
 				Value(&result.confirmed),
 		),
 	).
-		WithTheme(huh.ThemeCatppuccin()).
+		WithTheme(theme).
 		WithWidth(backupFormInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
