@@ -41,4 +41,40 @@
 - [ ] (TBD)
 
 ## Phase 5: TUI
-- [ ] (TBD)
+
+### Phase 5a: Initial scaffold (complete)
+- [x] TUI design document (TUI.md)
+- [x] App skeleton with tab navigation and window size handling
+- [x] Theming support with Catppuccin color palettes
+- [x] Tick-based polling with adaptive intervals (10s idle, 2s active)
+- [x] Overview tab with agent tree and recent backups
+- [x] Right panel detail view for selected agent/backup
+- [x] Backups tab with list and detail panels
+- [x] Backup actions: start, cancel, delete
+- [x] Shared rendering helpers (render.go)
+
+### Phase 5b: TUI redesign (in progress)
+- [x] TUI design research (lazydocker, lazygit, k9s, gh-dash, btop, ctop, dry, dolphie)
+- [x] Revised TUI.md with new 4-quadrant Overview layout
+- [ ] Drop Logs tab -- change from 5 to 4 tabs
+- [ ] Merge two bottom bars into single bar (status HUD left, hints right)
+- [ ] Redesign Overview: remove Recent Backups, 4-quadrant layout
+- [ ] Collapsible RS groups with inline status indicators
+- [ ] Status panel (PITR, op, latest backup with relative age, storage)
+- [ ] Fetch config/storage and latest backup data for status panel
+- [ ] Log panel in Overview bottom-right (5s refresh)
+- [ ] Follow mode toggle (`f`) for log panel
+- [ ] Stable cursor -- track selection by item identity, not index
+- [ ] Context-sensitive action hints in bottom bar
+
+### Phase 5c: Interactions (planned)
+- [ ] Inline y/n confirmation for destructive actions (delete, cancel)
+- [ ] `huh` form for start backup (type, compression, profile)
+- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
+- [ ] `?` full help overlay
+
+### Phase 5d: Additional tabs (planned)
+- [ ] Restores tab
+- [ ] Config tab
+- [ ] `/` filter in list views
+- [ ] `--readonly` flag

@@ -9,7 +9,6 @@ type globalKeyMap struct {
 	Tab2    key.Binding
 	Tab3    key.Binding
 	Tab4    key.Binding
-	Tab5    key.Binding
 	NextTab key.Binding
 	PrevTab key.Binding
 	Help    key.Binding
@@ -40,10 +39,6 @@ var globalKeys = globalKeyMap{
 	Tab4: key.NewBinding(
 		key.WithKeys("4"),
 		key.WithHelp("4", "config"),
-	),
-	Tab5: key.NewBinding(
-		key.WithKeys("5"),
-		key.WithHelp("5", "logs"),
 	),
 	NextTab: key.NewBinding(
 		key.WithKeys("tab"),
@@ -104,7 +99,7 @@ var backupKeys = backupKeyMap{
 // ShortHelp returns the key bindings shown in the compact help bar.
 func (k globalKeyMap) ShortHelp() []key.Binding {
 	return []key.Binding{
-		k.Help, k.Quit, k.NextTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4, k.Tab5,
+		k.Help, k.Quit, k.NextTab, k.Up, k.Down,
 	}
 }
 
@@ -112,7 +107,7 @@ func (k globalKeyMap) ShortHelp() []key.Binding {
 func (k globalKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Left, k.Right},
-		{k.NextTab, k.PrevTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4, k.Tab5},
+		{k.NextTab, k.PrevTab, k.Tab1, k.Tab2, k.Tab3, k.Tab4},
 		{k.Help, k.Back, k.Quit},
 	}
 }

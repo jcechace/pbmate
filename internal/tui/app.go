@@ -21,7 +21,6 @@ const (
 	tabBackups
 	tabRestores
 	tabConfig
-	tabLogs
 	tabCount // sentinel for cycling
 )
 
@@ -30,7 +29,6 @@ var tabNames = [tabCount]string{
 	"Backups",
 	"Restores",
 	"Config",
-	"Logs",
 }
 
 // Model is the root BubbleTea model for PBMate.
@@ -123,23 +121,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(0)
 
 	case tea.KeyMsg:
+		var newTab tab = -1
 		switch {
 		case key.Matches(msg, m.keys.Quit):
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Tab1):
-			m.activeTab = tabOverview
+			newTab = tabOverview
 		case key.Matches(msg, m.keys.Tab2):
-			m.activeTab = tabBackups
+			newTab = tabBackups
 		case key.Matches(msg, m.keys.Tab3):
-			m.activeTab = tabRestores
+			newTab = tabRestores
 		case key.Matches(msg, m.keys.Tab4):
-			m.activeTab = tabConfig
-		case key.Matches(msg, m.keys.Tab5):
-			m.activeTab = tabLogs
+			newTab = tabConfig
 		case key.Matches(msg, m.keys.NextTab):
-			m.activeTab = (m.activeTab + 1) % tabCount
+			newTab = (m.activeTab + 1) % tabCount
 		case key.Matches(msg, m.keys.PrevTab):
-			m.activeTab = (m.activeTab - 1 + tabCount) % tabCount
+			newTab = (m.activeTab - 1 + tabCount) % tabCount
 		default:
 			// Forward to active tab sub-model.
 			switch m.activeTab {
@@ -150,6 +147,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, cmd
 				}
 			}
+		}
+		// Handle tab switch with immediate data fetch.
+		if newTab >= 0 && newTab != m.activeTab {
+			m.activeTab = newTab
+			return m, tickCmd(0)
 		}
 	}
 
@@ -217,8 +219,6 @@ func (m Model) contentView(height int) string {
 		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
 		return m.placeholderContent("Config - PBM configuration and profiles", height)
-	case tabLogs:
-		return m.placeholderContent("Logs - streaming PBM log entries", height)
 	}
 	return ""
 }
