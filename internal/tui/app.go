@@ -99,7 +99,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case overviewDataMsg:
 		m.overview.setData(msg.overviewData)
-		m.flashErr = "" // clear flash on successful poll
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.flashErr = ""
+		}
 		// Adaptive polling: faster when operations are running.
 		if len(m.overview.data.operations) > 0 {
 			m.pollInterval = activeInterval
@@ -110,6 +114,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case backupsDataMsg:
 		m.backups.setData(msg.backupsData)
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		}
 		return m, nil
 
 	case backupActionMsg:
@@ -124,7 +131,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logFollowMsg:
 		if msg.err != nil {
 			// Follow channel errored; stop following.
-			m.overview.logs.setFollowing(false)
+			m.overview.stopFollow()
+			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
 			return m, nil
 		}
 		m.overview.appendLogEntries(msg.entries)
@@ -132,13 +140,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.overview.nextLogCmd()
 
 	case logFollowDoneMsg:
-		m.overview.logs.setFollowing(false)
+		m.overview.stopFollow()
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
+		}
 		return m, nil
 
 	case tea.KeyMsg:
 		var newTab tab = -1
 		switch {
 		case key.Matches(msg, m.keys.Quit):
+			m.overview.stopFollow()
 			return m, tea.Quit
 		case key.Matches(msg, m.keys.Tab1):
 			newTab = tabOverview

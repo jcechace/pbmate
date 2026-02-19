@@ -40,6 +40,7 @@ type overviewModel struct {
 	// Log follow state (reference types survive model copying).
 	logFollowCancel context.CancelFunc
 	logFollowCh     <-chan sdk.LogEntry
+	logFollowErrs   <-chan error
 
 	// Sub-panels.
 	cluster  clusterPanel
@@ -67,27 +68,35 @@ func (m *overviewModel) isFollowing() bool {
 }
 
 // toggleFollow starts or stops the log follow mode and returns a command
-// to begin listening for log entries.
+// to begin listening for log entries. Follow errors arrive asynchronously
+// via the error channel and are surfaced through logFollowDoneMsg.
 func (m *overviewModel) toggleFollow() tea.Cmd {
 	if m.logs.following {
-		// Stop following.
-		if m.logFollowCancel != nil {
-			m.logFollowCancel()
-		}
-		m.logFollowCancel = nil
-		m.logFollowCh = nil
-		m.logs.setFollowing(false)
+		m.stopFollow()
 		return nil
 	}
 
 	// Start following — pin to bottom so new entries auto-scroll.
 	ctx, cancel := context.WithCancel(context.Background())
-	entries, _ := m.client.Logs.Follow(ctx)
+	entries, errs := m.client.Logs.Follow(ctx)
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries
+	m.logFollowErrs = errs
 	m.logs.setFollowing(true)
 
-	return waitForLogEntry(entries)
+	return waitForLogEntry(entries, errs)
+}
+
+// stopFollow cancels the follow goroutine and resets follow state.
+// Safe to call when not following.
+func (m *overviewModel) stopFollow() {
+	if m.logFollowCancel != nil {
+		m.logFollowCancel()
+	}
+	m.logFollowCancel = nil
+	m.logFollowCh = nil
+	m.logFollowErrs = nil
+	m.logs.setFollowing(false)
 }
 
 // appendLogEntries adds streamed log entries from follow mode, trims to
@@ -102,7 +111,7 @@ func (m *overviewModel) appendLogEntries(entries []sdk.LogEntry) {
 
 // nextLogCmd returns a command that waits for the next follow log batch.
 func (m *overviewModel) nextLogCmd() tea.Cmd {
-	return waitForLogEntry(m.logFollowCh)
+	return waitForLogEntry(m.logFollowCh, m.logFollowErrs)
 }
 
 // setData rebuilds all panels from fresh overview data.

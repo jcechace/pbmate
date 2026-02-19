@@ -39,24 +39,30 @@ type logFollowMsg struct {
 }
 
 // logFollowDoneMsg signals that the follow channel has closed.
-type logFollowDoneMsg struct{}
+// err is set if the stream ended due to an error (e.g. connection lost).
+type logFollowDoneMsg struct {
+	err error
+}
 
 // waitForLogEntry returns a tea.Cmd that blocks until at least one entry
 // arrives on the channel, then drains any additional buffered entries so
 // they are delivered as a single batch (one Update / one re-render).
-func waitForLogEntry(ch <-chan sdk.LogEntry) tea.Cmd {
+// When the entries channel closes, the error channel is checked for a
+// follow-stream error to surface to the user.
+func waitForLogEntry(entries <-chan sdk.LogEntry, errs <-chan error) tea.Cmd {
 	return func() tea.Msg {
 		// Block for the first entry.
-		entry, ok := <-ch
+		entry, ok := <-entries
 		if !ok {
-			return logFollowDoneMsg{}
+			// Entries channel closed — check for an error.
+			return logFollowDoneMsg{err: drainErr(errs)}
 		}
 		batch := []sdk.LogEntry{entry}
 
 		// Drain any additional entries that are already buffered.
 		for {
 			select {
-			case e, ok := <-ch:
+			case e, ok := <-entries:
 				if !ok {
 					// Channel closed mid-drain; deliver what we have.
 					return logFollowMsg{entries: batch}
@@ -66,6 +72,20 @@ func waitForLogEntry(ch <-chan sdk.LogEntry) tea.Cmd {
 				return logFollowMsg{entries: batch}
 			}
 		}
+	}
+}
+
+// drainErr reads one error from the channel without blocking.
+// Returns nil if the channel is empty or closed.
+func drainErr(errs <-chan error) error {
+	if errs == nil {
+		return nil
+	}
+	select {
+	case err := <-errs:
+		return err
+	default:
+		return nil
 	}
 }
 
