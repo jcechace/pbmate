@@ -11,9 +11,14 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// backupFormInnerWidth is the content width inside the form panel,
-// excluding border and padding.
-const backupFormInnerWidth = 40
+const (
+	// backupFormInnerWidth is the content width inside the form panel,
+	// excluding border and padding.
+	backupFormInnerWidth = 40
+
+	// defaultConfigName is the name of the default (main) storage profile.
+	defaultConfigName = "main"
+)
 
 // backupFormKind distinguishes between the quick confirm and the full wizard.
 type backupFormKind int
@@ -43,8 +48,6 @@ func (r backupFormResult) toOptions() sdk.StartBackupOptions {
 	switch r.backupType {
 	case "logical":
 		opts.Type = sdk.BackupTypeLogical
-	case "physical":
-		opts.Type = sdk.BackupTypePhysical
 	case "incremental":
 		opts.Type = sdk.BackupTypeIncremental
 	}
@@ -65,7 +68,7 @@ func (r backupFormResult) toOptions() sdk.StartBackupOptions {
 	}
 	// "default" / "none" → zero value, server decides.
 
-	if r.configName != "main" {
+	if r.configName != defaultConfigName {
 		cn, err := sdk.NewConfigName(r.configName)
 		if err == nil {
 			opts.ConfigName = cn
@@ -92,7 +95,7 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
-		configName:  "main",
+		configName:  defaultConfigName,
 		confirmed:   true,
 	}
 
@@ -129,7 +132,7 @@ func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult)
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
-		configName:  "main",
+		configName:  defaultConfigName,
 		confirmed:   true,
 		profiles:    profiles,
 	}
@@ -141,7 +144,7 @@ func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult)
 
 	// Profile options: Main is always first.
 	profileOpts := []huh.Option[string]{
-		huh.NewOption("Main", "main"),
+		huh.NewOption("Main", defaultConfigName),
 	}
 	for _, p := range profiles {
 		profileOpts = append(profileOpts, huh.NewOption(p.Name.String(), p.Name.String()))

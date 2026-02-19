@@ -60,7 +60,7 @@ func newClusterPanel(styles *Styles) clusterPanel {
 // setAgents replaces agent data, regroups, and rebuilds the item list.
 func (p *clusterPanel) setAgents(agents []sdk.Agent) {
 	p.grouped = groupAgentsByRS(agents)
-	p.rsNames = sortedKeys(p.grouped)
+	p.rsNames = slices.Sorted(maps.Keys(p.grouped))
 	p.rebuildItems()
 }
 
@@ -396,10 +396,4 @@ func groupAgentsByRS(agents []sdk.Agent) map[string][]sdk.Agent {
 		m[a.ReplicaSet] = append(m[a.ReplicaSet], a)
 	}
 	return m
-}
-
-// sortedKeys returns map keys sorted alphabetically.
-func sortedKeys(m map[string][]sdk.Agent) []string {
-	keys := slices.Sorted(maps.Keys(m))
-	return keys
 }
