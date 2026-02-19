@@ -386,10 +386,7 @@ func (m Model) bottomBarView() string {
 	leftZone := strings.Join(statusParts, "  ")
 
 	// Right zone: context-sensitive keybinding hints.
-	bindings := m.keys.ShortHelp()
-	if m.activeTab == tabBackups {
-		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
-	}
+	bindings := m.contextBindings()
 	rightZone := m.help.ShortHelpView(bindings)
 
 	// Compose: status left, hints right, separated by a divider.
@@ -432,6 +429,24 @@ func (m Model) runningOpText() string {
 		text += fmt.Sprintf("(+%d)", len(m.data.operations)-1)
 	}
 	return text
+}
+
+// contextBindings returns the keybinding hints appropriate for the current
+// tab and selection state.
+func (m Model) contextBindings() []key.Binding {
+	// Always include navigation essentials.
+	bindings := []key.Binding{m.keys.Up, m.keys.Down}
+
+	switch m.activeTab {
+	case tabOverview:
+		bindings = append(bindings, overviewKeys.Toggle, overviewKeys.Follow)
+		bindings = append(bindings, backupKeys.Start)
+	case tabBackups:
+		bindings = append(bindings, backupKeys.Start, backupKeys.Cancel, backupKeys.Delete)
+	}
+
+	bindings = append(bindings, m.keys.Help, m.keys.Quit)
+	return bindings
 }
 
 // clusterTimeText returns the cluster time for the status bar.
