@@ -227,6 +227,15 @@ func (m *overviewModel) rebuildStatusContent() {
 	m.statusVP.SetContent(m.statusContent())
 }
 
+// borderColor returns the border color for the given quadrant, highlighting
+// the focused panel.
+func (m *overviewModel) borderColor(f overviewFocus) lipgloss.TerminalColor {
+	if m.focus == f {
+		return m.styles.FocusedBorderColor
+	}
+	return m.styles.UnfocusedBorderColor
+}
+
 // view renders the Overview tab with 4-quadrant layout:
 // top-left (Cluster), top-right (Detail), bottom-left (Status), bottom-right (Logs).
 func (m *overviewModel) view(totalW, totalH int) string {
@@ -247,30 +256,19 @@ func (m *overviewModel) view(totalW, totalH int) string {
 		m.logs.vp.GotoBottom()
 	}
 
-	// Apply panel styles with focus-highlighted border.
-	clusterStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerTopH)
-	detailStyle := m.styles.RightPanel.Width(panelRightW).Height(innerTopH)
-	statusStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerBotH)
-	logsStyle := m.styles.RightPanel.Width(panelRightW).Height(innerBotH)
-
-	switch m.focus {
-	case focusCluster:
-		clusterStyle = clusterStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusDetail:
-		detailStyle = detailStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusStatus:
-		statusStyle = statusStyle.BorderForeground(m.styles.FocusedBorderColor)
-	case focusLog:
-		logsStyle = logsStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-
+	// Render titled panels with focus-highlighted borders.
+	border := m.styles.PanelBorder
 	topRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		clusterStyle.Render(m.cluster.clusterView()),
-		detailStyle.Render(m.cluster.detailView()),
+		renderTitledPanel("Cluster", m.cluster.clusterView(),
+			m.styles.LeftPanel, panelLeftW, innerTopH, border, m.borderColor(focusCluster)),
+		renderTitledPanel("Detail", m.cluster.detailView(),
+			m.styles.RightPanel, panelRightW, innerTopH, border, m.borderColor(focusDetail)),
 	)
 	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top,
-		statusStyle.Render(m.statusVP.View()),
-		logsStyle.Render(m.logs.view()),
+		renderTitledPanel("Status", m.statusVP.View(),
+			m.styles.LeftPanel, panelLeftW, innerBotH, border, m.borderColor(focusStatus)),
+		renderTitledPanel("Logs", m.logs.view(),
+			m.styles.RightPanel, panelRightW, innerBotH, border, m.borderColor(focusLog)),
 	)
 
 	return lipgloss.JoinVertical(lipgloss.Left, topRow, bottomRow)

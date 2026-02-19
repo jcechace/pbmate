@@ -158,6 +158,15 @@ func (m *backupsModel) detailContent() string {
 	return b.String()
 }
 
+// borderColor returns the border color for the given panel, highlighting
+// the focused panel.
+func (m *backupsModel) borderColor(p panel) lipgloss.TerminalColor {
+	if m.focus == p {
+		return m.styles.FocusedBorderColor
+	}
+	return m.styles.UnfocusedBorderColor
+}
+
 // view renders the Backups tab with left list + right detail panels.
 func (m *backupsModel) view(totalW, totalH int) string {
 	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(totalW)
@@ -169,18 +178,11 @@ func (m *backupsModel) view(totalW, totalH int) string {
 	m.detailVP.Width = contentRightW
 	m.detailVP.Height = innerH
 
-	leftStyle := m.styles.LeftPanel.Width(panelLeftW).Height(innerH)
-	rightStyle := m.styles.RightPanel.Width(panelRightW).Height(innerH)
-
-	if m.focus == panelLeft {
-		leftStyle = leftStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-	if m.focus == panelRight {
-		rightStyle = rightStyle.BorderForeground(m.styles.FocusedBorderColor)
-	}
-
-	left := leftStyle.Render(m.listVP.View())
-	right := rightStyle.Render(m.detailVP.View())
+	border := m.styles.PanelBorder
+	left := renderTitledPanel("Backups", m.listVP.View(),
+		m.styles.LeftPanel, panelLeftW, innerH, border, m.borderColor(panelLeft))
+	right := renderTitledPanel("Detail", m.detailVP.View(),
+		m.styles.RightPanel, panelRightW, innerH, border, m.borderColor(panelRight))
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }

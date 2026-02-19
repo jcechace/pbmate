@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -17,6 +18,46 @@ func newPanelViewport() viewport.Model {
 	vp.KeyMap = viewport.KeyMap{}
 	vp.MouseWheelEnabled = false
 	return vp
+}
+
+// renderTitledPanel renders content inside a bordered panel with a title
+// embedded in the top border line: ╭─ Title ────────────╮
+// The title and border share the same color, which highlights on focus.
+func renderTitledPanel(title, content string, style lipgloss.Style,
+	width, height int, border lipgloss.Border,
+	borderColor lipgloss.TerminalColor,
+) string {
+	panelStyle := style.Width(width).Height(height).BorderForeground(borderColor)
+	rendered := panelStyle.Render(content)
+
+	if title == "" {
+		return rendered
+	}
+
+	// Build a replacement top border line with the title embedded.
+	bc := lipgloss.NewStyle().Foreground(borderColor)
+	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	titleStr := tc.Render(" " + title + " ")
+	titleW := lipgloss.Width(titleStr)
+
+	// Outer width = inner width (lipgloss .Width value) + left border + right border.
+	outerW := width + panelBorderH
+	// Layout: corner(1) + pad(1) + title(titleW) + fill + corner(1) = outerW
+	fill := outerW - 3 - titleW
+	if fill < 0 {
+		fill = 0
+	}
+
+	topLine := bc.Render(border.TopLeft+border.Top) +
+		titleStr +
+		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
+
+	// Replace the first line (top border) of the rendered panel.
+	lines := strings.SplitN(rendered, "\n", 2)
+	if len(lines) == 2 {
+		return topLine + "\n" + lines[1]
+	}
+	return topLine
 }
 
 // statusIndicator returns a colored status dot for a PBM status.

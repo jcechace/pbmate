@@ -10,10 +10,11 @@ type Styles struct {
 	Header      lipgloss.Style
 
 	// Panel layout.
-	PanelBorder        lipgloss.Border
-	LeftPanel          lipgloss.Style
-	RightPanel         lipgloss.Style
-	FocusedBorderColor lipgloss.TerminalColor
+	PanelBorder          lipgloss.Border
+	LeftPanel            lipgloss.Style
+	RightPanel           lipgloss.Style
+	FocusedBorderColor   lipgloss.TerminalColor
+	UnfocusedBorderColor lipgloss.TerminalColor
 
 	// Bottom bar (merged status + help).
 	BottomBar lipgloss.Style
@@ -56,7 +57,8 @@ func NewStyles(t Theme) Styles {
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(t.Subtle).
 			Padding(0, 1),
-		FocusedBorderColor: t.Primary,
+		FocusedBorderColor:   t.Primary,
+		UnfocusedBorderColor: t.Subtle,
 
 		BottomBar: lipgloss.NewStyle().
 			Foreground(t.Highlight).
