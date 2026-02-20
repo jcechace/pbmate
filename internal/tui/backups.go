@@ -401,9 +401,9 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	}
 
 	flag := ""
-	if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup == "" {
+	if bk.IsIncrementalBase() {
 		flag = m.styles.StatusWarning.Render("⌂")
-	} else if len(bk.Namespaces) > 0 {
+	} else if bk.IsSelective() {
 		flag = m.styles.StatusWarning.Render("◇")
 	}
 
@@ -562,7 +562,7 @@ func (m *backupsModel) rebuildDetailContent() {
 func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, description string) {
 	profile := profileDisplayName(bk.ConfigName.String())
 
-	if !bk.Type.Equal(sdk.BackupTypeIncremental) {
+	if !bk.IsIncremental() {
 		return bk.Name, "Delete Backup",
 			fmt.Sprintf("%s\n%s · %s\nProfile: %s", bk.Name, bk.Type, bk.Status, profile)
 	}

@@ -243,12 +243,10 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	fmt.Fprintf(b, "  Name:        %s\n", bk.Name)
 	fmt.Fprintf(b, "  Type:        %s\n", bk.Type)
 
-	if bk.Type.Equal(sdk.BackupTypeIncremental) {
-		if bk.SrcBackup == "" {
-			fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusWarning.Render("⌂"))
-		} else {
-			fmt.Fprintf(b, "  Source:      %s\n", bk.SrcBackup)
-		}
+	if bk.IsIncrementalBase() {
+		fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusWarning.Render("⌂"))
+	} else if bk.IsIncremental() {
+		fmt.Fprintf(b, "  Source:      %s\n", bk.SrcBackup)
 	}
 
 	ind := statusIndicator(bk.Status, styles)
@@ -275,7 +273,7 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 		fmt.Fprintf(b, "  Config:      %s\n", bk.ConfigName)
 	}
 
-	if len(bk.Namespaces) > 0 {
+	if bk.IsSelective() {
 		fmt.Fprintf(b, "  Namespaces:  %s\n", strings.Join(bk.Namespaces, ", "))
 	} else {
 		fmt.Fprintf(b, "  Namespaces:  %s\n", styles.StatusMuted.Render("*.* (all)"))
