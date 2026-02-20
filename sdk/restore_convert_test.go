@@ -101,13 +101,3 @@ func TestConvertRestoreNodesNil(t *testing.T) {
 	result := convertRestoreReplset(rs)
 	assert.Nil(t, result.Nodes)
 }
-
-func TestIsTerminalStatus(t *testing.T) {
-	assert.True(t, isTerminalStatus(defs.StatusDone))
-	assert.True(t, isTerminalStatus(defs.StatusError))
-	assert.True(t, isTerminalStatus(defs.StatusCancelled))
-	assert.True(t, isTerminalStatus(defs.StatusPartlyDone))
-	assert.False(t, isTerminalStatus(defs.StatusRunning))
-	assert.False(t, isTerminalStatus(defs.StatusInit))
-	assert.False(t, isTerminalStatus(defs.StatusStarting))
-}

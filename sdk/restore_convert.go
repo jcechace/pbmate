@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	"github.com/percona/percona-backup-mongodb/pbm/restore"
 )
 
@@ -23,7 +22,7 @@ func convertRestore(meta *restore.RestoreMeta) Restore {
 	}
 
 	// Derive FinishTS from LastTransitionTS on terminal statuses.
-	if isTerminalStatus(meta.Status) {
+	if r.Status.IsTerminal() {
 		r.FinishTS = r.LastTransitionTS
 	}
 
@@ -37,16 +36,6 @@ func convertPITRTarget(pitr int64) Timestamp {
 		return Timestamp{}
 	}
 	return Timestamp{T: uint32(pitr), I: 0}
-}
-
-// isTerminalStatus reports whether a PBM status represents a finished operation.
-func isTerminalStatus(s defs.Status) bool {
-	switch s {
-	case defs.StatusDone, defs.StatusError, defs.StatusCancelled, defs.StatusPartlyDone:
-		return true
-	default:
-		return false
-	}
 }
 
 // convertRestoreReplsets converts a slice of PBM RestoreReplset to SDK RestoreReplsets.
