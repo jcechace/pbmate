@@ -106,10 +106,23 @@
 - [x] Consistent `*Styles` passing in all function signatures
 - [x] Move layout constants to layout.go, maxLogEntries to overview.go
 
+### SDK domain enrichment (complete)
+- [x] Remove isTerminalStatus in favor of Status.IsTerminal()
+- [x] Add domain methods to Backup (IsIncremental, IsIncrementalBase, IsSelective, InProgress, Duration) with tests
+- [x] Add domain methods to Restore (InProgress, Duration) with tests
+- [x] Document ConfigName normalization guarantee on Backup.ConfigName field
+- [x] Add severity filtering to LogService Get/Follow (GetLogsOptions, FollowOptions structs)
+- [x] Add BackupChain type with GroupIncrementalChains and FindChainBase + tests
+- [x] Refactor TUI chain logic to use SDK BackupChain utilities
+- [x] Replace string switches in toOptions() with ParseBackupType/ParseCompressionType
+- [x] Remove debug fmt.Println from cluster_convert_test.go
+- [x] Add package-level documentation (sdk/doc.go)
+- [x] Remove defensive zero-ConfigName checks in TUI (relies on SDK normalization guarantee)
+- [x] Fix goroutine leak in LogService.Follow adapter on context cancellation
+
 ### Phase 5d: Additional tabs and features (planned)
 - [ ] Config tab
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
 - [ ] `--readonly` flag
 - [ ] Connection reconnect on failure (currently dead-end after connect error)
-- [ ] Fix goroutine leak in log follow mode (nextLogCmd blocks forever if follow stopped between dispatch and message arrival)
