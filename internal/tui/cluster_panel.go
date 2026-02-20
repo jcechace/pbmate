@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -246,26 +245,11 @@ func (p *clusterPanel) rebuildDetailContent() {
 
 // clusterContent builds the cluster tree content string.
 func (p *clusterPanel) clusterContent() string {
-	cursorStyle := lipgloss.NewStyle().Foreground(p.styles.FocusedBorderColor)
-
-	var b strings.Builder
+	lines := make([]string, len(p.items))
 	for i, item := range p.items {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		line := p.renderItem(item)
-		if i == p.cursor && item.selectable {
-			if p.focused {
-				line = cursorStyle.Render("▶ ") + p.styles.Bold.Render(line)
-			} else {
-				line = "  " + p.styles.Bold.Render(line)
-			}
-		} else {
-			line = "  " + line
-		}
-		b.WriteString(line)
+		lines[i] = p.renderItem(item)
 	}
-	return b.String()
+	return renderCursorList(lines, p.cursor, p.focused, p.styles)
 }
 
 // detailContent builds the detail panel content for the selected item.

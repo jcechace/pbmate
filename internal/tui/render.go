@@ -22,35 +22,19 @@ func newPanelViewport() viewport.Model {
 
 // replaceTitleBorder replaces the top border of a rendered lipgloss panel
 // with a titled version: ╭─ Title ────────────╮
-// outerW is the full panel width including borders.
+// outerW is the full panel width including borders. The title is rendered
+// in bold with the border color.
 func replaceTitleBorder(rendered, title string, outerW int,
 	border lipgloss.Border, borderColor lipgloss.TerminalColor,
 ) string {
-	bc := lipgloss.NewStyle().Foreground(borderColor)
-	tc := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	titleStr := tc.Render(" " + title + " ")
-	titleW := lipgloss.Width(titleStr)
-
-	// Layout: corner(1) + pad(1) + title(titleW) + fill + corner(1) = outerW
-	fill := outerW - 3 - titleW
-	if fill < 0 {
-		fill = 0
-	}
-
-	topLine := bc.Render(border.TopLeft+border.Top) +
-		titleStr +
-		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
-
-	lines := strings.SplitN(rendered, "\n", 2)
-	if len(lines) == 2 {
-		return topLine + "\n" + lines[1]
-	}
-	return topLine
+	styled := lipgloss.NewStyle().Bold(true).Foreground(borderColor).Render(title)
+	return replaceStyledTitleBorder(rendered, styled, outerW, border, borderColor)
 }
 
-// replaceStyledTitleBorder is like replaceTitleBorder but accepts a
-// pre-rendered (already styled) title string. The caller is responsible for
-// all styling; this function only handles the border line layout.
+// replaceStyledTitleBorder replaces the top border of a rendered lipgloss
+// panel with a pre-styled title string. The caller is responsible for all
+// title styling; this function handles the border line layout.
+// outerW is the full panel width including borders.
 func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
 	border lipgloss.Border, borderColor lipgloss.TerminalColor,
 ) string {
@@ -178,6 +162,32 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	return lipgloss.Place(contentW, contentH,
 		lipgloss.Center, lipgloss.Center,
 		panel)
+}
+
+// renderCursorList renders a list of pre-rendered lines with cursor highlighting.
+// The line at cursor index gets a ▶ prefix when focused, or bold-only when
+// unfocused. All other lines get a plain two-space indent to align with the
+// cursor prefix.
+func renderCursorList(lines []string, cursor int, focused bool, styles *Styles) string {
+	cursorStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
+
+	var b strings.Builder
+	for i, line := range lines {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		if i == cursor {
+			if focused {
+				line = cursorStyle.Render("▶ ") + styles.Bold.Render(line)
+			} else {
+				line = "  " + styles.Bold.Render(line)
+			}
+		} else {
+			line = "  " + line
+		}
+		b.WriteString(line)
+	}
+	return b.String()
 }
 
 // statusIndicator returns a colored status dot for a PBM status.

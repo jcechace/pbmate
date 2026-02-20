@@ -335,26 +335,11 @@ func (m *backupsModel) backupTreeContent() string {
 		return m.styles.StatusMuted.Render("No backups")
 	}
 
-	cursorStyle := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
-
-	var b strings.Builder
+	lines := make([]string, len(m.items))
 	for i, item := range m.items {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		line := m.renderBackupItem(item)
-		if i == m.backupCursor {
-			if m.focus == panelLeft {
-				line = cursorStyle.Render("▶ ") + m.styles.Bold.Render(line)
-			} else {
-				line = "  " + m.styles.Bold.Render(line)
-			}
-		} else {
-			line = "  " + line
-		}
-		b.WriteString(line)
+		lines[i] = m.renderBackupItem(item)
 	}
-	return b.String()
+	return renderCursorList(lines, m.backupCursor, m.focus == panelLeft, m.styles)
 }
 
 // restoreListContent builds the restore list content string.
@@ -363,26 +348,11 @@ func (m *backupsModel) restoreListContent() string {
 		return m.styles.StatusMuted.Render("No restores")
 	}
 
-	cursorStyle := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
-
-	var b strings.Builder
-	for i, rs := range m.restores {
-		if i > 0 {
-			b.WriteByte('\n')
-		}
-		line := m.renderRestoreLine(&rs)
-		if i == m.restoreCursor {
-			if m.focus == panelLeft {
-				line = cursorStyle.Render("▶ ") + m.styles.Bold.Render(line)
-			} else {
-				line = "  " + m.styles.Bold.Render(line)
-			}
-		} else {
-			line = "  " + line
-		}
-		b.WriteString(line)
+	lines := make([]string, len(m.restores))
+	for i := range m.restores {
+		lines[i] = m.renderRestoreLine(&m.restores[i])
 	}
-	return b.String()
+	return renderCursorList(lines, m.restoreCursor, m.focus == panelLeft, m.styles)
 }
 
 // --- Item rendering ---
