@@ -560,9 +560,11 @@ func (m *backupsModel) rebuildDetailContent() {
 // incremental chain member it walks to the base and counts the chain, since PBM
 // only supports deleting from the base (which removes the entire chain).
 func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, description string) {
+	profile := profileDisplayName(bk.ConfigName.String())
+
 	if !bk.Type.Equal(sdk.BackupTypeIncremental) {
 		return bk.Name, "Delete Backup",
-			fmt.Sprintf("%s\n%s · %s", bk.Name, bk.Type, bk.Status)
+			fmt.Sprintf("%s\n%s · %s\nProfile: %s", bk.Name, bk.Type, bk.Status, profile)
 	}
 
 	// Find the profile's backup list for chain resolution.
@@ -572,5 +574,5 @@ func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, des
 	baseName, count := resolveIncrChain(bk, backups)
 
 	return baseName, "Delete Incremental Chain",
-		fmt.Sprintf("⌂ %s\nand its increments (%d total)", baseName, count)
+		fmt.Sprintf("⌂ %s\nand its increments (%d total)\nProfile: %s", baseName, count, profile)
 }
