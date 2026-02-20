@@ -143,7 +143,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Additionally fetch tab-specific data.
 		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
 		if m.activeTab == tabBackups {
-			cmds = append(cmds, fetchBackupsCmd(m.client))
+			cmds = append(cmds, fetchBackupsCmd(m.client), fetchRestoresCmd(m.client))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -163,7 +163,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(m.pollInterval)
 
 	case backupsDataMsg:
-		m.backups.setData(msg.backupsData)
+		m.backups.setBackupData(msg.backupsData)
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		}
+		return m, nil
+
+	case restoresDataMsg:
+		m.backups.setRestoreData(msg.restoresData)
 		if msg.err != nil {
 			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
 		}

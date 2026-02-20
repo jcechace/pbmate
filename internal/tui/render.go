@@ -48,6 +48,33 @@ func replaceTitleBorder(rendered, title string, outerW int,
 	return topLine
 }
 
+// replaceStyledTitleBorder is like replaceTitleBorder but accepts a
+// pre-rendered (already styled) title string. The caller is responsible for
+// all styling; this function only handles the border line layout.
+func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
+	border lipgloss.Border, borderColor lipgloss.TerminalColor,
+) string {
+	bc := lipgloss.NewStyle().Foreground(borderColor)
+	paddedTitle := " " + styledTitle + " "
+	titleW := lipgloss.Width(paddedTitle)
+
+	// Layout: corner(1) + pad(1) + title(titleW) + fill + corner(1) = outerW
+	fill := outerW - 3 - titleW
+	if fill < 0 {
+		fill = 0
+	}
+
+	topLine := bc.Render(border.TopLeft+border.Top) +
+		paddedTitle +
+		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
+
+	lines := strings.SplitN(rendered, "\n", 2)
+	if len(lines) == 2 {
+		return topLine + "\n" + lines[1]
+	}
+	return topLine
+}
+
 // renderTitledPanel renders content inside a bordered panel with a title
 // embedded in the top border line: ╭─ Title ────────────╮
 // The title and border share the same color, which highlights on focus.
@@ -105,6 +132,14 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	b.WriteString(line("c", "cancel backup"))
 	b.WriteByte('\n')
 	b.WriteString(line("d", "delete"))
+	b.WriteByte('\n')
+
+	b.WriteByte('\n')
+	b.WriteString(sectionStyle.Render("Backups"))
+	b.WriteByte('\n')
+	b.WriteString(line("b", "show backups"))
+	b.WriteByte('\n')
+	b.WriteString(line("r", "show restores"))
 	b.WriteByte('\n')
 
 	b.WriteByte('\n')
@@ -225,6 +260,64 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 				node = "-"
 			}
 			fmt.Fprintf(b, "  %s %s: %s  (%s)\n", rsInd, rs.Name, rs.Status, node)
+		}
+	}
+}
+
+// renderRestoreDetail writes full restore detail to the builder.
+func renderRestoreDetail(b *strings.Builder, rs *sdk.Restore, styles *Styles) {
+	b.WriteString(styles.SectionHeader.Render("Restore"))
+	b.WriteByte('\n')
+
+	fmt.Fprintf(b, "  Name:        %s\n", rs.Name)
+	fmt.Fprintf(b, "  Backup:      %s\n", rs.Backup)
+	fmt.Fprintf(b, "  Type:        %s\n", rs.Type)
+
+	ind := statusIndicator(rs.Status, styles)
+	fmt.Fprintf(b, "  Status:      %s %s\n", ind, rs.Status)
+
+	if !rs.StartTS.IsZero() {
+		fmt.Fprintf(b, "  Started:     %s\n", rs.StartTS.Format("2006-01-02 15:04:05"))
+	}
+	if !rs.FinishTS.IsZero() {
+		fmt.Fprintf(b, "  Finished:    %s\n", rs.FinishTS.Format("2006-01-02 15:04:05"))
+	}
+	if !rs.FinishTS.IsZero() && !rs.StartTS.IsZero() {
+		dur := rs.FinishTS.Sub(rs.StartTS).Truncate(time.Second)
+		if dur > 0 {
+			fmt.Fprintf(b, "  Duration:    %s\n", dur)
+		}
+	}
+
+	if !rs.PITRTarget.IsZero() {
+		fmt.Fprintf(b, "  PITR Target: %s\n", rs.PITRTarget.Time().Format("2006-01-02 15:04:05"))
+	}
+
+	if len(rs.Namespaces) > 0 {
+		fmt.Fprintf(b, "  Namespaces:  %s\n", strings.Join(rs.Namespaces, ", "))
+	}
+
+	if rs.Error != "" {
+		fmt.Fprintf(b, "  Error:       %s\n", styles.StatusError.Render(rs.Error))
+	}
+
+	if len(rs.Replsets) > 0 {
+		b.WriteByte('\n')
+		b.WriteString(styles.Bold.Render("  Replica Sets"))
+		b.WriteByte('\n')
+		for _, rrs := range rs.Replsets {
+			rsInd := statusIndicator(rrs.Status, styles)
+			fmt.Fprintf(b, "  %s %s: %s\n", rsInd, rrs.Name, rrs.Status)
+			if rrs.Error != "" {
+				fmt.Fprintf(b, "      %s\n", styles.StatusError.Render(rrs.Error))
+			}
+			for _, node := range rrs.Nodes {
+				nodeInd := statusIndicator(node.Status, styles)
+				fmt.Fprintf(b, "      %s %s: %s\n", nodeInd, node.Name, node.Status)
+				if node.Error != "" {
+					fmt.Fprintf(b, "          %s\n", styles.StatusError.Render(node.Error))
+				}
+			}
 		}
 	}
 }
