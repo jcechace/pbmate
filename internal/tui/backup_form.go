@@ -45,28 +45,17 @@ type backupFormResult struct {
 func (r backupFormResult) toOptions() sdk.StartBackupOptions {
 	opts := sdk.StartBackupOptions{}
 
-	switch r.backupType {
-	case "logical":
-		opts.Type = sdk.BackupTypeLogical
-	case "incremental":
-		opts.Type = sdk.BackupTypeIncremental
+	if bt, err := sdk.ParseBackupType(r.backupType); err == nil {
+		opts.Type = bt
 	}
 
-	switch r.compression {
-	case "gzip":
-		opts.Compression = sdk.CompressionTypeGZIP
-	case "pgzip":
-		opts.Compression = sdk.CompressionTypePGZIP
-	case "snappy":
-		opts.Compression = sdk.CompressionTypeSNAPPY
-	case "lz4":
-		opts.Compression = sdk.CompressionTypeLZ4
-	case "s2":
-		opts.Compression = sdk.CompressionTypeS2
-	case "zstd":
-		opts.Compression = sdk.CompressionTypeZSTD
+	// "default" leaves Compression as zero value (server decides).
+	// All other values including "none" are parsed to their SDK equivalents.
+	if r.compression != "default" {
+		if ct, err := sdk.ParseCompressionType(r.compression); err == nil {
+			opts.Compression = ct
+		}
 	}
-	// "default" / "none" → zero value, server decides.
 
 	if r.configName != defaultConfigName {
 		cn, err := sdk.NewConfigName(r.configName)
