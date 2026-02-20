@@ -23,7 +23,7 @@ func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 	// Check if PITR is enabled in config.
 	enabled, _, err := config.IsPITREnabled(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("pitr status: check config: %w", err)
+		return nil, fmt.Errorf("get pitr status: check config: %w", err)
 	}
 
 	status := &PITRStatus{
@@ -37,7 +37,7 @@ func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 	// Check if oplog slicing is actively running (non-stale PITR locks).
 	running, err := oplog.IsOplogSlicing(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("pitr status: check slicing: %w", err)
+		return nil, fmt.Errorf("get pitr status: check slicing: %w", err)
 	}
 	status.Running = running
 
@@ -45,7 +45,7 @@ func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 	if running {
 		nodes, err := oplog.FetchSlicersWithActiveLocks(ctx, s.conn)
 		if err != nil {
-			return nil, fmt.Errorf("pitr status: fetch slicers: %w", err)
+			return nil, fmt.Errorf("get pitr status: fetch slicers: %w", err)
 		}
 		status.Nodes = nodes
 	}
@@ -54,7 +54,7 @@ func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 	meta, err := oplog.GetMeta(ctx, s.conn)
 	if err != nil {
 		if !errors.Is(err, pbmerrors.ErrNotFound) {
-			return nil, fmt.Errorf("pitr status: get meta: %w", err)
+			return nil, fmt.Errorf("get pitr status: get meta: %w", err)
 		}
 		// No meta document — not an error, just no replset status to report.
 	} else {
@@ -67,7 +67,7 @@ func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 func (s *pitrServiceImpl) Timelines(ctx context.Context) ([]Timeline, error) {
 	tlns, err := oplog.PITRTimelines(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("pitr timelines: %w", err)
+		return nil, fmt.Errorf("get pitr timelines: %w", err)
 	}
 
 	return convertTimelines(tlns), nil

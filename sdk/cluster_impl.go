@@ -21,7 +21,7 @@ var _ ClusterService = (*clusterServiceImpl)(nil)
 func (s *clusterServiceImpl) Members(ctx context.Context) ([]ReplicaSet, error) {
 	shards, err := topo.ClusterMembers(ctx, s.conn.MongoClient())
 	if err != nil {
-		return nil, fmt.Errorf("cluster members: %w", err)
+		return nil, fmt.Errorf("list cluster members: %w", err)
 	}
 
 	result := make([]ReplicaSet, len(shards))
@@ -34,12 +34,12 @@ func (s *clusterServiceImpl) Members(ctx context.Context) ([]ReplicaSet, error) 
 func (s *clusterServiceImpl) Agents(ctx context.Context) ([]Agent, error) {
 	agents, err := topo.ListAgentStatuses(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("cluster agents: %w", err)
+		return nil, fmt.Errorf("list agents: %w", err)
 	}
 
 	ct, err := topo.GetClusterTime(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("cluster agents: get cluster time: %w", err)
+		return nil, fmt.Errorf("list agents: get cluster time: %w", err)
 	}
 
 	result := make([]Agent, len(agents))
@@ -52,12 +52,12 @@ func (s *clusterServiceImpl) Agents(ctx context.Context) ([]Agent, error) {
 func (s *clusterServiceImpl) RunningOperations(ctx context.Context) ([]Operation, error) {
 	locks, err := lock.GetLocks(ctx, s.conn, &lock.LockHeader{})
 	if err != nil {
-		return nil, fmt.Errorf("cluster running operations: %w", err)
+		return nil, fmt.Errorf("list running operations: %w", err)
 	}
 
 	ct, err := topo.GetClusterTime(ctx, s.conn)
 	if err != nil {
-		return nil, fmt.Errorf("cluster running operations: get cluster time: %w", err)
+		return nil, fmt.Errorf("list running operations: get cluster time: %w", err)
 	}
 
 	// Filter out stale locks.
@@ -73,7 +73,7 @@ func (s *clusterServiceImpl) RunningOperations(ctx context.Context) ([]Operation
 func (s *clusterServiceImpl) ClusterTime(ctx context.Context) (Timestamp, error) {
 	ct, err := topo.GetClusterTime(ctx, s.conn)
 	if err != nil {
-		return Timestamp{}, fmt.Errorf("cluster time: %w", err)
+		return Timestamp{}, fmt.Errorf("get cluster time: %w", err)
 	}
 
 	return convertTimestamp(ct), nil
