@@ -54,7 +54,14 @@ func (s *logServiceImpl) Follow(ctx context.Context) (<-chan LogEntry, <-chan er
 		defer close(errs)
 
 		for e := range pbmEntries {
-			entries <- convertLogEntry(e)
+			// Select on ctx.Done to avoid blocking on the unbuffered
+			// send if the consumer stopped reading (e.g. follow mode
+			// was toggled off while an entry was ready to deliver).
+			select {
+			case entries <- convertLogEntry(e):
+			case <-ctx.Done():
+				return
+			}
 		}
 
 		// Forward any error from the PBM follow channel.
