@@ -418,7 +418,8 @@ func (m *backupsModel) renderProfileHeader(profile string, count int) string {
 }
 
 // renderBackupLine renders a single backup line for the list.
-// Shows the restore-to time (LastWriteTS), type, status, and size.
+// Shows the restore-to time (LastWriteTS), type, status, and a ◇ marker
+// for selective (namespace-filtered) backups.
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
 
@@ -427,11 +428,11 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 		ts = bk.StartTS.UTC().Format(backupTimeFormat)
 	}
 
-	size := ""
-	if bk.Size > 0 {
-		size = "  " + humanBytes(bk.Size)
+	sel := ""
+	if len(bk.Namespaces) > 0 {
+		sel = " " + m.styles.StatusWarning.Render("◇")
 	}
-	return fmt.Sprintf("%s %s  %s%s", ind, ts, bk.Type, size)
+	return fmt.Sprintf("%s %s  %s%s", ind, ts, bk.Type, sel)
 }
 
 // renderRestoreLine renders a single restore line for the list.

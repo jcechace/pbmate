@@ -219,6 +219,12 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	ind := statusIndicator(bk.Status, styles)
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, bk.Status)
 
+	// Restore time is the key operational field — highlight it.
+	if !bk.LastWriteTS.IsZero() {
+		restoreTime := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
+		fmt.Fprintf(b, "  Restore To:  %s\n", styles.Bold.Render(restoreTime))
+	}
+
 	if bk.Size > 0 {
 		fmt.Fprintf(b, "  Size:        %s", humanBytes(bk.Size))
 		if bk.SizeUncompressed > 0 {
@@ -233,6 +239,13 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	if !bk.ConfigName.IsZero() {
 		fmt.Fprintf(b, "  Config:      %s\n", bk.ConfigName)
 	}
+
+	if len(bk.Namespaces) > 0 {
+		fmt.Fprintf(b, "  Namespaces:  %s\n", strings.Join(bk.Namespaces, ", "))
+	} else {
+		fmt.Fprintf(b, "  Namespaces:  %s\n", styles.StatusMuted.Render("*.* (all)"))
+	}
+
 	if !bk.StartTS.IsZero() {
 		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.UTC().Format("2006-01-02 15:04:05"))
 	}
