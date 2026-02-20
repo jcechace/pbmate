@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -22,12 +24,37 @@ const (
 	listRestores
 )
 
+// backupItemKind identifies the type of item in the backup tree.
+type backupItemKind int
+
+const (
+	itemPITR          backupItemKind = iota // PITR timeline range
+	itemProfileHeader                       // collapsible profile header
+	itemBackup                              // individual backup
+)
+
+// backupItem is a single row in the backup list tree.
+type backupItem struct {
+	kind     backupItemKind
+	timeline *sdk.Timeline // set when kind == itemPITR
+	profile  string        // set for itemProfileHeader and itemBackup
+	count    int           // set for itemProfileHeader: number of backups
+	backup   *sdk.Backup   // set when kind == itemBackup
+}
+
 // backupsModel is the sub-model for the Backups tab.
 type backupsModel struct {
-	backups  []sdk.Backup
-	restores []sdk.Restore
-	mode     listMode
+	// Backup tree view.
+	items     []backupItem
+	timelines []sdk.Timeline
+	grouped   map[string][]sdk.Backup // profile name -> backups
+	profiles  []string                // sorted profile names (main first)
+	collapsed map[string]bool         // profile name -> collapsed state
 
+	// Restore flat list.
+	restores []sdk.Restore
+
+	mode          listMode
 	backupCursor  int
 	restoreCursor int
 	focus         panel
@@ -41,23 +68,20 @@ type backupsModel struct {
 // newBackupsModel creates a new backups sub-model.
 func newBackupsModel(styles *Styles) backupsModel {
 	return backupsModel{
-		styles:   styles,
-		focus:    panelLeft,
-		listVP:   newPanelViewport(),
-		detailVP: newPanelViewport(),
+		styles:    styles,
+		focus:     panelLeft,
+		collapsed: make(map[string]bool),
+		listVP:    newPanelViewport(),
+		detailVP:  newPanelViewport(),
 	}
 }
 
 // setBackupData updates the backup list from a fresh poll.
 func (m *backupsModel) setBackupData(d backupsData) {
-	m.backups = d.backups
-	if m.backupCursor >= len(m.backups) {
-		m.backupCursor = max(0, len(m.backups)-1)
-	}
-	if m.mode == listBackups {
-		m.rebuildListContent()
-		m.rebuildDetailContent()
-	}
+	m.timelines = d.timelines
+	m.grouped = groupBackupsByProfile(d.backups)
+	m.profiles = sortedProfileNames(m.grouped)
+	m.rebuildItems()
 }
 
 // setRestoreData updates the restore list from a fresh poll.
@@ -72,20 +96,33 @@ func (m *backupsModel) setRestoreData(d restoresData) {
 	}
 }
 
-// cursor returns a pointer to the active cursor for the current mode.
-func (m *backupsModel) cursor() *int {
-	if m.mode == listRestores {
-		return &m.restoreCursor
+// selectedItem returns the currently selected backup-tree item, or nil.
+func (m *backupsModel) selectedItem() *backupItem {
+	if m.mode != listBackups {
+		return nil
 	}
-	return &m.backupCursor
+	if m.backupCursor >= 0 && m.backupCursor < len(m.items) {
+		return &m.items[m.backupCursor]
+	}
+	return nil
 }
 
-// listLen returns the length of the currently active list.
-func (m *backupsModel) listLen() int {
-	if m.mode == listRestores {
-		return len(m.restores)
+// selectedBackup returns the backup under the cursor, or nil if the cursor
+// is on a non-backup item or in restore mode.
+func (m *backupsModel) selectedBackup() *sdk.Backup {
+	item := m.selectedItem()
+	if item != nil && item.kind == itemBackup {
+		return item.backup
 	}
-	return len(m.backups)
+	return nil
+}
+
+// selectedRestore returns the currently selected restore, or nil.
+func (m *backupsModel) selectedRestore() *sdk.Restore {
+	if m.restoreCursor >= 0 && m.restoreCursor < len(m.restores) {
+		return &m.restores[m.restoreCursor]
+	}
+	return nil
 }
 
 // update handles key messages for the Backups tab.
@@ -115,6 +152,17 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 			}
 		}
 	}
+
+	// Toggle collapse on space/enter when on a profile header.
+	if m.mode == listBackups && m.focus == panelLeft {
+		if msg.String() == " " || msg.String() == "enter" {
+			if item := m.selectedItem(); item != nil && item.kind == itemProfileHeader {
+				m.collapsed[item.profile] = !m.collapsed[item.profile]
+				m.rebuildItems()
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -131,15 +179,11 @@ func (m *backupsModel) cyclePanel(delta int) {
 func (m *backupsModel) handleVertical(delta int) {
 	switch m.focus {
 	case panelLeft:
-		cur := m.cursor()
-		n := m.listLen()
-		if delta > 0 && *cur < n-1 {
-			*cur++
-		} else if delta < 0 && *cur > 0 {
-			*cur--
+		if m.mode == listBackups {
+			m.moveCursor(delta)
+		} else {
+			m.moveRestoreCursor(delta)
 		}
-		m.rebuildListContent()
-		m.rebuildDetailContent()
 	case panelRight:
 		if delta > 0 {
 			m.detailVP.ScrollDown(delta)
@@ -149,44 +193,156 @@ func (m *backupsModel) handleVertical(delta int) {
 	}
 }
 
-// selectedBackup returns the currently selected backup, or nil.
-func (m *backupsModel) selectedBackup() *sdk.Backup {
-	if m.backupCursor >= 0 && m.backupCursor < len(m.backups) {
-		return &m.backups[m.backupCursor]
+// moveCursor moves the backup tree cursor by delta, always landing on a
+// selectable item. Rebuilds content after moving.
+func (m *backupsModel) moveCursor(delta int) {
+	if len(m.items) == 0 {
+		return
 	}
-	return nil
+	m.backupCursor += delta
+	if m.backupCursor < 0 {
+		m.backupCursor = 0
+	}
+	if m.backupCursor >= len(m.items) {
+		m.backupCursor = len(m.items) - 1
+	}
+	m.rebuildListContent()
+	m.rebuildDetailContent()
 }
 
-// selectedRestore returns the currently selected restore, or nil.
-func (m *backupsModel) selectedRestore() *sdk.Restore {
-	if m.restoreCursor >= 0 && m.restoreCursor < len(m.restores) {
-		return &m.restores[m.restoreCursor]
+// moveRestoreCursor moves the restore list cursor by delta.
+func (m *backupsModel) moveRestoreCursor(delta int) {
+	n := len(m.restores)
+	if n == 0 {
+		return
 	}
-	return nil
+	m.restoreCursor += delta
+	if m.restoreCursor < 0 {
+		m.restoreCursor = 0
+	}
+	if m.restoreCursor >= n {
+		m.restoreCursor = n - 1
+	}
+	m.rebuildListContent()
+	m.rebuildDetailContent()
 }
+
+// --- Backup tree item management ---
+
+// rebuildItems reconstructs the flat backup item list from grouped data,
+// respecting collapsed state. Preserves cursor position by item identity.
+func (m *backupsModel) rebuildItems() {
+	defer m.rebuildListContent()
+	defer m.rebuildDetailContent()
+
+	// Remember currently selected item identity for cursor stability.
+	var selectedBackupName string
+	var selectedProfile string
+	selectedTimelineIdx := -1
+	if sel := m.selectedItem(); sel != nil {
+		switch sel.kind {
+		case itemBackup:
+			selectedBackupName = sel.backup.Name
+		case itemProfileHeader:
+			selectedProfile = sel.profile
+		case itemPITR:
+			// Find the index of this timeline.
+			for i := range m.timelines {
+				if &m.timelines[i] == sel.timeline {
+					selectedTimelineIdx = i
+					break
+				}
+			}
+		}
+	}
+
+	var items []backupItem
+
+	// PITR timelines at the top.
+	for i := range m.timelines {
+		items = append(items, backupItem{
+			kind:     itemPITR,
+			timeline: &m.timelines[i],
+		})
+	}
+
+	// Profile sections.
+	for _, profile := range m.profiles {
+		backups := m.grouped[profile]
+		items = append(items, backupItem{
+			kind:    itemProfileHeader,
+			profile: profile,
+			count:   len(backups),
+		})
+		if !m.collapsed[profile] {
+			for i := range backups {
+				items = append(items, backupItem{
+					kind:    itemBackup,
+					profile: profile,
+					backup:  &backups[i],
+				})
+			}
+		}
+	}
+
+	m.items = items
+
+	// Restore cursor to the same item if possible.
+	m.backupCursor = 0
+	if selectedBackupName != "" {
+		for i, item := range m.items {
+			if item.kind == itemBackup && item.backup.Name == selectedBackupName {
+				m.backupCursor = i
+				return
+			}
+		}
+	}
+	if selectedProfile != "" {
+		for i, item := range m.items {
+			if item.kind == itemProfileHeader && item.profile == selectedProfile {
+				m.backupCursor = i
+				return
+			}
+		}
+	}
+	if selectedTimelineIdx >= 0 {
+		for i, item := range m.items {
+			if item.kind == itemPITR {
+				for j := range m.timelines {
+					if &m.timelines[j] == item.timeline && j == selectedTimelineIdx {
+						m.backupCursor = i
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
+// --- List content rendering ---
 
 // listContent builds the list content string for the current mode.
 func (m *backupsModel) listContent() string {
 	if m.mode == listRestores {
 		return m.restoreListContent()
 	}
-	return m.backupListContent()
+	return m.backupTreeContent()
 }
 
-// backupListContent builds the backup list content string.
-func (m *backupsModel) backupListContent() string {
-	if len(m.backups) == 0 {
+// backupTreeContent builds the backup tree content string.
+func (m *backupsModel) backupTreeContent() string {
+	if len(m.items) == 0 {
 		return m.styles.StatusMuted.Render("No backups")
 	}
 
 	cursorStyle := lipgloss.NewStyle().Foreground(m.styles.FocusedBorderColor)
 
 	var b strings.Builder
-	for i, bk := range m.backups {
+	for i, item := range m.items {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
-		line := m.renderBackupLine(&bk)
+		line := m.renderBackupItem(item)
 		if i == m.backupCursor {
 			if m.focus == panelLeft {
 				line = cursorStyle.Render("▶ ") + m.styles.Bold.Render(line)
@@ -229,6 +385,38 @@ func (m *backupsModel) restoreListContent() string {
 	return b.String()
 }
 
+// --- Item rendering ---
+
+// renderBackupItem renders a single item line for the backup tree.
+func (m *backupsModel) renderBackupItem(item backupItem) string {
+	switch item.kind {
+	case itemPITR:
+		return m.renderPITRLine(item.timeline)
+	case itemProfileHeader:
+		return m.renderProfileHeader(item.profile, item.count)
+	case itemBackup:
+		return "  " + m.renderBackupLine(item.backup)
+	}
+	return ""
+}
+
+// renderPITRLine renders a PITR timeline range.
+func (m *backupsModel) renderPITRLine(tl *sdk.Timeline) string {
+	start := tl.Start.Time().Format(backupTimeFormat)
+	end := tl.End.Time().Format(backupTimeFormat)
+	return fmt.Sprintf("⧖ PITR  %s → %s", start, end)
+}
+
+// renderProfileHeader renders a collapsible profile header.
+func (m *backupsModel) renderProfileHeader(profile string, count int) string {
+	headerStyle := m.styles.SectionHeader
+	label := profileDisplayName(profile)
+	if m.collapsed[profile] {
+		return fmt.Sprintf("%s (%d)", headerStyle.Render("▸ "+label), count)
+	}
+	return headerStyle.Render("▾ " + label)
+}
+
 // renderBackupLine renders a single backup line for the list.
 // Shows the restore-to time (LastWriteTS), type, status, and size.
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
@@ -254,6 +442,8 @@ func (m *backupsModel) renderRestoreLine(rs *sdk.Restore) string {
 	return fmt.Sprintf("%s %s  %s", ind, ts, rs.Type)
 }
 
+// --- Detail content ---
+
 // detailContent builds the detail content string for the current mode.
 func (m *backupsModel) detailContent() string {
 	if m.mode == listRestores {
@@ -266,14 +456,49 @@ func (m *backupsModel) detailContent() string {
 		return b.String()
 	}
 
-	sel := m.selectedBackup()
-	if sel == nil {
+	item := m.selectedItem()
+	if item == nil {
 		return m.styles.StatusMuted.Render("No selection")
 	}
+
 	var b strings.Builder
-	renderBackupDetail(&b, sel, m.styles)
+	switch item.kind {
+	case itemPITR:
+		m.renderPITRDetail(&b, item.timeline)
+	case itemProfileHeader:
+		m.renderProfileDetail(&b, item.profile)
+	case itemBackup:
+		renderBackupDetail(&b, item.backup, m.styles)
+	}
 	return b.String()
 }
+
+// renderPITRDetail writes PITR timeline detail to the builder.
+func (m *backupsModel) renderPITRDetail(b *strings.Builder, tl *sdk.Timeline) {
+	b.WriteString(m.styles.SectionHeader.Render("PITR Timeline"))
+	b.WriteByte('\n')
+
+	start := tl.Start.Time()
+	end := tl.End.Time()
+	fmt.Fprintf(b, "  Start:    %s\n", start.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(b, "  End:      %s\n", end.Format("2006-01-02 15:04:05"))
+
+	dur := end.Sub(start)
+	if dur > 0 {
+		fmt.Fprintf(b, "  Duration: %s\n", dur.Truncate(1).String())
+	}
+}
+
+// renderProfileDetail writes profile summary detail to the builder.
+func (m *backupsModel) renderProfileDetail(b *strings.Builder, profile string) {
+	b.WriteString(m.styles.SectionHeader.Render("Storage Profile"))
+	b.WriteByte('\n')
+
+	fmt.Fprintf(b, "  Name:    %s\n", profileDisplayName(profile))
+	fmt.Fprintf(b, "  Backups: %d\n", len(m.grouped[profile]))
+}
+
+// --- View ---
 
 // borderColor returns the border color for the given panel, highlighting
 // the focused panel.
@@ -350,4 +575,46 @@ func (m *backupsModel) rebuildListContent() {
 
 func (m *backupsModel) rebuildDetailContent() {
 	m.detailVP.SetContent(m.detailContent())
+}
+
+// --- Helpers ---
+
+// profileDisplayName returns a human-readable name for a profile.
+func profileDisplayName(profile string) string {
+	if profile == "main" {
+		return "Main"
+	}
+	return profile
+}
+
+// groupBackupsByProfile groups backups by their ConfigName.
+func groupBackupsByProfile(backups []sdk.Backup) map[string][]sdk.Backup {
+	m := make(map[string][]sdk.Backup)
+	for _, bk := range backups {
+		name := bk.ConfigName.String()
+		if name == "" {
+			name = "main"
+		}
+		m[name] = append(m[name], bk)
+	}
+	return m
+}
+
+// sortedProfileNames returns profile names sorted with "main" always first,
+// then remaining profiles in alphabetical order.
+func sortedProfileNames(grouped map[string][]sdk.Backup) []string {
+	var names []string
+	hasMain := false
+	for name := range maps.Keys(grouped) {
+		if name == "main" {
+			hasMain = true
+		} else {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+	if hasMain {
+		names = append([]string{"main"}, names...)
+	}
+	return names
 }
