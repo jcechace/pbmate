@@ -216,6 +216,14 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	fmt.Fprintf(b, "  Name:        %s\n", bk.Name)
 	fmt.Fprintf(b, "  Type:        %s\n", bk.Type)
 
+	if bk.Type.Equal(sdk.BackupTypeIncremental) {
+		if bk.SrcBackup == "" {
+			fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusMuted.Render("⌂"))
+		} else {
+			fmt.Fprintf(b, "  Source:      %s\n", bk.SrcBackup)
+		}
+	}
+
 	ind := statusIndicator(bk.Status, styles)
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, bk.Status)
 

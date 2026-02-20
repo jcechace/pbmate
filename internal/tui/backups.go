@@ -15,6 +15,7 @@ import (
 )
 
 const backupTimeFormat = "2006-01-02 15:04" // display format for backup timestamps
+const backupTypeColWidth = 11               // pad type to widest value ("incremental")
 
 // listMode selects which list is shown in the Backups tab.
 type listMode int
@@ -418,8 +419,8 @@ func (m *backupsModel) renderProfileHeader(profile string, count int) string {
 }
 
 // renderBackupLine renders a single backup line for the list.
-// Shows the restore-to time (LastWriteTS), type, status, and a ◇ marker
-// for selective (namespace-filtered) backups.
+// Layout: status dot, timestamp, padded type, flag column.
+// Flags: ⌂ = incremental base, ◇ = selective (namespace-filtered).
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
 
@@ -428,11 +429,14 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 		ts = bk.StartTS.UTC().Format(backupTimeFormat)
 	}
 
-	sel := ""
-	if len(bk.Namespaces) > 0 {
-		sel = " " + m.styles.StatusWarning.Render("◇")
+	flag := ""
+	if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup == "" {
+		flag = m.styles.StatusMuted.Render("⌂")
+	} else if len(bk.Namespaces) > 0 {
+		flag = m.styles.StatusWarning.Render("◇")
 	}
-	return fmt.Sprintf("%s %s  %s%s", ind, ts, bk.Type, sel)
+
+	return fmt.Sprintf("%s %s  %-*s %s", ind, ts, backupTypeColWidth, bk.Type, flag)
 }
 
 // renderRestoreLine renders a single restore line for the list.
