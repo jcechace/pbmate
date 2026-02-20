@@ -8,8 +8,6 @@ type globalKeyMap struct {
 	Tab1      key.Binding
 	Tab2      key.Binding
 	Tab3      key.Binding
-	NextTab   key.Binding
-	PrevTab   key.Binding
 	NextPanel key.Binding
 	PrevPanel key.Binding
 	Help      key.Binding
@@ -35,14 +33,6 @@ var globalKeys = globalKeyMap{
 	Tab3: key.NewBinding(
 		key.WithKeys("3"),
 		key.WithHelp("3", "config"),
-	),
-	NextTab: key.NewBinding(
-		key.WithKeys("tab"),
-		key.WithHelp("tab", "next tab"),
-	),
-	PrevTab: key.NewBinding(
-		key.WithKeys("shift+tab"),
-		key.WithHelp("shift+tab", "prev tab"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),
@@ -98,11 +88,11 @@ var overviewKeys = overviewKeyMap{
 
 // backupKeyMap defines keybindings specific to the Backups tab.
 type backupKeyMap struct {
-	Start        key.Binding
-	StartCustom  key.Binding
-	Cancel       key.Binding
-	ShowBackups  key.Binding
-	ShowRestores key.Binding
+	Start       key.Binding
+	StartCustom key.Binding
+	Cancel      key.Binding
+	Restore     key.Binding
+	Toggle      key.Binding
 }
 
 var backupKeys = backupKeyMap{
@@ -118,12 +108,12 @@ var backupKeys = backupKeyMap{
 		key.WithKeys("c"),
 		key.WithHelp("c", "cancel backup"),
 	),
-	ShowBackups: key.NewBinding(
-		key.WithKeys("b"),
-		key.WithHelp("b", "backups"),
-	),
-	ShowRestores: key.NewBinding(
+	Restore: key.NewBinding(
 		key.WithKeys("r"),
-		key.WithHelp("r", "restores"),
+		key.WithHelp("r", "restore"),
+	),
+	Toggle: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "backups/restores"),
 	),
 }

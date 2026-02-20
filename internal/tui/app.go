@@ -277,10 +277,6 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		newTab = tabBackups
 	case key.Matches(msg, m.keys.Tab3):
 		newTab = tabConfig
-	case key.Matches(msg, m.keys.NextTab):
-		newTab = (m.activeTab + 1) % tabCount
-	case key.Matches(msg, m.keys.PrevTab):
-		newTab = (m.activeTab - 1 + tabCount) % tabCount
 	case key.Matches(msg, backupKeys.Start) && m.client != nil:
 		return m, m.openBackupForm(backupFormQuick)
 	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil:
@@ -513,11 +509,15 @@ func (m Model) runningOpText() string {
 // Only essential navigation and help/quit are shown; all other bindings
 // are accessible through the ? help overlay.
 func (m Model) contextBindings() []key.Binding {
-	return []key.Binding{
+	bindings := []key.Binding{
 		m.keys.NextPanel, m.keys.PrevPanel,
 		m.keys.Up, m.keys.Down,
-		m.keys.Help, m.keys.Quit,
 	}
+	if m.activeTab == tabBackups {
+		bindings = append(bindings, backupKeys.Toggle)
+	}
+	bindings = append(bindings, m.keys.Help, m.keys.Quit)
+	return bindings
 }
 
 // clusterTimeText returns the cluster time for the status bar.

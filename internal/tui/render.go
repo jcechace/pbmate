@@ -117,8 +117,6 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	b.WriteByte('\n')
 	b.WriteString(line("down/j", "down"))
 	b.WriteByte('\n')
-	b.WriteString(line("tab", "next tab"))
-	b.WriteByte('\n')
 	b.WriteString(line("1-3", "jump to tab"))
 	b.WriteByte('\n')
 
@@ -129,6 +127,8 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	b.WriteByte('\n')
 	b.WriteString(line("S", "custom backup"))
 	b.WriteByte('\n')
+	b.WriteString(line("r", "restore"))
+	b.WriteByte('\n')
 	b.WriteString(line("c", "cancel backup"))
 	b.WriteByte('\n')
 	b.WriteString(line("d", "delete"))
@@ -137,9 +137,7 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	b.WriteByte('\n')
 	b.WriteString(sectionStyle.Render("Backups"))
 	b.WriteByte('\n')
-	b.WriteString(line("b", "show backups"))
-	b.WriteByte('\n')
-	b.WriteString(line("r", "show restores"))
+	b.WriteString(line("tab", "backups / restores"))
 	b.WriteByte('\n')
 
 	b.WriteByte('\n')

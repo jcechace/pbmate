@@ -92,18 +92,14 @@ func (m *backupsModel) listLen() int {
 // Returns a tea.Cmd if an action was triggered, nil otherwise.
 func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	switch {
-	case key.Matches(msg, backupKeys.ShowBackups):
-		if m.mode != listBackups {
-			m.mode = listBackups
-			m.rebuildListContent()
-			m.rebuildDetailContent()
-		}
-	case key.Matches(msg, backupKeys.ShowRestores):
-		if m.mode != listRestores {
+	case key.Matches(msg, backupKeys.Toggle) && m.focus == panelLeft:
+		if m.mode == listBackups {
 			m.mode = listRestores
-			m.rebuildListContent()
-			m.rebuildDetailContent()
+		} else {
+			m.mode = listBackups
 		}
+		m.rebuildListContent()
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)
 	case key.Matches(msg, keys.PrevPanel):
@@ -289,21 +285,18 @@ func (m *backupsModel) borderColor(p panel) lipgloss.TerminalColor {
 }
 
 // segmentedTitle renders the toggle title: [Backups] Restores or Backups [Restores].
-// The first letter of each label is rendered in the hint-key color to indicate
-// the keyboard accelerator; the active label is bold, the inactive one muted.
+// The active label is bold with brackets, the inactive one is muted. Toggle
+// with tab is shown in the bottom bar hints.
 func (m *backupsModel) segmentedTitle(borderColor lipgloss.TerminalColor) string {
-	keyStyle := m.styles.HintKey
 	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
 	inactiveStyle := m.styles.StatusMuted
 	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
 
 	renderLabel := func(label string, active bool) string {
-		first := keyStyle.Render(string(label[0]))
-		rest := label[1:]
 		if active {
-			return bracketStyle.Render("[") + first + activeStyle.Render(rest) + bracketStyle.Render("]")
+			return bracketStyle.Render("[") + activeStyle.Render(label) + bracketStyle.Render("]")
 		}
-		return first + inactiveStyle.Render(rest)
+		return inactiveStyle.Render(label)
 	}
 
 	return renderLabel("Backups", m.mode == listBackups) +
