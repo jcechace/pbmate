@@ -85,14 +85,31 @@
 - [x] Extract clusterPanel from overviewModel (cluster_panel.go)
 - [x] Add panel titles to border rendering (╭─ Title ─────╮)
 
-### Phase 5c: Interactions (planned)
-- [ ] Inline y/n confirmation for destructive actions (delete, cancel)
-- [ ] `huh` form for start backup (type, compression, profile)
-- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
-- [ ] `?` full help overlay
+### Phase 5c: Interactions (complete)
+- [x] `huh` form overlay for start backup (quick confirm + full wizard with type, compression, profile)
+- [x] `huh` confirm overlay for destructive actions (delete, cancel)
+- [x] `?` full help overlay
+- [x] Incremental backup chain grouping (base + indented children in backup tree)
+- [x] Chain-aware delete (auto-resolves to base, shows chain count)
+- [x] Restore list with `tab` toggle in Backups tab
+- [x] SDK documentation enrichment (usage examples and field comments on all domain files)
 
-### Phase 5d: Additional tabs (planned)
-- [ ] Restores tab
+### Phase 5c+: Code quality refactoring (complete)
+- [x] Fix PITR duration truncation (`Truncate(time.Second)` not `Truncate(1)`)
+- [x] Fix stale timeline cursor pointer comparison (compare by value, not pointer)
+- [x] Fix error clearing asymmetry (all data messages clear flashErr on success)
+- [x] Extract chain logic into backup_chain.go (chainOrderedItems, resolveIncrChain, groupBackupsByProfile, sortedProfileNames, profileDisplayName)
+- [x] Add comprehensive tests for chain logic (backup_chain_test.go)
+- [x] Deduplicate cursor rendering (renderCursorList helper in render.go)
+- [x] Unify replaceTitleBorder / replaceStyledTitleBorder (wrapper delegation)
+- [x] Derive help overlay content from key.Binding definitions (eliminates drift)
+- [x] Consistent `*Styles` passing in all function signatures
+- [x] Move layout constants to layout.go, maxLogEntries to overview.go
+
+### Phase 5d: Additional tabs and features (planned)
 - [ ] Config tab
+- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
 - [ ] `--readonly` flag
+- [ ] Connection reconnect on failure (currently dead-end after connect error)
+- [ ] Fix goroutine leak in log follow mode (nextLogCmd blocks forever if follow stopped between dispatch and message arrival)
