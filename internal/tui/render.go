@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 
@@ -80,68 +81,84 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 // helpOverlayWidth is the content width inside the help overlay panel.
 const helpOverlayWidth = 38
 
+// helpEntry is a single key→description pair in the help overlay.
+type helpEntry struct {
+	key  string
+	desc string
+}
+
+// helpFromBinding creates a helpEntry from a key.Binding's Help metadata.
+func helpFromBinding(b key.Binding) helpEntry {
+	h := b.Help()
+	return helpEntry{key: h.Key, desc: h.Desc}
+}
+
+// helpSection is a titled group of keybinding entries.
+type helpSection struct {
+	title   string
+	entries []helpEntry
+}
+
+// helpSections returns the help overlay content organized by category.
+// Entries are derived from the actual key.Binding definitions in keys.go,
+// so the help overlay stays in sync with keybinding changes.
+func helpSections() []helpSection {
+	return []helpSection{
+		{"Navigation", []helpEntry{
+			{
+				key:  globalKeys.NextPanel.Help().Key + " / " + globalKeys.PrevPanel.Help().Key,
+				desc: "next / prev panel",
+			},
+			helpFromBinding(globalKeys.Up),
+			helpFromBinding(globalKeys.Down),
+			{"1-3", "jump to tab"},
+		}},
+		{"Actions", []helpEntry{
+			helpFromBinding(backupKeys.Start),
+			helpFromBinding(backupKeys.StartCustom),
+			helpFromBinding(backupKeys.Restore),
+			helpFromBinding(backupKeys.Cancel),
+			helpFromBinding(globalKeys.Delete),
+		}},
+		{"Backups", []helpEntry{
+			helpFromBinding(backupKeys.Toggle),
+		}},
+		{"Overview", []helpEntry{
+			helpFromBinding(overviewKeys.Toggle),
+			helpFromBinding(overviewKeys.Follow),
+			helpFromBinding(overviewKeys.Wrap),
+		}},
+		{"General", []helpEntry{
+			helpFromBinding(globalKeys.Help),
+			{key: globalKeys.Back.Help().Key, desc: "back / dismiss"},
+			helpFromBinding(globalKeys.Quit),
+		}},
+	}
+}
+
 // renderHelpOverlay renders a centered help panel showing all keybindings
-// organized by category.
+// organized by category. Content is derived from the key.Binding definitions.
 func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	keyStyle := styles.HintKey
 	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
 
-	line := func(k, desc string) string {
-		return fmt.Sprintf("  %s  %s", keyStyle.Render(k), descStyle.Render(desc))
+	renderLine := func(e helpEntry) string {
+		return fmt.Sprintf("  %s  %s", keyStyle.Render(e.key), descStyle.Render(e.desc))
 	}
 
 	var b strings.Builder
-
-	b.WriteString(sectionStyle.Render("Navigation"))
-	b.WriteByte('\n')
-	b.WriteString(line("] / [", "next / prev panel"))
-	b.WriteByte('\n')
-	b.WriteString(line("up/k", "up"))
-	b.WriteByte('\n')
-	b.WriteString(line("down/j", "down"))
-	b.WriteByte('\n')
-	b.WriteString(line("1-3", "jump to tab"))
-	b.WriteByte('\n')
-
-	b.WriteByte('\n')
-	b.WriteString(sectionStyle.Render("Actions"))
-	b.WriteByte('\n')
-	b.WriteString(line("s", "start backup"))
-	b.WriteByte('\n')
-	b.WriteString(line("S", "custom backup"))
-	b.WriteByte('\n')
-	b.WriteString(line("r", "restore"))
-	b.WriteByte('\n')
-	b.WriteString(line("c", "cancel backup"))
-	b.WriteByte('\n')
-	b.WriteString(line("d", "delete"))
-	b.WriteByte('\n')
-
-	b.WriteByte('\n')
-	b.WriteString(sectionStyle.Render("Backups"))
-	b.WriteByte('\n')
-	b.WriteString(line("tab", "backups / restores"))
-	b.WriteByte('\n')
-
-	b.WriteByte('\n')
-	b.WriteString(sectionStyle.Render("Overview"))
-	b.WriteByte('\n')
-	b.WriteString(line("space", "expand / collapse"))
-	b.WriteByte('\n')
-	b.WriteString(line("f", "follow logs"))
-	b.WriteByte('\n')
-	b.WriteString(line("w", "wrap logs"))
-	b.WriteByte('\n')
-
-	b.WriteByte('\n')
-	b.WriteString(sectionStyle.Render("General"))
-	b.WriteByte('\n')
-	b.WriteString(line("?", "help"))
-	b.WriteByte('\n')
-	b.WriteString(line("esc", "back / dismiss"))
-	b.WriteByte('\n')
-	b.WriteString(line("q", "quit"))
+	for i, section := range helpSections() {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(sectionStyle.Render(section.title))
+		b.WriteByte('\n')
+		for _, entry := range section.entries {
+			b.WriteString(renderLine(entry))
+			b.WriteByte('\n')
+		}
+	}
 
 	body := b.String()
 	border := lipgloss.RoundedBorder()
