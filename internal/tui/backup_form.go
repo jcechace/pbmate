@@ -226,6 +226,41 @@ func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult)
 	return form, result
 }
 
+// --- Confirm form ---
+
+// confirmFormResult holds the user's selection from a confirmation form.
+type confirmFormResult struct {
+	confirmed bool
+}
+
+// newConfirmForm creates a compact confirmation overlay with a description
+// and Yes/No (or custom) buttons.
+func newConfirmForm(description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
+	result := &confirmFormResult{confirmed: true}
+
+	theme := huh.ThemeCatppuccin()
+	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewNote().
+				Description(description),
+
+			huh.NewConfirm().
+				Affirmative(affirmative).
+				Negative(negative).
+				Value(&result.confirmed),
+		),
+	).
+		WithTheme(theme).
+		WithWidth(backupFormInnerWidth).
+		WithShowHelp(false).
+		WithShowErrors(false).
+		WithKeyMap(backupFormKeyMap())
+
+	return form, result
+}
+
 // --- Shared ---
 
 // backupFormKeyMap returns a huh KeyMap with ] and [ added to field

@@ -150,7 +150,8 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	case key.Matches(msg, keys.Delete):
 		if m.mode == listBackups {
 			if sel := m.selectedBackup(); sel != nil {
-				return requestConfirmDelete(sel.Name)
+				baseName, title, desc := m.resolveDeleteTarget(sel)
+				return requestDeleteConfirm(baseName, title, desc)
 			}
 		}
 	}
@@ -577,6 +578,72 @@ func (m *backupsModel) rebuildListContent() {
 
 func (m *backupsModel) rebuildDetailContent() {
 	m.detailVP.SetContent(m.detailContent())
+}
+
+// --- Delete helpers ---
+
+// resolveDeleteTarget determines what to delete when the user presses 'd' on a
+// backup. For non-incremental backups it returns the backup itself. For any
+// incremental chain member it walks to the base and counts the chain, since PBM
+// only supports deleting from the base (which removes the entire chain).
+func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, description string) {
+	if !bk.Type.Equal(sdk.BackupTypeIncremental) {
+		return bk.Name, "Delete Backup",
+			fmt.Sprintf("%s\n%s · %s", bk.Name, bk.Type, bk.Status)
+	}
+
+	// Find the profile's backup list for chain resolution.
+	profile := bk.ConfigName.String()
+	if profile == "" {
+		profile = "main"
+	}
+	backups := m.grouped[profile]
+
+	base, count := resolveIncrChain(bk, backups)
+
+	return base.Name, "Delete Incremental Chain",
+		fmt.Sprintf("⌂ %s\nand its increments (%d total)", base.Name, count)
+}
+
+// resolveIncrChain finds the base of the incremental chain containing bk and
+// counts total chain members (base + all transitive children). The backups
+// slice should contain all backups for the same profile.
+func resolveIncrChain(bk *sdk.Backup, backups []sdk.Backup) (base *sdk.Backup, count int) {
+	byName := make(map[string]*sdk.Backup, len(backups))
+	for i := range backups {
+		byName[backups[i].Name] = &backups[i]
+	}
+
+	// Walk up to find the base.
+	base = bk
+	for base.SrcBackup != "" {
+		parent, ok := byName[base.SrcBackup]
+		if !ok {
+			break // orphaned — treat current as base
+		}
+		base = parent
+	}
+
+	// Build reverse index and count chain members.
+	childrenOf := make(map[string][]*sdk.Backup)
+	for i := range backups {
+		b := &backups[i]
+		if b.Type.Equal(sdk.BackupTypeIncremental) && b.SrcBackup != "" {
+			childrenOf[b.SrcBackup] = append(childrenOf[b.SrcBackup], b)
+		}
+	}
+
+	count = 1 // base itself
+	var walk func(name string)
+	walk = func(name string) {
+		for _, child := range childrenOf[name] {
+			count++
+			walk(child.Name)
+		}
+	}
+	walk(base.Name)
+
+	return base, count
 }
 
 // --- Helpers ---

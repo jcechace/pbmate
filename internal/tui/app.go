@@ -43,14 +43,6 @@ const (
 )
 
 // confirmAction represents a pending y/n confirmation in the bottom bar.
-type confirmAction struct {
-	prompt string  // question displayed to the user
-	cmd    tea.Cmd // command to execute on confirmation
-}
-
-// confirmYes matches the 'y' key for confirming an action.
-var confirmYes = key.NewBinding(key.WithKeys("y"))
-
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
 	client   *sdk.Client // nil until connectMsg arrives
@@ -65,9 +57,12 @@ type Model struct {
 	connecting   bool   // true while waiting for the initial connection
 	flashErr     string // transient error message for the status bar
 
-	// Confirmation state — when non-nil, the bottom bar shows a y/n prompt
-	// and all key input is routed to the confirm handler.
-	confirm *confirmAction
+	// Confirm form overlay — when non-nil, a confirmation dialog is shown
+	// centered over the content area and all key input is routed to it.
+	confirmForm       *huh.Form
+	confirmFormResult *confirmFormResult
+	confirmFormTitle  string
+	confirmFormCmd    tea.Cmd // executed if the user confirms
 
 	// Help overlay — when true, the ? help panel is shown.
 	showHelp bool
@@ -218,26 +213,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backupFormKind = msg.kind
 		return m, m.backupForm.Init()
 
-	case confirmDeleteMsg:
-		m.confirm = &confirmAction{
-			prompt: fmt.Sprintf("Delete backup %s?", msg.name),
-			cmd:    deleteBackupCmd(m.client, msg.name),
-		}
-		return m, nil
+	case deleteConfirmMsg:
+		form, result := newConfirmForm(msg.description, "Delete", "Cancel")
+		m.confirmForm = form
+		m.confirmFormResult = result
+		m.confirmFormTitle = msg.title
+		m.confirmFormCmd = deleteBackupCmd(m.client, msg.baseName)
+		return m, m.confirmForm.Init()
 	}
 
-	// Key messages: route to the backup form if active,
+	// Key messages: route to the active form overlay if one is open,
 	// otherwise to the normal key handler.
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		if m.backupForm != nil {
 			return m.updateBackupForm(keyMsg)
 		}
+		if m.confirmForm != nil {
+			return m.updateConfirmForm(keyMsg)
+		}
 		return m.updateKeys(keyMsg)
 	}
 
-	// Forward non-key messages to the backup form if active (e.g. huh internals).
+	// Forward non-key messages to the active form (e.g. huh internals).
 	if m.backupForm != nil {
 		return m.updateBackupForm(msg)
+	}
+	if m.confirmForm != nil {
+		return m.updateConfirmForm(msg)
 	}
 
 	return m, nil
@@ -245,16 +247,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // updateKeys handles key messages when no form overlay is active.
 func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// If a confirmation is pending, intercept all key input.
-	if m.confirm != nil {
-		var cmd tea.Cmd
-		if key.Matches(msg, confirmYes) {
-			cmd = m.confirm.cmd
-		}
-		m.confirm = nil
-		return m, cmd
-	}
-
 	// If the help overlay is open, dismiss on ?/esc and ignore everything else.
 	if m.showHelp {
 		if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) {
@@ -283,10 +275,15 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openBackupForm(backupFormFull)
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
 		if len(m.overview.data.operations) > 0 {
-			m.confirm = &confirmAction{
-				prompt: "Cancel running backup?",
-				cmd:    cancelBackupCmd(m.client),
-			}
+			form, result := newConfirmForm(
+				"Cancel the currently running backup?",
+				"Cancel Backup", "Keep Running",
+			)
+			m.confirmForm = form
+			m.confirmFormResult = result
+			m.confirmFormTitle = "Cancel Backup"
+			m.confirmFormCmd = cancelBackupCmd(m.client)
+			return m, m.confirmForm.Init()
 		}
 		return m, nil
 	default:
@@ -373,6 +370,9 @@ func (m Model) contentView(height int) string {
 		}
 		return renderFormOverlay(m.backupForm, title, m.styles, m.width, height)
 	}
+	if m.confirmForm != nil {
+		return renderFormOverlay(m.confirmForm, m.confirmFormTitle, m.styles, m.width, height)
+	}
 
 	switch m.activeTab {
 	case tabOverview:
@@ -397,10 +397,6 @@ func (m Model) placeholderContent(text string, height int) string {
 // bottomBarView renders the single merged bottom bar with status HUD on the
 // left and context-sensitive keybinding hints on the right.
 func (m Model) bottomBarView() string {
-	if m.confirm != nil {
-		return m.confirmBarView()
-	}
-
 	// Left zone: operational status HUD.
 	var statusParts []string
 	switch {
@@ -428,20 +424,6 @@ func (m Model) bottomBarView() string {
 	}
 	bar := leftZone + strings.Repeat(" ", gap) + rightZone
 
-	return m.styles.BottomBar.Width(m.width).Render(bar)
-}
-
-// confirmBarView renders the bottom bar with a y/n confirmation prompt.
-func (m Model) confirmBarView() string {
-	prompt := " " + m.styles.StatusWarning.Render(m.confirm.prompt)
-	hint := m.styles.HintKey.Render("y") + " " + m.styles.HintDesc.Render("confirm") +
-		"  " + m.styles.HintKey.Render("n") + " " + m.styles.HintDesc.Render("cancel")
-
-	gap := m.width - lipgloss.Width(prompt) - lipgloss.Width(hint) - 1
-	if gap < 0 {
-		gap = 0
-	}
-	bar := prompt + strings.Repeat(" ", gap) + hint + " "
 	return m.styles.BottomBar.Width(m.width).Render(bar)
 }
 
@@ -609,4 +591,49 @@ func (m *Model) transitionToFullForm() tea.Cmd {
 	m.backupFormResult = result
 	m.backupFormKind = backupFormFull
 	return m.backupForm.Init()
+}
+
+// --- Confirm form management ---
+
+// updateConfirmForm forwards a message to the active confirm form and handles
+// completion/abort.
+func (m Model) updateConfirmForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if msg, ok := msg.(tea.KeyMsg); ok {
+		// Esc or quit dismisses the confirmation.
+		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
+			m.confirmForm = nil
+			m.confirmFormResult = nil
+			m.confirmFormCmd = nil
+			return m, nil
+		}
+	}
+
+	// Forward to the huh form.
+	formModel, cmd := m.confirmForm.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		m.confirmForm = f
+	}
+
+	// Completed — execute the stored command if confirmed.
+	if m.confirmForm.State == huh.StateCompleted {
+		confirmed := m.confirmFormResult.confirmed
+		actionCmd := m.confirmFormCmd
+		m.confirmForm = nil
+		m.confirmFormResult = nil
+		m.confirmFormCmd = nil
+		if confirmed {
+			return m, actionCmd
+		}
+		return m, nil
+	}
+
+	// Aborted — dismiss.
+	if m.confirmForm.State == huh.StateAborted {
+		m.confirmForm = nil
+		m.confirmFormResult = nil
+		m.confirmFormCmd = nil
+		return m, nil
+	}
+
+	return m, cmd
 }

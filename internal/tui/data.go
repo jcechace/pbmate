@@ -122,15 +122,19 @@ type backupActionMsg struct {
 	err    error
 }
 
-// confirmDeleteMsg requests confirmation before deleting a backup.
-type confirmDeleteMsg struct {
-	name string
+// deleteConfirmMsg requests a delete confirmation overlay. The baseName is the
+// backup that will actually be deleted (always the chain base for incremental).
+// The title and description are displayed in the overlay.
+type deleteConfirmMsg struct {
+	baseName    string
+	title       string
+	description string
 }
 
-// requestConfirmDelete returns a tea.Cmd that requests delete confirmation.
-func requestConfirmDelete(name string) tea.Cmd {
+// requestDeleteConfirm returns a tea.Cmd that emits a deleteConfirmMsg.
+func requestDeleteConfirm(baseName, title, description string) tea.Cmd {
 	return func() tea.Msg {
-		return confirmDeleteMsg{name: name}
+		return deleteConfirmMsg{baseName: baseName, title: title, description: description}
 	}
 }
 
