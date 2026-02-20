@@ -120,6 +120,12 @@
 - [x] Remove defensive zero-ConfigName checks in TUI (relies on SDK normalization guarantee)
 - [x] Fix goroutine leak in LogService.Follow adapter on context cancellation
 
+### Code quality polish (complete)
+- [x] Use SDK domain methods at all remaining TUI call sites (IsIncrementalBase, IsIncremental, IsSelective)
+- [x] Extract waitForTerminal generic helper to unify Backup/Restore Wait pattern
+- [x] Standardize error message prefixes to verb-noun format across all SDK services
+- [x] Show profile name in delete confirmation dialog
+
 ### Phase 5d: Additional tabs and features (planned)
 - [ ] Config tab
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
