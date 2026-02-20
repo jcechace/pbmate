@@ -364,17 +364,17 @@ func (m Model) headerView() string {
 // When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
 	if m.showHelp {
-		return renderHelpOverlay(m.styles, m.width, height)
+		return renderHelpOverlay(&m.styles, m.width, height)
 	}
 	if m.backupForm != nil {
 		title := "Start Backup"
 		if m.backupFormKind == backupFormFull {
 			title = "Configure Backup"
 		}
-		return renderFormOverlay(m.backupForm, title, m.styles, m.width, height)
+		return renderFormOverlay(m.backupForm, title, &m.styles, m.width, height)
 	}
 	if m.confirmForm != nil {
-		return renderFormOverlay(m.confirmForm, m.confirmFormTitle, m.styles, m.width, height)
+		return renderFormOverlay(m.confirmForm, m.confirmFormTitle, &m.styles, m.width, height)
 	}
 
 	switch m.activeTab {

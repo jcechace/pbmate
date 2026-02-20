@@ -283,7 +283,7 @@ func backupFormKeyMap() *huh.KeyMap {
 // renderFormOverlay renders the form centered over the content area inside
 // a bordered panel with a title in the top border, using the same approach
 // as renderTitledPanel.
-func renderFormOverlay(form *huh.Form, title string, styles Styles, contentW, contentH int) string {
+func renderFormOverlay(form *huh.Form, title string, styles *Styles, contentW, contentH int) string {
 	formView := form.View()
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor

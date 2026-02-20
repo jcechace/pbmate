@@ -138,7 +138,7 @@ func helpSections() []helpSection {
 
 // renderHelpOverlay renders a centered help panel showing all keybindings
 // organized by category. Content is derived from the key.Binding definitions.
-func renderHelpOverlay(styles Styles, contentW, contentH int) string {
+func renderHelpOverlay(styles *Styles, contentW, contentH int) string {
 	keyStyle := styles.HintKey
 	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
