@@ -431,7 +431,7 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 
 	flag := ""
 	if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup == "" {
-		flag = m.styles.StatusMuted.Render("⌂")
+		flag = m.styles.StatusWarning.Render("⌂")
 	} else if len(bk.Namespaces) > 0 {
 		flag = m.styles.StatusWarning.Render("◇")
 	}

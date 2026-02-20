@@ -218,7 +218,7 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 
 	if bk.Type.Equal(sdk.BackupTypeIncremental) {
 		if bk.SrcBackup == "" {
-			fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusMuted.Render("⌂"))
+			fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusWarning.Render("⌂"))
 		} else {
 			fmt.Fprintf(b, "  Source:      %s\n", bk.SrcBackup)
 		}
