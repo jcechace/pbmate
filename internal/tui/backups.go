@@ -31,7 +31,8 @@ type backupItemKind int
 const (
 	itemPITR          backupItemKind = iota // PITR timeline range
 	itemProfileHeader                       // collapsible profile header
-	itemBackup                              // individual backup
+	itemBackup                              // individual backup (or incremental base)
+	itemIncrChild                           // incremental chain child (indented under base)
 )
 
 // backupItem is a single row in the backup list tree.
@@ -112,7 +113,7 @@ func (m *backupsModel) selectedItem() *backupItem {
 // is on a non-backup item or in restore mode.
 func (m *backupsModel) selectedBackup() *sdk.Backup {
 	item := m.selectedItem()
-	if item != nil && item.kind == itemBackup {
+	if item != nil && (item.kind == itemBackup || item.kind == itemIncrChild) {
 		return item.backup
 	}
 	return nil
@@ -242,7 +243,7 @@ func (m *backupsModel) rebuildItems() {
 	selectedTimelineIdx := -1
 	if sel := m.selectedItem(); sel != nil {
 		switch sel.kind {
-		case itemBackup:
+		case itemBackup, itemIncrChild:
 			selectedBackupName = sel.backup.Name
 		case itemProfileHeader:
 			selectedProfile = sel.profile
@@ -276,13 +277,7 @@ func (m *backupsModel) rebuildItems() {
 			count:   len(backups),
 		})
 		if !m.collapsed[profile] {
-			for i := range backups {
-				items = append(items, backupItem{
-					kind:    itemBackup,
-					profile: profile,
-					backup:  &backups[i],
-				})
-			}
+			items = append(items, chainOrderedItems(profile, backups)...)
 		}
 	}
 
@@ -292,7 +287,7 @@ func (m *backupsModel) rebuildItems() {
 	m.backupCursor = 0
 	if selectedBackupName != "" {
 		for i, item := range m.items {
-			if item.kind == itemBackup && item.backup.Name == selectedBackupName {
+			if (item.kind == itemBackup || item.kind == itemIncrChild) && item.backup.Name == selectedBackupName {
 				m.backupCursor = i
 				return
 			}
@@ -397,6 +392,8 @@ func (m *backupsModel) renderBackupItem(item backupItem) string {
 		return m.renderProfileHeader(item.profile, item.count)
 	case itemBackup:
 		return "  " + m.renderBackupLine(item.backup)
+	case itemIncrChild:
+		return "    " + m.renderBackupLine(item.backup)
 	}
 	return ""
 }
@@ -472,7 +469,7 @@ func (m *backupsModel) detailContent() string {
 		m.renderPITRDetail(&b, item.timeline)
 	case itemProfileHeader:
 		m.renderProfileDetail(&b, item.profile)
-	case itemBackup:
+	case itemBackup, itemIncrChild:
 		renderBackupDetail(&b, item.backup, m.styles)
 	}
 	return b.String()
@@ -622,4 +619,85 @@ func sortedProfileNames(grouped map[string][]sdk.Backup) []string {
 		names = append([]string{"main"}, names...)
 	}
 	return names
+}
+
+// chainOrderedItems builds backup items for a profile, grouping incremental
+// chains under their base. The input backups must be ordered newest-first
+// (as returned by the SDK). Non-incremental backups and incremental bases
+// keep their chronological position. Chain children are pulled out of the
+// flat list and placed directly under their base, ordered oldest-to-newest.
+//
+// Orphaned increments (whose SrcBackup points to a backup not in this list)
+// are emitted as regular itemBackup entries in their original position.
+func chainOrderedItems(profile string, backups []sdk.Backup) []backupItem {
+	// Index backups by name for chain lookups.
+	byName := make(map[string]*sdk.Backup, len(backups))
+	for i := range backups {
+		byName[backups[i].Name] = &backups[i]
+	}
+
+	// Build reverse index: parent name → children (in original newest-first order).
+	childrenOf := make(map[string][]*sdk.Backup)
+	for i := range backups {
+		bk := &backups[i]
+		if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup != "" {
+			childrenOf[bk.SrcBackup] = append(childrenOf[bk.SrcBackup], bk)
+		}
+	}
+
+	// Track which backups are consumed as chain children so we skip them
+	// in the main loop.
+	consumed := make(map[string]bool)
+
+	// walkChain collects all transitive children of a base, depth-first,
+	// in oldest-to-newest order (reversed from the newest-first input).
+	var walkChain func(parentName string, out *[]*sdk.Backup)
+	walkChain = func(parentName string, out *[]*sdk.Backup) {
+		children := childrenOf[parentName]
+		// Reverse to get oldest-first within each level.
+		for i := len(children) - 1; i >= 0; i-- {
+			child := children[i]
+			consumed[child.Name] = true
+			*out = append(*out, child)
+			walkChain(child.Name, out)
+		}
+	}
+
+	var items []backupItem
+	for i := range backups {
+		bk := &backups[i]
+
+		// Skip backups already emitted as chain children.
+		if consumed[bk.Name] {
+			continue
+		}
+
+		// Incremental base: emit base + chain children.
+		if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup == "" {
+			items = append(items, backupItem{
+				kind:    itemBackup,
+				profile: profile,
+				backup:  bk,
+			})
+			var chain []*sdk.Backup
+			walkChain(bk.Name, &chain)
+			for _, child := range chain {
+				items = append(items, backupItem{
+					kind:    itemIncrChild,
+					profile: profile,
+					backup:  child,
+				})
+			}
+			continue
+		}
+
+		// Regular backup (or orphaned increment).
+		items = append(items, backupItem{
+			kind:    itemBackup,
+			profile: profile,
+			backup:  bk,
+		})
+	}
+
+	return items
 }
