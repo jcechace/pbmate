@@ -12,7 +12,7 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-const maxBackupNameList = 22 // max backup name length in the backup list
+const backupTimeFormat = "2006-01-02 15:04" // display format for backup timestamps
 
 // backupsModel is the sub-model for the Backups tab.
 type backupsModel struct {
@@ -132,17 +132,20 @@ func (m *backupsModel) listContent() string {
 }
 
 // renderBackupLine renders a single backup line for the list.
+// Shows the restore-to time (LastWriteTS), type, status, and size.
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
-	name := bk.Name
-	if len(name) > maxBackupNameList {
-		name = name[:maxBackupNameList]
+
+	ts := bk.LastWriteTS.Time().Format(backupTimeFormat)
+	if bk.LastWriteTS.IsZero() {
+		ts = bk.StartTS.Format(backupTimeFormat)
 	}
+
 	size := ""
 	if bk.Size > 0 {
-		size = humanBytes(bk.Size)
+		size = "  " + humanBytes(bk.Size)
 	}
-	return fmt.Sprintf("%s %s  %s  %s", ind, name, bk.Type, size)
+	return fmt.Sprintf("%s %s  %s%s", ind, ts, bk.Type, size)
 }
 
 // detailContent builds the detail content string for the selected backup.
