@@ -8,7 +8,6 @@ type globalKeyMap struct {
 	Tab1      key.Binding
 	Tab2      key.Binding
 	Tab3      key.Binding
-	Tab4      key.Binding
 	NextTab   key.Binding
 	PrevTab   key.Binding
 	NextPanel key.Binding
@@ -35,11 +34,7 @@ var globalKeys = globalKeyMap{
 	),
 	Tab3: key.NewBinding(
 		key.WithKeys("3"),
-		key.WithHelp("3", "restores"),
-	),
-	Tab4: key.NewBinding(
-		key.WithKeys("4"),
-		key.WithHelp("4", "config"),
+		key.WithHelp("3", "config"),
 	),
 	NextTab: key.NewBinding(
 		key.WithKeys("tab"),

@@ -92,7 +92,7 @@ func renderHelpOverlay(styles Styles, contentW, contentH int) string {
 	b.WriteByte('\n')
 	b.WriteString(line("tab", "next tab"))
 	b.WriteByte('\n')
-	b.WriteString(line("1-4", "jump to tab"))
+	b.WriteString(line("1-3", "jump to tab"))
 	b.WriteByte('\n')
 
 	b.WriteByte('\n')

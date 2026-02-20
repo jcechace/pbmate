@@ -20,7 +20,6 @@ type tab int
 const (
 	tabOverview tab = iota
 	tabBackups
-	tabRestores
 	tabConfig
 	tabCount // sentinel for cycling
 )
@@ -28,7 +27,6 @@ const (
 var tabNames = [tabCount]string{
 	"Overview",
 	"Backups",
-	"Restores",
 	"Config",
 }
 
@@ -271,8 +269,6 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Tab2):
 		newTab = tabBackups
 	case key.Matches(msg, m.keys.Tab3):
-		newTab = tabRestores
-	case key.Matches(msg, m.keys.Tab4):
 		newTab = tabConfig
 	case key.Matches(msg, m.keys.NextTab):
 		newTab = (m.activeTab + 1) % tabCount
@@ -380,8 +376,6 @@ func (m Model) contentView(height int) string {
 		return m.overview.view(m.width, height)
 	case tabBackups:
 		return m.backups.view(m.width, height)
-	case tabRestores:
-		return m.placeholderContent("Restores - list restores", height)
 	case tabConfig:
 		return m.placeholderContent("Config - PBM configuration and profiles", height)
 	default:
