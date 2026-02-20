@@ -105,6 +105,22 @@ type Restore struct {
 	Replsets         []RestoreReplset // per-replica-set breakdown
 }
 
+// InProgress reports whether the restore is still running (not in a terminal
+// state).
+func (r Restore) InProgress() bool {
+	return !r.Status.IsTerminal()
+}
+
+// Duration returns the elapsed time from start to the last status transition.
+// Returns zero if the restore hasn't started or hasn't reached a terminal
+// status yet.
+func (r Restore) Duration() time.Duration {
+	if r.StartTS.IsZero() || r.LastTransitionTS.IsZero() || !r.Status.IsTerminal() {
+		return 0
+	}
+	return r.LastTransitionTS.Sub(r.StartTS)
+}
+
 // RestoreReplset holds per-replica-set metadata for a restore.
 type RestoreReplset struct {
 	Name             string        // replica set name

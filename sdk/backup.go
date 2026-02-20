@@ -150,6 +150,39 @@ type Backup struct {
 	Replsets         []BackupReplset // per-replica-set breakdown
 }
 
+// IsIncremental reports whether this is an incremental backup.
+func (b Backup) IsIncremental() bool {
+	return b.Type.Equal(BackupTypeIncremental)
+}
+
+// IsIncrementalBase reports whether this backup is the base of an incremental
+// chain. An incremental base has no parent (SrcBackup is empty).
+func (b Backup) IsIncrementalBase() bool {
+	return b.IsIncremental() && b.SrcBackup == ""
+}
+
+// IsSelective reports whether this backup targets specific namespaces
+// rather than the full cluster.
+func (b Backup) IsSelective() bool {
+	return len(b.Namespaces) > 0
+}
+
+// InProgress reports whether the backup is still running (not in a terminal
+// state).
+func (b Backup) InProgress() bool {
+	return !b.Status.IsTerminal()
+}
+
+// Duration returns the elapsed time from start to the last status transition.
+// Returns zero if the backup hasn't started or hasn't reached a terminal
+// status yet.
+func (b Backup) Duration() time.Duration {
+	if b.StartTS.IsZero() || b.LastTransitionTS.IsZero() || !b.Status.IsTerminal() {
+		return 0
+	}
+	return b.LastTransitionTS.Sub(b.StartTS)
+}
+
 // BackupReplset holds per-replica-set metadata for a backup.
 type BackupReplset struct {
 	Name             string    // replica set name
