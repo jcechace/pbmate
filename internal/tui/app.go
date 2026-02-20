@@ -42,7 +42,6 @@ const (
 	panelBorderV  = 2 // vertical border: top + bottom
 )
 
-// confirmAction represents a pending y/n confirmation in the bottom bar.
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
 	client   *sdk.Client // nil until connectMsg arrives
@@ -161,6 +160,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backups.setBackupData(msg.backupsData)
 		if msg.err != nil {
 			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.flashErr = ""
 		}
 		return m, nil
 
@@ -168,6 +169,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backups.setRestoreData(msg.restoresData)
 		if msg.err != nil {
 			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.flashErr = ""
 		}
 		return m, nil
 

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -249,9 +250,11 @@ func (m *backupsModel) rebuildItems() {
 		case itemProfileHeader:
 			selectedProfile = sel.profile
 		case itemPITR:
-			// Find the index of this timeline.
+			// Find the index of this timeline by matching start/end values.
+			// Cannot compare pointers because m.timelines is replaced on each
+			// data refresh, so old item pointers become stale.
 			for i := range m.timelines {
-				if &m.timelines[i] == sel.timeline {
+				if m.timelines[i].Start == sel.timeline.Start && m.timelines[i].End == sel.timeline.End {
 					selectedTimelineIdx = i
 					break
 				}
@@ -302,15 +305,17 @@ func (m *backupsModel) rebuildItems() {
 			}
 		}
 	}
-	if selectedTimelineIdx >= 0 {
+	if selectedTimelineIdx >= 0 && selectedTimelineIdx < len(m.timelines) {
+		// Timeline items are emitted in order, so the Nth PITR item
+		// corresponds to the Nth timeline.
+		pitrCount := 0
 		for i, item := range m.items {
 			if item.kind == itemPITR {
-				for j := range m.timelines {
-					if &m.timelines[j] == item.timeline && j == selectedTimelineIdx {
-						m.backupCursor = i
-						return
-					}
+				if pitrCount == selectedTimelineIdx {
+					m.backupCursor = i
+					return
 				}
+				pitrCount++
 			}
 		}
 	}
@@ -488,7 +493,7 @@ func (m *backupsModel) renderPITRDetail(b *strings.Builder, tl *sdk.Timeline) {
 
 	dur := end.Sub(start)
 	if dur > 0 {
-		fmt.Fprintf(b, "  Duration: %s\n", dur.Truncate(1).String())
+		fmt.Fprintf(b, "  Duration: %s\n", dur.Truncate(time.Second).String())
 	}
 }
 
