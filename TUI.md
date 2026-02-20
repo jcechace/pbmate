@@ -14,7 +14,7 @@ styling.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  PBMate   [1:Overview]  2:Backups  3:Restores  4:Config         │
+│  PBMate   [1:Overview]  2:Backups  3:Config                      │
 ├──────────────────────────┬───────────────────────────────────────┤
 │                          │                                       │
 │    Left panel            │         Right panel (detail)          │
@@ -107,27 +107,21 @@ Master-detail layout with sub-tabs in the detail panel.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Left panel: full scrollable backup list. Compact names (drop seconds).
+Left panel: scrollable backup tree with `tab` toggle between Backups and
+Restores. Compact timestamps (drop seconds). Backups are grouped by storage
+profile with collapsible headers. Incremental backups are grouped into chains
+under their base (base shows `⌂` icon, children indented). PITR timelines
+appear at the top of the list.
 
-Right panel: Full backup metadata, timestamps, compression, errors.
+Right panel: full backup/restore metadata, timestamps, compression, errors.
 
-Future sub-tabs (Phase 5c): Info, Replicas, Logs -- will use dedicated keys
-for cycling within the detail panel.
+Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
+type, compression, profile), `d` delete (overlay confirmation, chain-aware for
+incrementals), `c` cancel running backup.
 
-Actions: `s` start backup, `d` delete, `c` cancel running.
+Future: detail panel sub-tabs (Info, Replicas, Logs), `/` filter.
 
-Future: PITR timeline visualization, incremental backup chain view, `/` filter.
-
-### 3. Restores
-
-Same master-detail pattern.
-
-Left panel: list of restores (backup source, type, status).
-Right panel: restore detail with sub-tabs (Info, Nodes, Logs).
-
-Actions: `r` start restore from selected backup (via Backups tab).
-
-### 4. Config
+### 3. Config
 
 Left panel: main config + storage profiles list.
 Right panel: detail (storage settings, PITR config, compression, raw YAML).
@@ -138,10 +132,12 @@ Read-only for MVP. Later: `e` edit via YAML, `p` add profile.
 
 ### Global
 - `q` / `ctrl+c` -- quit
-- `1`-`4` -- jump to tab
-- `tab` / `shift+tab` -- cycle tabs
+- `1`-`3` -- jump to tab
 - `?` -- toggle full help overlay
 - `esc` -- back / close overlay / clear filter
+- `s` -- start backup (quick confirm)
+- `S` -- custom backup (full wizard)
+- `c` -- cancel running backup
 
 ### Navigation (within panels)
 - `up`/`down` or `k`/`j` -- move selection / scroll in focused panel
@@ -153,15 +149,13 @@ Read-only for MVP. Later: `e` edit via YAML, `p` add profile.
 - `w` -- toggle log word-wrap
 
 ### Backups-specific
-- `d` -- delete backup
-- (`s` start backup and `c` cancel are global -- work from any tab)
-
-### Restores-specific
-- (view only for now)
+- `tab` -- toggle between Backups and Restores list
+- `d` -- delete backup (overlay confirmation)
+- `space` / `enter` -- expand/collapse profile group
 
 ### Future
 - `/` -- filter/search in list views
-- `Ctrl+z` -- toggle error-only filter
+- `--readonly` flag to disable all mutation actions
 
 ## Bottom Bar
 
@@ -198,6 +192,158 @@ Single merged bar replacing the previous two-bar (status + help) design.
 - **Stable cursor**: selection tracked by item identity (agent node name,
   backup name), not by list index. Prevents cursor jumping on data refresh.
 
+## Message Flow Architecture
+
+PBMate's TUI follows the Elm Architecture enforced by BubbleTea: a
+unidirectional data flow where `Update` is the only place state changes.
+
+### The Core Loop
+
+```
+   ┌─────────────────────────────────────────┐
+   │                                         │
+   ▼                                         │
+ View(Model) ──render──▶ Terminal            │
+                                             │
+ User input / timer / async result           │
+   │                                         │
+   ▼                                         │
+ Update(Model, Msg) ──▶ (new Model, Cmd) ────┘
+```
+
+1. **View** -- pure function: reads Model, returns a string. No side effects.
+2. **Msg** arrives -- a user keypress, window resize, timer tick, or the result
+   of an async command.
+3. **Update** -- takes current Model + Msg, returns a new Model and optionally
+   a Cmd.
+4. **Cmd** -- a `func() Msg`. BubbleTea runs it in a goroutine and feeds the
+   resulting Msg back into Update. This is how side effects happen.
+
+### Startup Sequence
+
+```
+Init() → tea.Batch(tea.WindowSize(), connectCmd(mongoURI))
+```
+
+Two commands fire in parallel: `tea.WindowSize()` triggers a `WindowSizeMsg` so
+we know terminal dimensions, and `connectCmd` runs `sdk.NewClient()` in a
+goroutine, returning `connectMsg{client, err}`. The TUI renders immediately
+with "Connecting..." while the SDK connects in the background.
+
+### Polling Chain
+
+PBMate doesn't use a persistent ticker goroutine. Instead it chains single-shot
+timers, with each data response scheduling the next tick:
+
+```
+connectMsg (client ready)
+  └─▶ tickCmd(0)                           immediate tick
+        └─▶ fetchOverviewCmd + fetchBackupsCmd
+              └─▶ overviewDataMsg
+                    └─▶ tickCmd(pollInterval)   schedule next tick
+                          └─▶ (waits 2s or 10s)
+                                └─▶ tickMsg
+                                      └─▶ fetch...    (cycle repeats)
+```
+
+The `overviewDataMsg` handler decides the next interval: 2s if operations are
+running (activeInterval), 10s if idle (idleInterval). The chain is self-healing:
+if a fetch errors, we still schedule the next tick.
+
+### Message Types
+
+| Message             | Source               | Purpose                           |
+|---------------------|----------------------|-----------------------------------|
+| `tea.WindowSizeMsg` | BubbleTea runtime    | Terminal resized                  |
+| `tea.KeyMsg`        | BubbleTea runtime    | User keypress                     |
+| `connectMsg`        | `connectCmd`         | SDK client ready or error         |
+| `tickMsg`           | `tickCmd`            | Timer fired, time to fetch        |
+| `overviewDataMsg`   | `fetchOverviewCmd`   | Overview data arrived             |
+| `backupsDataMsg`    | `fetchBackupsCmd`    | Backup list arrived               |
+| `restoresDataMsg`   | `fetchRestoresCmd`   | Restore list arrived              |
+| `backupActionMsg`   | action commands      | Backup/delete/cancel completed    |
+| `logFollowMsg`      | `nextLogCmd`         | New log entries from follow       |
+| `logFollowDoneMsg`  | follow goroutine     | Follow channel closed             |
+| `backupFormReadyMsg`| `fetchProfilesCmd`   | Profiles loaded, form can open    |
+| `deleteConfirmMsg`  | `requestDeleteConfirm`| Confirm overlay needed           |
+
+### Message Routing Priority
+
+`Update` has a strict priority order:
+
+1. **Data/system messages first** -- WindowSizeMsg, connectMsg, tickMsg, all
+   data messages, action messages, log follow messages, form ready messages.
+   These are handled regardless of overlay state, so polling continues while
+   forms are open.
+
+2. **Key messages** -- routed based on overlay state:
+   - `backupForm != nil` → `updateBackupForm` (huh form gets all keys)
+   - `confirmForm != nil` → `updateConfirmForm`
+   - `showHelp == true` → only `?`/`esc` to dismiss
+   - otherwise → `updateKeys` → global bindings, then forward to active tab
+
+3. **Non-key messages with active form** -- forwarded to the form (huh
+   internals like cursor blink timers).
+
+### Sub-Model Pattern
+
+Each tab has its own sub-model (overviewModel, backupsModel). They are plain
+structs with methods, not tea.Model implementations:
+
+- `update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd` -- handles keypresses
+- `view(w, h int) string` -- renders the tab content
+- `resize(w, h int)` -- precomputes viewport dimensions
+- `setData(...)` -- receives fresh data from fetch commands
+
+The root Model.Update calls sub-model methods directly. Sub-models never see
+non-key messages -- the root handles all data routing.
+
+### Value Receiver and Pointer Semantics
+
+BubbleTea requires value receivers (`func (m Model) Update`). Mutations inside
+Update only affect the local copy; the modified `m` is returned.
+
+Sub-models are embedded by value in Model. Pointers inside the model (like
+`m.client`, `m.overview.client`) are shared -- mutations through them affect
+the real state.
+
+The `*Styles` pattern: Model owns `styles Styles` by value, sub-models hold
+`*Styles` pointing into it. Since sub-models are embedded in Model, the pointer
+remains valid across Update cycles.
+
+### The Cmd Contract
+
+A Cmd is `func() Msg`. Key rules:
+
+- BubbleTea runs it in a separate goroutine.
+- It must return exactly one Msg.
+- It must not access or mutate the Model (no closures over `m`).
+- It can close over immutable values (client pointer, channel, string).
+- `tea.Batch(cmds...)` runs multiple commands concurrently.
+- Returning nil from Update means "no command."
+
+### Log Follow: Channel Bridge
+
+The log follow mode bridges the SDK's channel-based API into BubbleTea's
+message model:
+
+```go
+nextLogCmd = func() tea.Msg {
+    entries, ok := <-followCh
+    if !ok { return logFollowDoneMsg{} }
+    return logFollowMsg{entries}
+}
+```
+
+Each logFollowMsg handler calls nextLogCmd() again, creating a chain that
+drains the channel one batch at a time. This is the standard BubbleTea pattern
+for bridging blocking I/O.
+
+**Known issue**: a goroutine leak occurs when follow is stopped between
+dispatching nextLogCmd and its message arriving -- the goroutine blocks on the
+channel read forever because nobody closes the channel. This needs a
+cancellable context or a done-channel to unblock it.
+
 ## Styling
 
 - **Status colors**: green = done/ok, red = error, yellow = running/in-progress,
@@ -211,42 +357,49 @@ Single merged bar replacing the previous two-bar (status + help) design.
 - Compact, information-dense -- no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
 
-## Confirmation Dialogs (planned -- Phase 5c)
+## Form Overlays
 
-- **Destructive actions** (delete, cancel): inline y/n confirmation in the
-  bottom bar. Press `d` -> bar shows "Delete backup X? [y/n]" -> `y` confirms,
-  any other key cancels. (Currently actions execute immediately.)
-- **Parameterized actions** (start backup): `huh` form with type, compression,
-  and profile selection. (Currently starts a logical backup with defaults.)
-- **Future**: `--readonly` flag disables all mutation actions.
+Actions that need user input render centered `huh` form overlays on top of the
+current tab content. All key input is routed to the form while it's open; data
+polling continues in the background.
+
+- **Destructive actions** (delete, cancel): confirm overlay with
+  affirmative/negative buttons. Chain-aware delete shows the base backup name
+  and total chain count for incremental backups.
+- **Quick backup** (`s`): single-step confirm overlay. Press `c` to switch to
+  the full wizard.
+- **Custom backup** (`S`): multi-step wizard with type, compression, and profile
+  selection. Profiles are fetched asynchronously before the form opens.
+- `esc` or `q` dismisses any open overlay.
 
 ## Project Structure
 
 ```
 pbmate/
-├── main.go                    # Entry point: flags, SDK client, tea.Program
+├── main.go                       # Entry point: flags, SDK client, tea.Program
 ├── internal/
 │   └── tui/
-│       ├── app.go             # Root model: Init, Update, View, tab routing, bottom bar
-│       ├── overview.go        # Overview tab: layout, focus, follow state, status panel
-│       ├── cluster_panel.go   # Cluster tree + detail viewports (extracted from overview)
-│       ├── backups.go         # Backups tab: list + detail panels
-│       ├── log_panel.go       # Reusable log viewer: viewport, pin/wrap/follow
-│       ├── data.go            # Data fetching commands, message types, action commands
-│       ├── render.go          # Shared rendering: titled panels, status dots, backup detail
-│       ├── layout.go          # Layout helpers: horizontalSplit, innerHeight, panel type
-│       ├── keys.go            # Key bindings (global + per-tab keymaps)
-│       ├── styles.go          # Lipgloss styles derived from theme
-│       ├── theme.go           # Theme definitions (Catppuccin + adaptive)
-│       ├── poll.go            # Tick intervals and tick command
-│       ├── restores.go        # Restores tab (planned -- Phase 5d)
-│       └── config.go          # Config tab (planned -- Phase 5d)
+│       ├── app.go                # Root model: Init, Update, View, tab routing, bottom bar
+│       ├── overview.go           # Overview tab: layout, focus, follow state, status panel
+│       ├── cluster_panel.go      # Cluster tree + detail viewports (extracted from overview)
+│       ├── backups.go            # Backups tab: list + detail + restore toggle
+│       ├── backup_chain.go       # Pure chain logic: grouping, ordering, resolution
+│       ├── backup_chain_test.go  # Tests for chain logic
+│       ├── backup_form.go        # Quick/full backup forms + confirm overlay + renderFormOverlay
+│       ├── log_panel.go          # Reusable log viewer: viewport, pin/wrap/follow
+│       ├── data.go               # Data fetching commands, message types, action commands
+│       ├── render.go             # Shared rendering: titled panels, cursor list, status dots
+│       ├── layout.go             # Layout constants and helpers: splits, panel type
+│       ├── keys.go               # Key bindings (global + per-tab keymaps)
+│       ├── styles.go             # Lipgloss styles derived from theme
+│       ├── theme.go              # Theme definitions (Catppuccin + adaptive)
+│       └── poll.go               # Tick intervals and tick command
 ```
 
 ## Dependencies
 
 - `charmbracelet/bubbletea` -- framework
-- `charmbracelet/bubbles` -- help, key, spinner, viewport, progress
+- `charmbracelet/bubbles` -- key, viewport
 - `charmbracelet/lipgloss` -- styling and layout
-- `charmbracelet/huh` -- forms (planned -- Phase 5c, not yet in go.mod)
+- `charmbracelet/huh` -- form overlays (backup wizard, confirm dialogs)
 - `jcechace/pbmate/sdk/v2` -- PBMate SDK
