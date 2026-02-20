@@ -20,13 +20,13 @@ const (
 //
 // Example — fetch recent logs and stream new entries:
 //
-//	entries, err := client.Logs.Get(ctx, 50)
+//	entries, err := client.Logs.Get(ctx, sdk.GetLogsOptions{Limit: 50})
 //	for _, e := range entries {
 //	    fmt.Printf("[%s] %s: %s\n", e.Severity, e.Timestamp.UTC(), e.Message)
 //	}
 //
 //	// Stream new entries until context is cancelled.
-//	ch, errs := client.Logs.Follow(ctx)
+//	ch, errs := client.Logs.Follow(ctx, sdk.FollowOptions{})
 //	for entry := range ch {
 //	    fmt.Println(entry.Message)
 //	}
@@ -35,12 +35,17 @@ const (
 //	}
 type LogService interface {
 	// Get returns log entries, most recent first.
-	// Limit controls how many entries to return. Zero means no limit.
 	//
 	// Example:
 	//
-	//	entries, err := client.Logs.Get(ctx, 100)
-	Get(ctx context.Context, limit int64) ([]LogEntry, error)
+	//	entries, err := client.Logs.Get(ctx, sdk.GetLogsOptions{Limit: 100})
+	//
+	//	// Include debug-level entries.
+	//	entries, err := client.Logs.Get(ctx, sdk.GetLogsOptions{
+	//	    Limit:    100,
+	//	    Severity: sdk.LogSeverityDebug,
+	//	})
+	Get(ctx context.Context, opts GetLogsOptions) ([]LogEntry, error)
 
 	// Follow streams log entries as they arrive via a MongoDB change stream.
 	// The entries channel receives new log entries in real time. Both channels
@@ -51,11 +56,30 @@ type LogService interface {
 	//
 	//	ctx, cancel := context.WithCancel(ctx)
 	//	defer cancel()
-	//	entries, errs := client.Logs.Follow(ctx)
+	//	entries, errs := client.Logs.Follow(ctx, sdk.FollowOptions{})
 	//	for entry := range entries {
 	//	    fmt.Printf("[%s] %s\n", entry.Severity, entry.Message)
 	//	}
-	Follow(ctx context.Context) (<-chan LogEntry, <-chan error)
+	Follow(ctx context.Context, opts FollowOptions) (<-chan LogEntry, <-chan error)
+}
+
+// GetLogsOptions controls filtering and pagination for log retrieval.
+type GetLogsOptions struct {
+	// Limit is the maximum number of log entries to return. Zero means no limit.
+	Limit int64
+
+	// Severity is the minimum severity level to include. PBM's severity filter
+	// includes all entries at the given level and above (e.g. Info includes
+	// Fatal, Error, Warning, and Info). Zero value defaults to Info.
+	Severity LogSeverity
+}
+
+// FollowOptions controls filtering for log streaming.
+type FollowOptions struct {
+	// Severity is the minimum severity level to include. PBM's severity filter
+	// includes all entries at the given level and above (e.g. Info includes
+	// Fatal, Error, Warning, and Info). Zero value defaults to Info.
+	Severity LogSeverity
 }
 
 // LogEntry represents a single PBM log entry from the centralized log

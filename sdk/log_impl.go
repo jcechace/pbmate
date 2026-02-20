@@ -16,15 +16,14 @@ type logServiceImpl struct {
 
 var _ LogService = (*logServiceImpl)(nil)
 
-func (s *logServiceImpl) Get(ctx context.Context, limit int64) ([]LogEntry, error) {
-	// Default to Info severity (includes Fatal, Error, Warning, Info).
+func (s *logServiceImpl) Get(ctx context.Context, opts GetLogsOptions) ([]LogEntry, error) {
 	req := &log.LogRequest{
 		LogKeys: log.LogKeys{
-			Severity: log.Info,
+			Severity: convertLogSeverityToInternal(opts.Severity),
 		},
 	}
 
-	entries, err := log.LogGet(ctx, s.conn, req, limit)
+	entries, err := log.LogGet(ctx, s.conn, req, opts.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("get logs: %w", err)
 	}
@@ -36,11 +35,10 @@ func (s *logServiceImpl) Get(ctx context.Context, limit int64) ([]LogEntry, erro
 	return result, nil
 }
 
-func (s *logServiceImpl) Follow(ctx context.Context) (<-chan LogEntry, <-chan error) {
-	// Default to Info severity (includes Fatal, Error, Warning, Info).
+func (s *logServiceImpl) Follow(ctx context.Context, opts FollowOptions) (<-chan LogEntry, <-chan error) {
 	req := &log.LogRequest{
 		LogKeys: log.LogKeys{
-			Severity: log.Info,
+			Severity: convertLogSeverityToInternal(opts.Severity),
 		},
 	}
 

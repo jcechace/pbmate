@@ -90,6 +90,28 @@ func TestConvertLogSeverity(t *testing.T) {
 	}
 }
 
+func TestConvertLogSeverityToInternal(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    LogSeverity
+		expected log.Severity
+	}{
+		{"fatal", LogSeverityFatal, log.Fatal},
+		{"error", LogSeverityError, log.Error},
+		{"warning", LogSeverityWarning, log.Warning},
+		{"info", LogSeverityInfo, log.Info},
+		{"debug", LogSeverityDebug, log.Debug},
+		{"zero defaults to info", LogSeverity{}, log.Info},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := convertLogSeverityToInternal(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestConvertLogAttrs(t *testing.T) {
 	t.Run("all fields set", func(t *testing.T) {
 		keys := &log.LogKeys{

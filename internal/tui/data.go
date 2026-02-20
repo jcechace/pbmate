@@ -260,7 +260,7 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 
 		if !skipLogs {
 			g.Go(func() error {
-				v, err := client.Logs.Get(gctx, logFetchCount)
+				v, err := client.Logs.Get(gctx, sdk.GetLogsOptions{Limit: logFetchCount})
 				d.logEntries = v
 				setErr(err)
 				return nil

@@ -77,7 +77,7 @@ func (m *overviewModel) toggleFollow() tea.Cmd {
 
 	// Start following — pin to bottom so new entries auto-scroll.
 	ctx, cancel := context.WithCancel(context.Background())
-	entries, errs := m.client.Logs.Follow(ctx)
+	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{})
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries
 	m.logFollowErrs = errs
