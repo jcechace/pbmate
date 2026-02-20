@@ -276,6 +276,24 @@ func fetchBackupsCmd(client *sdk.Client) tea.Cmd {
 	}
 }
 
+// restoresData holds the result of a single restores poll cycle.
+type restoresData struct {
+	restores []sdk.Restore
+	err      error
+}
+
+// restoresDataMsg wraps restoresData as a BubbleTea message.
+type restoresDataMsg struct{ restoresData }
+
+// fetchRestoresCmd returns a tea.Cmd that fetches the full restore list.
+func fetchRestoresCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		restores, err := client.Restores.List(ctx, sdk.ListRestoresOptions{})
+		return restoresDataMsg{restoresData{restores: restores, err: err}}
+	}
+}
+
 // formatStorageSummary returns a compact string describing the storage config.
 func formatStorageSummary(s sdk.StorageConfig) string {
 	if s.Type.IsZero() {
