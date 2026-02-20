@@ -135,7 +135,7 @@ type Backup struct {
 	Type             BackupType      // logical, physical, incremental, or external
 	Status           Status          // current lifecycle status (use Status.IsTerminal to check completion)
 	Compression      CompressionType // compression algorithm used; zero if server default
-	ConfigName       ConfigName      // storage profile; MainConfig for the default storage
+	ConfigName       ConfigName      // storage profile; always normalized — MainConfig for the default storage, never zero
 	StartTS          time.Time       // when the backup process started
 	LastWriteTS      Timestamp       // restore-to point (oplog position); use LastWriteTS.Time() for display
 	LastTransitionTS time.Time       // when the status last changed
