@@ -114,8 +114,8 @@ func TestResolveIncrChain(t *testing.T) {
 		backups := []sdk.Backup{
 			makeBackup("base", incr, "", sdk.MainConfig),
 		}
-		base, count := resolveIncrChain(&backups[0], backups)
-		assert.Equal(t, "base", base.Name)
+		baseName, count := resolveIncrChain(&backups[0], backups)
+		assert.Equal(t, "base", baseName)
 		assert.Equal(t, 1, count)
 	})
 
@@ -127,18 +127,18 @@ func TestResolveIncrChain(t *testing.T) {
 		}
 
 		// From child2, should walk up to base.
-		base, count := resolveIncrChain(&backups[0], backups)
-		assert.Equal(t, "base", base.Name)
+		baseName, count := resolveIncrChain(&backups[0], backups)
+		assert.Equal(t, "base", baseName)
 		assert.Equal(t, 3, count)
 
 		// From child1, should also walk up to base.
-		base, count = resolveIncrChain(&backups[1], backups)
-		assert.Equal(t, "base", base.Name)
+		baseName, count = resolveIncrChain(&backups[1], backups)
+		assert.Equal(t, "base", baseName)
 		assert.Equal(t, 3, count)
 
 		// From base itself.
-		base, count = resolveIncrChain(&backups[2], backups)
-		assert.Equal(t, "base", base.Name)
+		baseName, count = resolveIncrChain(&backups[2], backups)
+		assert.Equal(t, "base", baseName)
 		assert.Equal(t, 3, count)
 	})
 
@@ -149,8 +149,8 @@ func TestResolveIncrChain(t *testing.T) {
 			makeBackup("child1", incr, "base", sdk.MainConfig),
 			makeBackup("base", incr, "", sdk.MainConfig),
 		}
-		base, count := resolveIncrChain(&backups[0], backups)
-		assert.Equal(t, "base", base.Name)
+		baseName, count := resolveIncrChain(&backups[0], backups)
+		assert.Equal(t, "base", baseName)
 		assert.Equal(t, 3, count)
 	})
 
@@ -159,8 +159,8 @@ func TestResolveIncrChain(t *testing.T) {
 		backups := []sdk.Backup{
 			makeBackup("orphan", incr, "missing-parent", sdk.MainConfig),
 		}
-		base, count := resolveIncrChain(&backups[0], backups)
-		assert.Equal(t, "orphan", base.Name)
+		baseName, count := resolveIncrChain(&backups[0], backups)
+		assert.Equal(t, "orphan", baseName)
 		assert.Equal(t, 1, count)
 	})
 
@@ -168,8 +168,8 @@ func TestResolveIncrChain(t *testing.T) {
 		backups := []sdk.Backup{
 			makeBackup("logical-bk", logical, "", sdk.MainConfig),
 		}
-		base, count := resolveIncrChain(&backups[0], backups)
-		assert.Equal(t, "logical-bk", base.Name)
+		baseName, count := resolveIncrChain(&backups[0], backups)
+		assert.Equal(t, "logical-bk", baseName)
 		assert.Equal(t, 1, count)
 	})
 }

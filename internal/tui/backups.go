@@ -572,8 +572,8 @@ func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, des
 	}
 	backups := m.grouped[profile]
 
-	base, count := resolveIncrChain(bk, backups)
+	baseName, count := resolveIncrChain(bk, backups)
 
-	return base.Name, "Delete Incremental Chain",
-		fmt.Sprintf("⌂ %s\nand its increments (%d total)", base.Name, count)
+	return baseName, "Delete Incremental Chain",
+		fmt.Sprintf("⌂ %s\nand its increments (%d total)", baseName, count)
 }
