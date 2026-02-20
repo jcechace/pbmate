@@ -16,14 +16,11 @@ func profileDisplayName(profile string) string {
 }
 
 // groupBackupsByProfile groups backups by their ConfigName.
+// ConfigName is always normalized — never zero (see sdk.Backup.ConfigName).
 func groupBackupsByProfile(backups []sdk.Backup) map[string][]sdk.Backup {
 	m := make(map[string][]sdk.Backup)
 	for _, bk := range backups {
-		name := bk.ConfigName.String()
-		if name == "" {
-			name = "main"
-		}
-		m[name] = append(m[name], bk)
+		m[bk.ConfigName.String()] = append(m[bk.ConfigName.String()], bk)
 	}
 	return m
 }

@@ -566,11 +566,8 @@ func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, des
 	}
 
 	// Find the profile's backup list for chain resolution.
-	profile := bk.ConfigName.String()
-	if profile == "" {
-		profile = "main"
-	}
-	backups := m.grouped[profile]
+	// ConfigName is always normalized — never zero (see sdk.Backup.ConfigName).
+	backups := m.grouped[bk.ConfigName.String()]
 
 	baseName, count := resolveIncrChain(bk, backups)
 

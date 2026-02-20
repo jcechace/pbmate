@@ -43,9 +43,9 @@ func TestGroupBackupsByProfile(t *testing.T) {
 		assert.Empty(t, result)
 	})
 
-	t.Run("zero config name defaults to main", func(t *testing.T) {
+	t.Run("main config grouped under main", func(t *testing.T) {
 		backups := []sdk.Backup{
-			makeBackup("bk1", sdk.BackupTypeLogical, "", sdk.ConfigName{}),
+			makeBackup("bk1", sdk.BackupTypeLogical, "", sdk.MainConfig),
 		}
 		result := groupBackupsByProfile(backups)
 		require.Contains(t, result, "main")
