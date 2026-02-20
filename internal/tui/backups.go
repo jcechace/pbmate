@@ -402,8 +402,8 @@ func (m *backupsModel) renderBackupItem(item backupItem) string {
 
 // renderPITRLine renders a PITR timeline range.
 func (m *backupsModel) renderPITRLine(tl *sdk.Timeline) string {
-	start := tl.Start.Time().Format(backupTimeFormat)
-	end := tl.End.Time().Format(backupTimeFormat)
+	start := tl.Start.Time().UTC().Format(backupTimeFormat)
+	end := tl.End.Time().UTC().Format(backupTimeFormat)
 	return fmt.Sprintf("⧖ PITR  %s → %s", start, end)
 }
 
@@ -422,9 +422,9 @@ func (m *backupsModel) renderProfileHeader(profile string, count int) string {
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
 
-	ts := bk.LastWriteTS.Time().Format(backupTimeFormat)
+	ts := bk.LastWriteTS.Time().UTC().Format(backupTimeFormat)
 	if bk.LastWriteTS.IsZero() {
-		ts = bk.StartTS.Format(backupTimeFormat)
+		ts = bk.StartTS.UTC().Format(backupTimeFormat)
 	}
 
 	size := ""
@@ -438,7 +438,7 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 // Shows the start time, source backup type, and status.
 func (m *backupsModel) renderRestoreLine(rs *sdk.Restore) string {
 	ind := statusIndicator(rs.Status, m.styles)
-	ts := rs.StartTS.Format(backupTimeFormat)
+	ts := rs.StartTS.UTC().Format(backupTimeFormat)
 	return fmt.Sprintf("%s %s  %s", ind, ts, rs.Type)
 }
 
@@ -478,8 +478,8 @@ func (m *backupsModel) renderPITRDetail(b *strings.Builder, tl *sdk.Timeline) {
 	b.WriteString(m.styles.SectionHeader.Render("PITR Timeline"))
 	b.WriteByte('\n')
 
-	start := tl.Start.Time()
-	end := tl.End.Time()
+	start := tl.Start.Time().UTC()
+	end := tl.End.Time().UTC()
 	fmt.Fprintf(b, "  Start:    %s\n", start.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(b, "  End:      %s\n", end.Format("2006-01-02 15:04:05"))
 

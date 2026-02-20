@@ -234,7 +234,7 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 		fmt.Fprintf(b, "  Config:      %s\n", bk.ConfigName)
 	}
 	if !bk.StartTS.IsZero() {
-		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.UTC().Format("2006-01-02 15:04:05"))
 	}
 	if !bk.LastTransitionTS.IsZero() && !bk.StartTS.IsZero() {
 		dur := bk.LastTransitionTS.Sub(bk.StartTS).Truncate(time.Second)
@@ -275,10 +275,10 @@ func renderRestoreDetail(b *strings.Builder, rs *sdk.Restore, styles *Styles) {
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, rs.Status)
 
 	if !rs.StartTS.IsZero() {
-		fmt.Fprintf(b, "  Started:     %s\n", rs.StartTS.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(b, "  Started:     %s\n", rs.StartTS.UTC().Format("2006-01-02 15:04:05"))
 	}
 	if !rs.FinishTS.IsZero() {
-		fmt.Fprintf(b, "  Finished:    %s\n", rs.FinishTS.Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(b, "  Finished:    %s\n", rs.FinishTS.UTC().Format("2006-01-02 15:04:05"))
 	}
 	if !rs.FinishTS.IsZero() && !rs.StartTS.IsZero() {
 		dur := rs.FinishTS.Sub(rs.StartTS).Truncate(time.Second)
@@ -288,7 +288,7 @@ func renderRestoreDetail(b *strings.Builder, rs *sdk.Restore, styles *Styles) {
 	}
 
 	if !rs.PITRTarget.IsZero() {
-		fmt.Fprintf(b, "  PITR Target: %s\n", rs.PITRTarget.Time().Format("2006-01-02 15:04:05"))
+		fmt.Fprintf(b, "  PITR Target: %s\n", rs.PITRTarget.Time().UTC().Format("2006-01-02 15:04:05"))
 	}
 
 	if len(rs.Namespaces) > 0 {

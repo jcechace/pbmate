@@ -125,7 +125,7 @@ func (p *logPanel) rebuildContent() {
 
 // formatEntry formats a single log entry for display.
 func (p *logPanel) formatEntry(entry sdk.LogEntry) string {
-	ts := entry.Timestamp.Format("15:04:05")
+	ts := entry.Timestamp.UTC().Format("15:04:05")
 	sev := p.severityStyle(entry.Severity).Render(entry.Severity.String()[:1])
 	return fmt.Sprintf(" %s %s %s", p.styles.StatusMuted.Render(ts), sev, entry.Message)
 }

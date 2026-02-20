@@ -195,8 +195,8 @@ func (m *overviewModel) statusContent() string {
 	// PITR range (latest timeline).
 	if len(m.data.timelines) > 0 {
 		latest := m.data.timelines[len(m.data.timelines)-1]
-		start := latest.Start.Time().Format("Jan 02 15:04")
-		end := latest.End.Time().Format("Jan 02 15:04")
+		start := latest.Start.Time().UTC().Format("Jan 02 15:04")
+		end := latest.End.Time().UTC().Format("Jan 02 15:04")
 		rangeVal := fmt.Sprintf("%s → %s", start, end)
 		fmt.Fprintf(&b, " %s %s\n", label.Render(""), rangeVal)
 	}

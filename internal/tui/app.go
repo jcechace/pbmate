@@ -525,7 +525,7 @@ func (m Model) clusterTimeText() string {
 	if m.overview.data.clusterTime.IsZero() {
 		return "--:--"
 	}
-	return m.overview.data.clusterTime.Time().Format("15:04")
+	return m.overview.data.clusterTime.Time().UTC().Format("15:04")
 }
 
 // updateViewportDims precomputes all viewport dimensions from the current
