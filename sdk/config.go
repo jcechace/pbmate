@@ -6,24 +6,42 @@ import (
 )
 
 // ConfigService provides access to PBM configuration and storage profiles.
+//
+// PBM uses a main configuration (identified by [MainConfig]) for the default
+// storage and settings, plus optional named storage profiles for additional
+// backup destinations.
+//
+// Example — read configuration and list profiles:
+//
+//	cfg, err := client.Config.Get(ctx)
+//	fmt.Printf("storage: %s %s\n", cfg.Storage.Type, cfg.Storage.Path)
+//
+//	profiles, _ := client.Config.ListProfiles(ctx)
+//	for _, p := range profiles {
+//	    fmt.Printf("profile %s: %s\n", p.Name, p.Storage.Type)
+//	}
 type ConfigService interface {
-	// Get returns the main PBM configuration.
+	// Get returns the main PBM configuration. Returns an error if PBM
+	// has not been configured yet.
 	Get(ctx context.Context) (*Config, error)
 
-	// GetYAML returns the main PBM configuration as raw YAML.
+	// GetYAML returns the main PBM configuration as raw YAML bytes.
 	GetYAML(ctx context.Context) ([]byte, error)
 
 	// SetYAML replaces the main PBM configuration from YAML read from r.
 	// This is a direct write — no command dispatch or agent involvement.
 	SetYAML(ctx context.Context, r io.Reader) error
 
-	// ListProfiles returns all named storage profiles.
+	// ListProfiles returns all named storage profiles. Returns an empty
+	// slice if no profiles are configured.
 	ListProfiles(ctx context.Context) ([]StorageProfile, error)
 
-	// GetProfile returns a storage profile by name.
+	// GetProfile returns a storage profile by name. Returns [ErrNotFound]
+	// if the profile does not exist.
 	GetProfile(ctx context.Context, name string) (*StorageProfile, error)
 
-	// GetProfileYAML returns a storage profile as raw YAML.
+	// GetProfileYAML returns a storage profile as raw YAML bytes. Returns
+	// [ErrNotFound] if the profile does not exist.
 	GetProfileYAML(ctx context.Context, name string) ([]byte, error)
 
 	// SetProfile creates or replaces a named storage profile from YAML read
@@ -37,13 +55,14 @@ type ConfigService interface {
 	RemoveProfile(ctx context.Context, name string) (CommandResult, error)
 }
 
-// Config represents the PBM configuration.
+// Config represents the PBM configuration. Optional sections (PITR, Backup,
+// Restore) are nil when not configured.
 type Config struct {
-	ConfigName ConfigName
-	Storage    StorageConfig
-	PITR       *PITRConfig
-	Backup     *BackupConfig
-	Restore    *RestoreConfig
+	ConfigName ConfigName     // always MainConfig for the main configuration
+	Storage    StorageConfig  // primary backup storage settings
+	PITR       *PITRConfig    // nil if PITR section is not configured
+	Backup     *BackupConfig  // nil if backup section is not configured
+	Restore    *RestoreConfig // nil if restore section is not configured
 }
 
 // StorageConfig describes the configured backup storage.
@@ -60,21 +79,23 @@ type StorageConfig struct {
 
 // PITRConfig holds PITR-specific configuration.
 type PITRConfig struct {
-	Enabled   bool
-	OplogOnly bool
+	Enabled   bool // whether PITR is enabled in the PBM config
+	OplogOnly bool // if true, only oplog is captured (no base backups)
 }
 
 // BackupConfig holds backup-specific configuration.
 type BackupConfig struct {
-	Compression CompressionType
+	Compression CompressionType // default compression for new backups
 }
 
-// RestoreConfig holds restore-specific configuration.
+// RestoreConfig holds restore-specific configuration. Currently empty;
+// reserved for future restore-related settings.
 type RestoreConfig struct {
 }
 
-// StorageProfile represents a named storage configuration.
+// StorageProfile represents a named storage configuration that can be used
+// as an alternative backup destination alongside the main storage.
 type StorageProfile struct {
-	Name    ConfigName
-	Storage StorageConfig
+	Name    ConfigName    // profile name (used in StartBackupOptions.ConfigName)
+	Storage StorageConfig // storage settings for this profile
 }

@@ -9,14 +9,29 @@ import (
 )
 
 // Client provides access to PBM operations through domain-specific services.
+// Create one with [NewClient] and close it with [Client.Close] when done.
+//
+// Each field exposes a service interface for a specific PBM domain.
+// Services are safe for concurrent use.
+//
+// Example usage:
+//
+//	client, err := sdk.NewClient(ctx, sdk.WithMongoURI("mongodb://localhost:27017"))
+//	if err != nil {
+//	    log.Fatal(err)
+//	}
+//	defer client.Close(ctx)
+//
+//	backups, _ := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 10})
+//	agents, _ := client.Cluster.Agents(ctx)
 type Client struct {
-	Backups  BackupService
-	Restores RestoreService
-	Config   ConfigService
-	Cluster  ClusterService
-	PITR     PITRService
-	Logs     LogService
-	Commands CommandService
+	Backups  BackupService  // backup operations: list, get, start, cancel, delete
+	Restores RestoreService // restore operations: list, get, start, wait
+	Config   ConfigService  // PBM configuration and storage profiles
+	Cluster  ClusterService // cluster topology, agents, running operations
+	PITR     PITRService    // PITR status and oplog timelines
+	Logs     LogService     // PBM log access and streaming
+	Commands CommandService // low-level command dispatch (used internally by other services)
 
 	conn connect.Client
 }
@@ -47,8 +62,19 @@ func WithLogger(l *slog.Logger) Option {
 }
 
 // NewClient creates a new PBM client with the given options.
-// At least one connection option (e.g. WithMongoURI) must be provided.
-// The caller must call Close when the client is no longer needed.
+// At least one connection option (e.g. [WithMongoURI]) must be provided.
+// The caller must call [Client.Close] when the client is no longer needed.
+//
+// Example:
+//
+//	client, err := sdk.NewClient(ctx,
+//	    sdk.WithMongoURI("mongodb://localhost:27017"),
+//	    sdk.WithLogger(slog.Default()),
+//	)
+//	if err != nil {
+//	    return fmt.Errorf("connect to PBM: %w", err)
+//	}
+//	defer client.Close(ctx)
 func NewClient(ctx context.Context, opts ...Option) (*Client, error) {
 	o := &options{appName: "pbmate-sdk"}
 	for _, opt := range opts {
