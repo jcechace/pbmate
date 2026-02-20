@@ -108,8 +108,9 @@ func drainErr(errs <-chan error) error {
 
 // backupsData holds the result of a single backups poll cycle.
 type backupsData struct {
-	backups []sdk.Backup
-	err     error
+	backups   []sdk.Backup
+	timelines []sdk.Timeline
+	err       error
 }
 
 // backupsDataMsg wraps backupsData as a BubbleTea message.
@@ -267,12 +268,42 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 	}
 }
 
-// fetchBackupsCmd returns a tea.Cmd that fetches the full backup list.
+// fetchBackupsCmd returns a tea.Cmd that fetches the backup list and PITR
+// timelines concurrently.
 func fetchBackupsCmd(client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		backups, err := client.Backups.List(ctx, sdk.ListBackupsOptions{})
-		return backupsDataMsg{backupsData{backups: backups, err: err}}
+		var d backupsData
+
+		var mu sync.Mutex
+		setErr := func(err error) {
+			if err != nil {
+				mu.Lock()
+				if d.err == nil {
+					d.err = err
+				}
+				mu.Unlock()
+			}
+		}
+
+		g, gctx := errgroup.WithContext(ctx)
+
+		g.Go(func() error {
+			v, err := client.Backups.List(gctx, sdk.ListBackupsOptions{})
+			d.backups = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.PITR.Timelines(gctx)
+			d.timelines = v
+			setErr(err)
+			return nil
+		})
+
+		_ = g.Wait()
+		return backupsDataMsg{d}
 	}
 }
 
