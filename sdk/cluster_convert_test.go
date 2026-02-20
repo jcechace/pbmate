@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -255,5 +254,4 @@ func TestConvertAgentSubsystemErrors(t *testing.T) {
 	// The exact number and format of errors depends on AgentStat.OK() implementation.
 	// We just verify that errors are collected.
 	assert.NotEmpty(t, result.Errors)
-	fmt.Println("errors:", result.Errors) // for debugging in test output
 }
