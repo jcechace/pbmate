@@ -712,11 +712,7 @@ func chainOrderedItems(profile string, backups []sdk.Backup) []backupItem {
 		}
 	}
 
-	// Track which backups are consumed as chain children so we skip them
-	// in the main loop.
-	consumed := make(map[string]bool)
-
-	// walkChain collects all transitive children of a base, depth-first,
+	// walkChain collects all transitive children of a parent, depth-first,
 	// in oldest-to-newest order (reversed from the newest-first input).
 	var walkChain func(parentName string, out *[]*sdk.Backup)
 	walkChain = func(parentName string, out *[]*sdk.Backup) {
@@ -724,17 +720,31 @@ func chainOrderedItems(profile string, backups []sdk.Backup) []backupItem {
 		// Reverse to get oldest-first within each level.
 		for i := len(children) - 1; i >= 0; i-- {
 			child := children[i]
-			consumed[child.Name] = true
 			*out = append(*out, child)
 			walkChain(child.Name, out)
 		}
 	}
 
+	// First pass: identify all chain children up front so they are skipped
+	// in the main loop. Without this, children that appear before their base
+	// in the newest-first order would be emitted as top-level orphans.
+	consumed := make(map[string]bool)
+	for i := range backups {
+		bk := &backups[i]
+		if bk.Type.Equal(sdk.BackupTypeIncremental) && bk.SrcBackup == "" {
+			var chain []*sdk.Backup
+			walkChain(bk.Name, &chain)
+			for _, child := range chain {
+				consumed[child.Name] = true
+			}
+		}
+	}
+
+	// Second pass: emit items, grouping chain children under their base.
 	var items []backupItem
 	for i := range backups {
 		bk := &backups[i]
 
-		// Skip backups already emitted as chain children.
 		if consumed[bk.Name] {
 			continue
 		}
