@@ -13,10 +13,10 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// Display truncation limits for the status panel.
 const (
-	maxBackupNameOverview = 16 // max backup name length in the overview status panel
-	statusLabelWidth      = 10 // fixed label column width in the status panel
+	maxBackupNameOverview = 16  // max backup name length in the overview status panel
+	statusLabelWidth      = 10  // fixed label column width in the status panel
+	maxLogEntries         = 200 // max log entries kept in the follow buffer
 )
 
 // overviewFocus identifies which quadrant has focus in the overview layout.

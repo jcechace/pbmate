@@ -1,5 +1,16 @@
 package tui
 
+// Layout constants controlling panel geometry.
+const (
+	leftPanelPct  = 30 // left panel width as percentage of terminal width
+	minLeftPanelW = 28 // minimum left panel width in characters
+	topPanelPct   = 60 // top row height as percentage of content area
+
+	panelBorderH  = 2 // horizontal border: left + right
+	panelPaddingH = 2 // horizontal padding: left + right (from Padding(0,1))
+	panelBorderV  = 2 // vertical border: top + bottom
+)
+
 // panel identifies which panel has focus in a two-panel layout.
 type panel int
 

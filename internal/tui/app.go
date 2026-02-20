@@ -30,18 +30,6 @@ var tabNames = [tabCount]string{
 	"Config",
 }
 
-// Layout constants.
-const (
-	leftPanelPct  = 30  // left panel width as percentage of terminal width
-	minLeftPanelW = 28  // minimum left panel width in characters
-	topPanelPct   = 60  // top row height as percentage of content area
-	maxLogEntries = 200 // max log entries kept in the follow buffer
-
-	panelBorderH  = 2 // horizontal border: left + right
-	panelPaddingH = 2 // horizontal padding: left + right (from Padding(0,1))
-	panelBorderV  = 2 // vertical border: top + bottom
-)
-
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
 	client   *sdk.Client // nil until connectMsg arrives
