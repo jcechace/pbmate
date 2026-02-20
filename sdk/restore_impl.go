@@ -82,46 +82,12 @@ func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions
 }
 
 func (s *restoreServiceImpl) Wait(ctx context.Context, name string, opts RestoreWaitOptions) (*Restore, error) {
-	interval := opts.PollInterval
-	if interval == 0 {
-		interval = time.Second
-	}
-
-	var last *Restore
-	timer := time.NewTimer(0) // fires immediately for first check
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return last, ctx.Err()
-		case <-timer.C:
-		}
-
-		r, err := s.Get(ctx, name)
-		if err != nil {
-			if ctx.Err() != nil {
-				return last, ctx.Err()
-			}
-			if !errors.Is(err, ErrNotFound) {
-				return last, fmt.Errorf("wait for restore %q: %w", name, err)
-			}
-			s.log.DebugContext(ctx, "restore not found yet, retrying", "name", name)
-		} else {
-			last = r
-			s.log.DebugContext(ctx, "polling restore status", "name", name, "status", r.Status)
-			if opts.OnProgress != nil {
-				opts.OnProgress(r)
-			}
-			if r.Status.IsTerminal() {
-				s.log.InfoContext(ctx, "restore reached terminal status", "name", name, "status", r.Status)
-				if r.Status.Equal(StatusError) || r.Status.Equal(StatusPartlyDone) {
-					return r, &OperationError{Name: name, Message: r.Error}
-				}
-				return r, nil
-			}
-		}
-
-		timer.Reset(interval)
-	}
+	return waitForTerminal(ctx, name, opts.PollInterval, waitParams[*Restore]{
+		get:        s.Get,
+		status:     func(r *Restore) Status { return r.Status },
+		errMsg:     func(r *Restore) string { return r.Error },
+		onProgress: opts.OnProgress,
+		log:        s.log,
+		entity:     "restore",
+	})
 }

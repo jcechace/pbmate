@@ -102,48 +102,14 @@ func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) 
 }
 
 func (s *backupServiceImpl) Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error) {
-	interval := opts.PollInterval
-	if interval == 0 {
-		interval = time.Second
-	}
-
-	var last *Backup
-	timer := time.NewTimer(0) // fires immediately for first check
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return last, ctx.Err()
-		case <-timer.C:
-		}
-
-		b, err := s.Get(ctx, name)
-		if err != nil {
-			if ctx.Err() != nil {
-				return last, ctx.Err()
-			}
-			if !errors.Is(err, ErrNotFound) {
-				return last, fmt.Errorf("wait for backup %q: %w", name, err)
-			}
-			s.log.DebugContext(ctx, "backup not found yet, retrying", "name", name)
-		} else {
-			last = b
-			s.log.DebugContext(ctx, "polling backup status", "name", name, "status", b.Status)
-			if opts.OnProgress != nil {
-				opts.OnProgress(b)
-			}
-			if b.Status.IsTerminal() {
-				s.log.InfoContext(ctx, "backup reached terminal status", "name", name, "status", b.Status)
-				if b.Status.Equal(StatusError) || b.Status.Equal(StatusPartlyDone) {
-					return b, &OperationError{Name: name, Message: b.Error}
-				}
-				return b, nil
-			}
-		}
-
-		timer.Reset(interval)
-	}
+	return waitForTerminal(ctx, name, opts.PollInterval, waitParams[*Backup]{
+		get:        s.Get,
+		status:     func(b *Backup) Status { return b.Status },
+		errMsg:     func(b *Backup) string { return b.Error },
+		onProgress: opts.OnProgress,
+		log:        s.log,
+		entity:     "backup",
+	})
 }
 
 func (s *backupServiceImpl) Delete(ctx context.Context, name string) (CommandResult, error) {
