@@ -30,6 +30,9 @@ type Styles struct {
 	StatusError   lipgloss.Style
 	StatusWarning lipgloss.Style
 	StatusMuted   lipgloss.Style
+
+	// ChromaStyle is the Chroma syntax highlighting style name for YAML rendering.
+	ChromaStyle string
 }
 
 // NewStyles creates a Styles set from the given Theme.
@@ -78,5 +81,7 @@ func NewStyles(t Theme) Styles {
 		StatusError:   lipgloss.NewStyle().Foreground(t.Error),
 		StatusWarning: lipgloss.NewStyle().Foreground(t.Warning),
 		StatusMuted:   lipgloss.NewStyle().Foreground(t.Muted),
+
+		ChromaStyle: t.ChromaStyle,
 	}
 }

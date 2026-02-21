@@ -355,7 +355,7 @@ func (m *configModel) renderYAMLSection(b *strings.Builder, yaml []byte) {
 	divider := m.styles.StatusMuted.Render(strings.Repeat("─", yamlDividerWidth))
 	b.WriteString(divider)
 	b.WriteByte('\n')
-	b.WriteString(highlightYAML(yaml))
+	b.WriteString(highlightYAML(yaml, m.styles.ChromaStyle))
 }
 
 func (m *configModel) renderStorageSection(b *strings.Builder, s *sdk.StorageConfig) {
@@ -405,15 +405,16 @@ func valueOrMuted(v string, s *Styles) string {
 // --- YAML Syntax Highlighting ---
 
 // highlightYAML applies syntax highlighting to YAML content using Chroma.
+// The chromaStyle parameter selects the Chroma color scheme (e.g. "catppuccin-mocha").
 // Falls back to plain text if highlighting fails.
-func highlightYAML(yamlBytes []byte) string {
+func highlightYAML(yamlBytes []byte, chromaStyle string) string {
 	lexer := lexers.Get("yaml")
 	if lexer == nil {
 		return string(yamlBytes)
 	}
 	lexer = chroma.Coalesce(lexer)
 
-	style := styles.Get("catppuccin-mocha")
+	style := styles.Get(chromaStyle)
 	if style == nil {
 		style = styles.Fallback
 	}
