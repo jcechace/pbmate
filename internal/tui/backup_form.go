@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	// backupFormInnerWidth is the content width inside the form panel,
-	// excluding border and padding.
-	backupFormInnerWidth = 40
+	// formOverlayInnerWidth is the content width inside form overlay panels,
+	// excluding border and padding. Shared by all form overlays.
+	formOverlayInnerWidth = 40
 
 	// defaultConfigName is the name of the default (main) storage profile.
 	defaultConfigName = "main"
@@ -104,7 +104,7 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 		),
 	).
 		WithTheme(theme).
-		WithWidth(backupFormInnerWidth).
+		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(backupFormKeyMap())
@@ -207,7 +207,7 @@ func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult)
 		),
 	).
 		WithTheme(huh.ThemeCatppuccin()).
-		WithWidth(backupFormInnerWidth).
+		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(backupFormKeyMap())
@@ -242,7 +242,7 @@ func newConfirmForm(description, affirmative, negative string) (*huh.Form, *conf
 		),
 	).
 		WithTheme(theme).
-		WithWidth(backupFormInnerWidth).
+		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(backupFormKeyMap())
@@ -278,7 +278,7 @@ func renderFormOverlay(form *huh.Form, title string, styles *Styles, contentW, c
 	borderColor := styles.FocusedBorderColor
 
 	// panelWidth is the lipgloss Width value (content + padding, inside border).
-	panelWidth := backupFormInnerWidth + panelPaddingH
+	panelWidth := formOverlayInnerWidth + panelPaddingH
 
 	// Render the panel body (border + padding + content).
 	panel := lipgloss.NewStyle().
