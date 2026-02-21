@@ -31,8 +31,11 @@ func convertUnixToTime(unix int64) time.Time {
 }
 
 // convertStatus converts a PBM status string to an SDK Status.
-// Returns the zero value and logs a warning for unrecognized statuses.
+// Returns the zero value for empty input. Logs a warning for unrecognized statuses.
 func convertStatus(s defs.Status) Status {
+	if s == "" {
+		return Status{}
+	}
 	parsed, err := ParseStatus(string(s))
 	if err != nil {
 		slog.Warn("unknown PBM status", "value", string(s))
@@ -41,8 +44,11 @@ func convertStatus(s defs.Status) Status {
 }
 
 // convertBackupType converts a PBM backup type string to an SDK BackupType.
-// Returns the zero value and logs a warning for unrecognized types.
+// Returns the zero value for empty input. Logs a warning for unrecognized types.
 func convertBackupType(bt defs.BackupType) BackupType {
+	if bt == "" {
+		return BackupType{}
+	}
 	parsed, err := ParseBackupType(string(bt))
 	if err != nil {
 		slog.Warn("unknown PBM backup type", "value", string(bt))
@@ -51,8 +57,11 @@ func convertBackupType(bt defs.BackupType) BackupType {
 }
 
 // convertCompressionType converts a PBM compression type to an SDK CompressionType.
-// Returns the zero value and logs a warning for unrecognized types.
+// Returns the zero value for empty input. Logs a warning for unrecognized types.
 func convertCompressionType(ct compress.CompressionType) CompressionType {
+	if ct == "" {
+		return CompressionType{}
+	}
 	parsed, err := ParseCompressionType(string(ct))
 	if err != nil {
 		slog.Warn("unknown PBM compression type", "value", string(ct))
@@ -61,8 +70,11 @@ func convertCompressionType(ct compress.CompressionType) CompressionType {
 }
 
 // convertStorageType converts a PBM storage type to an SDK StorageType.
-// Returns the zero value and logs a warning for unrecognized types.
+// Returns the zero value for empty input. Logs a warning for unrecognized types.
 func convertStorageType(st storage.Type) StorageType {
+	if st == "" {
+		return StorageType{}
+	}
 	parsed, err := ParseStorageType(string(st))
 	if err != nil {
 		slog.Warn("unknown PBM storage type", "value", string(st))
