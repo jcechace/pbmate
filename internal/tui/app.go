@@ -3,14 +3,11 @@ package tui
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -46,35 +43,12 @@ type Model struct {
 	connecting   bool   // true while waiting for the initial connection
 	flashErr     string // transient error message for the status bar
 
-	// Confirm form overlay — when non-nil, a confirmation dialog is shown
-	// centered over the content area and all key input is routed to it.
-	confirmForm       *huh.Form
-	confirmFormResult *confirmFormResult
-	confirmFormTitle  string
-	confirmFormCmd    tea.Cmd // executed if the user confirms
+	// activeOverlay captures all input when non-nil. Overlays include
+	// backup forms, file pickers, profile name forms, and confirm dialogs.
+	activeOverlay formOverlay
 
 	// Help overlay — when true, the ? help panel is shown.
 	showHelp bool
-
-	// Backup form — when non-nil, a huh form overlay is active.
-	backupForm       *huh.Form
-	backupFormResult *backupFormResult
-	backupFormKind   backupFormKind
-
-	// File picker overlay — when non-nil, a file picker is shown for
-	// selecting a YAML config file. Used by the Config tab's apply/create flows.
-	filePicker      *filepicker.Model
-	filePickerTitle string
-	// filePickerProfile is the target profile for the selected file.
-	// Empty string means apply to main config.
-	filePickerProfile string
-	// filePickerIsNew is true when creating a new profile (vs overwriting).
-	filePickerIsNew bool
-
-	// Profile name form — when non-nil, the first step of new profile
-	// creation is active (asks for a name, then opens the file picker).
-	profileNameForm       *huh.Form
-	profileNameFormResult *profileNameResult
 
 	// Sub-models.
 	overview overviewModel
@@ -212,19 +186,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case backupFormReadyMsg:
-		var form *huh.Form
-		var result *backupFormResult
-		switch msg.kind {
-		case backupFormQuick:
-			form, result = newQuickBackupForm()
-		case backupFormFull:
-			form, result = newFullBackupForm(msg.profiles, nil)
-		}
-		result.profiles = msg.profiles
-		m.backupForm = form
-		m.backupFormResult = result
-		m.backupFormKind = msg.kind
-		return m, m.backupForm.Init()
+		overlay, cmd := newBackupFormOverlay(m.client, msg.kind, msg.profiles)
+		m.activeOverlay = overlay
+		return m, cmd
 
 	case configDataMsg:
 		m.config.setData(msg.configData)
@@ -256,19 +220,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case configApplyRequest:
 		var title string
 		if msg.profileName == "" {
-			title = "Select YAML ─ Main"
+			title = "Select YAML \u2500 Main"
 		} else {
-			title = "Select YAML ─ " + msg.profileName
+			title = "Select YAML \u2500 " + msg.profileName
 		}
-		m.filePickerProfile = msg.profileName
-		m.filePickerIsNew = false
-		return m, m.openFilePicker(title)
+		overlay, cmd := newFilePickerOverlay(m.client, msg.profileName, false, title)
+		m.activeOverlay = overlay
+		return m, cmd
 
 	case configNewProfileRequest:
-		form, result := newProfileNameForm()
-		m.profileNameForm = form
-		m.profileNameFormResult = result
-		return m, m.profileNameForm.Init()
+		overlay, cmd := newProfileNameOverlay(m.client)
+		m.activeOverlay = overlay
+		return m, cmd
 
 	case configActionMsg:
 		if msg.err != nil {
@@ -281,44 +244,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(0)
 
 	case deleteConfirmMsg:
-		form, result := newConfirmForm(msg.description, "Delete", "Cancel")
-		m.confirmForm = form
-		m.confirmFormResult = result
-		m.confirmFormTitle = msg.title
-		m.confirmFormCmd = deleteBackupCmd(m.client, msg.baseName)
-		return m, m.confirmForm.Init()
+		overlay, cmd := newConfirmOverlay(msg.title, msg.description, "Delete", "Cancel",
+			deleteBackupCmd(m.client, msg.baseName))
+		m.activeOverlay = overlay
+		return m, cmd
 	}
 
-	// Key messages: route to the active form overlay if one is open,
-	// otherwise to the normal key handler.
+	// Route to the active overlay if one is open.
+	if m.activeOverlay != nil {
+		next, cmd := m.activeOverlay.Update(msg, m.keys.Back, m.keys.Quit)
+		m.activeOverlay = next
+		return m, cmd
+	}
+
+	// Key messages without an overlay go to the normal key handler.
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if m.backupForm != nil {
-			return m.updateBackupForm(keyMsg)
-		}
-		if m.filePicker != nil {
-			return m.updateFilePicker(keyMsg)
-		}
-		if m.profileNameForm != nil {
-			return m.updateProfileNameForm(keyMsg)
-		}
-		if m.confirmForm != nil {
-			return m.updateConfirmForm(keyMsg)
-		}
 		return m.updateKeys(keyMsg)
-	}
-
-	// Forward non-key messages to the active form / overlay.
-	if m.backupForm != nil {
-		return m.updateBackupForm(msg)
-	}
-	if m.filePicker != nil {
-		return m.updateFilePicker(msg)
-	}
-	if m.profileNameForm != nil {
-		return m.updateProfileNameForm(msg)
-	}
-	if m.confirmForm != nil {
-		return m.updateConfirmForm(msg)
 	}
 
 	return m, nil
@@ -354,15 +295,14 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openBackupForm(backupFormFull)
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
 		if len(m.overview.data.operations) > 0 {
-			form, result := newConfirmForm(
+			overlay, cmd := newConfirmOverlay(
+				"Cancel Backup",
 				"Cancel the currently running backup?",
 				"Cancel Backup", "Keep Running",
+				cancelBackupCmd(m.client),
 			)
-			m.confirmForm = form
-			m.confirmFormResult = result
-			m.confirmFormTitle = "Cancel Backup"
-			m.confirmFormCmd = cancelBackupCmd(m.client)
-			return m, m.confirmForm.Init()
+			m.activeOverlay = overlay
+			return m, cmd
 		}
 		return m, nil
 	default:
@@ -446,21 +386,8 @@ func (m Model) contentView(height int) string {
 	if m.showHelp {
 		return renderHelpOverlay(&m.styles, m.width, height)
 	}
-	if m.backupForm != nil {
-		title := "Start Backup"
-		if m.backupFormKind == backupFormFull {
-			title = "Configure Backup"
-		}
-		return renderFormOverlay(m.backupForm, title, &m.styles, m.width, height)
-	}
-	if m.filePicker != nil {
-		return renderFilePickerOverlay(m.filePicker, m.filePickerTitle, &m.styles, m.width, height)
-	}
-	if m.profileNameForm != nil {
-		return renderFormOverlay(m.profileNameForm, "New Profile", &m.styles, m.width, height)
-	}
-	if m.confirmForm != nil {
-		return renderFormOverlay(m.confirmForm, m.confirmFormTitle, &m.styles, m.width, height)
+	if m.activeOverlay != nil {
+		return m.activeOverlay.View(&m.styles, m.width, height)
 	}
 
 	switch m.activeTab {
@@ -607,282 +534,8 @@ func (m *Model) updateViewportDims() {
 	m.config.resize(m.width, contentH)
 }
 
-// --- Backup form management ---
-
 // openBackupForm fetches storage profiles then creates the form overlay.
 // The form is created asynchronously when backupFormReadyMsg arrives.
 func (m *Model) openBackupForm(kind backupFormKind) tea.Cmd {
 	return fetchProfilesCmd(m.client, kind)
-}
-
-// updateBackupForm forwards a message to the active backup form and handles
-// completion/abort. Data messages are already handled by Update before this
-// is called, so only key messages and huh-internal messages arrive here.
-func (m Model) updateBackupForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		// Esc or quit dismisses the form.
-		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
-			m.backupForm = nil
-			m.backupFormResult = nil
-			return m, nil
-		}
-		// 'c' on the quick form transitions to the full wizard.
-		if m.backupFormKind == backupFormQuick && msg.String() == "c" {
-			return m, m.transitionToFullForm()
-		}
-	}
-
-	// Forward everything else to the huh form.
-	formModel, cmd := m.backupForm.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		m.backupForm = f
-	}
-
-	// Check if the form completed.
-	if m.backupForm.State == huh.StateCompleted {
-		result := m.backupFormResult
-		// Quick form: "Customize" was selected (confirmed == false).
-		if m.backupFormKind == backupFormQuick && !result.confirmed {
-			return m, m.transitionToFullForm()
-		}
-		m.backupForm = nil
-		m.backupFormResult = nil
-		// Full form: user declined on the final confirm.
-		if !result.confirmed {
-			return m, nil
-		}
-		return m, startBackupWithOptsCmd(m.client, result.toOptions())
-	}
-
-	// Check if the form was aborted.
-	if m.backupForm.State == huh.StateAborted {
-		m.backupForm = nil
-		m.backupFormResult = nil
-		return m, nil
-	}
-
-	return m, cmd
-}
-
-// transitionToFullForm switches from the quick confirm to the full wizard,
-// carrying over the current result values and cached profiles.
-func (m *Model) transitionToFullForm() tea.Cmd {
-	prev := m.backupFormResult
-	form, result := newFullBackupForm(prev.profiles, prev)
-	m.backupForm = form
-	m.backupFormResult = result
-	m.backupFormKind = backupFormFull
-	return m.backupForm.Init()
-}
-
-// --- Config form management ---
-
-// --- File picker management ---
-
-// filePickerAllowedTypes restricts the file picker to YAML files.
-var filePickerAllowedTypes = []string{".yaml", ".yml"}
-
-// filePickerHeight is the number of visible rows in the file picker.
-const filePickerHeight = 18
-
-// openFilePicker creates and initializes a file picker overlay.
-func (m *Model) openFilePicker(title string) tea.Cmd {
-	fp := filepicker.New()
-	fp.AllowedTypes = filePickerAllowedTypes
-	fp.AutoHeight = false
-	fp.SetHeight(filePickerHeight)
-	fp.ShowHidden = false
-	fp.ShowPermissions = false
-	fp.ShowSize = true
-	fp.DirAllowed = false
-	fp.FileAllowed = true
-
-	// Start from an absolute path so Back (filepath.Dir) can navigate up.
-	if wd, err := os.Getwd(); err == nil {
-		fp.CurrentDirectory = wd
-	}
-
-	// Customize keybindings: remove esc from Back (used for dismiss),
-	// and use h/backspace/left for parent directory navigation.
-	km := filepicker.DefaultKeyMap()
-	km.Back = key.NewBinding(
-		key.WithKeys("h", "backspace", "left"),
-		key.WithHelp("h", "back"),
-	)
-	fp.KeyMap = km
-
-	m.filePicker = &fp
-	m.filePickerTitle = title
-	return m.filePicker.Init()
-}
-
-// updateFilePicker forwards a message to the active file picker and handles
-// file selection or dismissal.
-func (m Model) updateFilePicker(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, m.keys.Back) || key.Matches(keyMsg, m.keys.Quit) {
-			m.clearFilePicker()
-			return m, nil
-		}
-	}
-
-	fp, cmd := m.filePicker.Update(msg)
-	m.filePicker = &fp
-
-	// Check if the user selected a file.
-	if didSelect, path := m.filePicker.DidSelectFile(msg); didSelect {
-		profile := m.filePickerProfile
-		isNew := m.filePickerIsNew
-		m.clearFilePicker()
-
-		if isNew {
-			// filePickerProfile already holds the new profile name
-			// (set during the profile name form completion).
-			return m, applyProfileCmd(m.client, profile, path, "create profile")
-		}
-		if profile == "" {
-			return m, applyConfigCmd(m.client, path)
-		}
-		return m, applyProfileCmd(m.client, profile, path, "set profile")
-	}
-
-	return m, cmd
-}
-
-// clearFilePicker resets all file picker state.
-func (m *Model) clearFilePicker() {
-	m.filePicker = nil
-	m.filePickerTitle = ""
-	m.filePickerProfile = ""
-	m.filePickerIsNew = false
-}
-
-// --- Profile name form management ---
-
-// updateProfileNameForm forwards a message to the profile name form and
-// transitions to the file picker on completion.
-func (m Model) updateProfileNameForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, m.keys.Back) || key.Matches(keyMsg, m.keys.Quit) {
-			m.profileNameForm = nil
-			m.profileNameFormResult = nil
-			return m, nil
-		}
-	}
-
-	formModel, cmd := m.profileNameForm.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		m.profileNameForm = f
-	}
-
-	if m.profileNameForm.State == huh.StateCompleted {
-		result := m.profileNameFormResult
-		m.profileNameForm = nil
-		m.profileNameFormResult = nil
-
-		if !result.confirmed || result.name == "" {
-			return m, nil
-		}
-
-		// Transition to file picker for the new profile.
-		m.filePickerProfile = result.name
-		m.filePickerIsNew = true
-		return m, m.openFilePicker("Select YAML ─ " + result.name)
-	}
-
-	if m.profileNameForm.State == huh.StateAborted {
-		m.profileNameForm = nil
-		m.profileNameFormResult = nil
-		return m, nil
-	}
-
-	return m, cmd
-}
-
-// filePickerInnerWidth is the content width inside the file picker panel.
-const filePickerInnerWidth = 60
-
-// renderFilePickerOverlay renders the file picker centered over the content
-// area inside a bordered panel with a title and current path breadcrumb.
-func renderFilePickerOverlay(fp *filepicker.Model, title string, styles *Styles, contentW, contentH int) string {
-	// Current directory path — truncate from the left if too wide.
-	dir := fp.CurrentDirectory
-	maxPathW := filePickerInnerWidth - 2 // leave room for "…/" prefix
-	if len(dir) > maxPathW {
-		dir = "…" + dir[len(dir)-maxPathW:]
-	}
-	pathLine := styles.StatusMuted.Render(dir)
-
-	// Hint line for navigation.
-	hintLine := styles.StatusMuted.Render("h:back  l:open  enter:select  esc:cancel")
-
-	body := pathLine + "\n" +
-		styles.StatusMuted.Render(strings.Repeat("─", filePickerInnerWidth)) + "\n" +
-		fp.View() + "\n" +
-		styles.StatusMuted.Render(strings.Repeat("─", filePickerInnerWidth)) + "\n" +
-		hintLine
-
-	border := lipgloss.RoundedBorder()
-	borderColor := styles.FocusedBorderColor
-
-	panelWidth := filePickerInnerWidth + panelPaddingH
-
-	panel := lipgloss.NewStyle().
-		Border(border).
-		BorderForeground(borderColor).
-		Padding(1, 1).
-		Width(panelWidth).
-		Render(body)
-
-	outerW := panelWidth + panelBorderH
-	panel = replaceTitleBorder(panel, title, outerW, border, borderColor)
-
-	return lipgloss.Place(contentW, contentH,
-		lipgloss.Center, lipgloss.Center,
-		panel)
-}
-
-// --- Confirm form management ---
-
-// updateConfirmForm forwards a message to the active confirm form and handles
-// completion/abort.
-func (m Model) updateConfirmForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
-		// Esc or quit dismisses the confirmation.
-		if key.Matches(msg, m.keys.Back) || key.Matches(msg, m.keys.Quit) {
-			m.confirmForm = nil
-			m.confirmFormResult = nil
-			m.confirmFormCmd = nil
-			return m, nil
-		}
-	}
-
-	// Forward to the huh form.
-	formModel, cmd := m.confirmForm.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		m.confirmForm = f
-	}
-
-	// Completed — execute the stored command if confirmed.
-	if m.confirmForm.State == huh.StateCompleted {
-		confirmed := m.confirmFormResult.confirmed
-		actionCmd := m.confirmFormCmd
-		m.confirmForm = nil
-		m.confirmFormResult = nil
-		m.confirmFormCmd = nil
-		if confirmed {
-			return m, actionCmd
-		}
-		return m, nil
-	}
-
-	// Aborted — dismiss.
-	if m.confirmForm.State == huh.StateAborted {
-		m.confirmForm = nil
-		m.confirmFormResult = nil
-		m.confirmFormCmd = nil
-		return m, nil
-	}
-
-	return m, cmd
 }
