@@ -115,5 +115,8 @@ func newMongoClient(ctx context.Context, o *options) (*Client, error) {
 
 // Close disconnects from the backend. The Client must not be used after Close.
 func (c *Client) Close(ctx context.Context) error {
-	return c.conn.Disconnect(ctx)
+	if err := c.conn.Disconnect(ctx); err != nil {
+		return fmt.Errorf("close client: %w", err)
+	}
+	return nil
 }
