@@ -9,7 +9,7 @@ import (
 
 // profileDisplayName returns a human-readable name for a profile.
 func profileDisplayName(profile string) string {
-	if profile == "main" {
+	if profile == defaultConfigName {
 		return "Main"
 	}
 	return profile
@@ -25,13 +25,13 @@ func groupBackupsByProfile(backups []sdk.Backup) map[string][]sdk.Backup {
 	return m
 }
 
-// sortedProfileNames returns profile names sorted with "main" always first,
-// then remaining profiles in alphabetical order.
+// sortedProfileNames returns profile names sorted with the default config
+// always first, then remaining profiles in alphabetical order.
 func sortedProfileNames(grouped map[string][]sdk.Backup) []string {
 	var names []string
 	hasMain := false
 	for name := range maps.Keys(grouped) {
-		if name == "main" {
+		if name == defaultConfigName {
 			hasMain = true
 		} else {
 			names = append(names, name)
@@ -39,7 +39,7 @@ func sortedProfileNames(grouped map[string][]sdk.Backup) []string {
 	}
 	slices.Sort(names)
 	if hasMain {
-		names = append([]string{"main"}, names...)
+		names = append([]string{defaultConfigName}, names...)
 	}
 	return names
 }
