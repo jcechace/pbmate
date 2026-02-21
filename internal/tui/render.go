@@ -117,7 +117,6 @@ func helpSections() []helpSection {
 		{"Actions", []helpEntry{
 			helpFromBinding(backupKeys.Start),
 			helpFromBinding(backupKeys.StartCustom),
-			helpFromBinding(backupKeys.Restore),
 			helpFromBinding(backupKeys.Cancel),
 			helpFromBinding(globalKeys.Delete),
 		}},
