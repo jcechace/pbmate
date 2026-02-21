@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"log/slog"
-	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/log"
 )
@@ -11,19 +10,11 @@ import (
 // The structured LogKeys fields are flattened into the Attrs map.
 func convertLogEntry(e *log.Entry) LogEntry {
 	return LogEntry{
-		Timestamp: convertLogTimestamp(e.TS),
+		Timestamp: convertUnixToTime(e.TS),
 		Severity:  convertLogSeverity(e.Severity),
 		Message:   e.Msg,
 		Attrs:     convertLogAttrs(&e.LogKeys),
 	}
-}
-
-// convertLogTimestamp converts a Unix timestamp (seconds) to time.Time.
-func convertLogTimestamp(ts int64) time.Time {
-	if ts == 0 {
-		return time.Time{}
-	}
-	return time.Unix(ts, 0).UTC()
 }
 
 // convertLogSeverity converts a PBM log.Severity (int) to an SDK LogSeverity.

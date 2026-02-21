@@ -57,18 +57,6 @@ func TestConvertLogEntry(t *testing.T) {
 	})
 }
 
-func TestConvertLogTimestamp(t *testing.T) {
-	t.Run("valid timestamp", func(t *testing.T) {
-		result := convertLogTimestamp(1700000000)
-		assert.Equal(t, time.Unix(1700000000, 0).UTC(), result)
-	})
-
-	t.Run("zero timestamp", func(t *testing.T) {
-		result := convertLogTimestamp(0)
-		assert.True(t, result.IsZero())
-	})
-}
-
 func TestConvertLogSeverity(t *testing.T) {
 	tests := []struct {
 		name     string
