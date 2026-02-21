@@ -33,6 +33,8 @@ var tabNames = [tabCount]string{
 type Model struct {
 	client   *sdk.Client // nil until connectMsg arrives
 	mongoURI string      // connection URI for background connect
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	styles Styles
 
@@ -63,8 +65,11 @@ type Model struct {
 // connecting in the background.
 func New(uri string, theme Theme) Model {
 	s := NewStyles(theme)
+	ctx, cancel := context.WithCancel(context.Background())
 	return Model{
 		mongoURI:     uri,
+		ctx:          ctx,
+		cancel:       cancel,
 		styles:       s,
 		activeTab:    tabOverview,
 		pollInterval: idleInterval,
@@ -76,9 +81,10 @@ func New(uri string, theme Theme) Model {
 	}
 }
 
-// Close disconnects the SDK client if connected. Safe to call when the
-// client is nil (e.g. connection never succeeded).
+// Close cancels the root context and disconnects the SDK client.
+// Safe to call when the client is nil (e.g. connection never succeeded).
 func (m Model) Close() {
+	m.cancel()
 	if m.client != nil {
 		_ = m.client.Close(context.Background())
 	}
@@ -107,6 +113,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.client = msg.client
+		m.overview.ctx = m.ctx
 		m.overview.client = msg.client
 		return m, tickCmd(0)
 
@@ -116,12 +123,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
+		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.isFollowing())}
 		if m.activeTab == tabBackups {
-			cmds = append(cmds, fetchBackupsCmd(m.client), fetchRestoresCmd(m.client))
+			cmds = append(cmds, fetchBackupsCmd(m.ctx, m.client), fetchRestoresCmd(m.ctx, m.client))
 		}
 		if m.activeTab == tabConfig {
-			cmds = append(cmds, fetchConfigCmd(m.client))
+			cmds = append(cmds, fetchConfigCmd(m.ctx, m.client))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -186,7 +193,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case backupFormReadyMsg:
-		overlay, cmd := newBackupFormOverlay(m.client, msg.kind, msg.profiles)
+		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, msg.kind, msg.profiles)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -199,7 +206,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Trigger lazy profile YAML fetch if the selected profile is uncached.
 		if name := m.config.needsProfileYAML(); name != "" {
-			return m, fetchProfileYAMLCmd(m.client, name)
+			return m, fetchProfileYAMLCmd(m.ctx, m.client, name)
 		}
 		return m, nil
 
@@ -213,7 +220,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case fetchProfileYAMLRequest:
 		if m.client != nil {
-			return m, fetchProfileYAMLCmd(m.client, msg.name)
+			return m, fetchProfileYAMLCmd(m.ctx, m.client, msg.name)
 		}
 		return m, nil
 
@@ -224,12 +231,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			title = "Select YAML \u2500 " + msg.profileName
 		}
-		overlay, cmd := newFilePickerOverlay(m.client, msg.profileName, false, title)
+		overlay, cmd := newFilePickerOverlay(m.ctx, m.client, msg.profileName, false, title)
 		m.activeOverlay = overlay
 		return m, cmd
 
 	case configNewProfileRequest:
-		overlay, cmd := newProfileNameOverlay(m.client)
+		overlay, cmd := newProfileNameOverlay(m.ctx, m.client)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -245,7 +252,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case deleteConfirmMsg:
 		overlay, cmd := newConfirmOverlay(msg.title, msg.description, "Delete", "Cancel",
-			deleteBackupCmd(m.client, msg.baseName))
+			deleteBackupCmd(m.ctx, m.client, msg.baseName))
 		m.activeOverlay = overlay
 		return m, cmd
 	}
@@ -299,7 +306,7 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				"Cancel Backup",
 				"Cancel the currently running backup?",
 				"Cancel Backup", "Keep Running",
-				cancelBackupCmd(m.client),
+				cancelBackupCmd(m.ctx, m.client),
 			)
 			m.activeOverlay = overlay
 			return m, cmd
@@ -537,5 +544,5 @@ func (m *Model) updateViewportDims() {
 // openBackupForm fetches storage profiles then creates the form overlay.
 // The form is created asynchronously when backupFormReadyMsg arrives.
 func (m *Model) openBackupForm(kind backupFormKind) tea.Cmd {
-	return fetchProfilesCmd(m.client, kind)
+	return fetchProfilesCmd(m.ctx, m.client, kind)
 }

@@ -32,6 +32,7 @@ const (
 
 // overviewModel is the sub-model for the Overview tab.
 type overviewModel struct {
+	ctx    context.Context // root context for SDK calls; set after connect
 	client *sdk.Client
 	focus  overviewFocus
 	styles *Styles
@@ -76,7 +77,7 @@ func (m *overviewModel) toggleFollow() tea.Cmd {
 	}
 
 	// Start following — pin to bottom so new entries auto-scroll.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(m.ctx)
 	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{})
 	m.logFollowCancel = cancel
 	m.logFollowCh = entries

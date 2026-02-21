@@ -147,36 +147,32 @@ type backupFormReadyMsg struct {
 
 // fetchProfilesCmd returns a tea.Cmd that fetches storage profiles for the
 // backup form. Errors are silently ignored — the form will just show "Main".
-func fetchProfilesCmd(client *sdk.Client, kind backupFormKind) tea.Cmd {
+func fetchProfilesCmd(ctx context.Context, client *sdk.Client, kind backupFormKind) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		profiles, _ := client.Config.ListProfiles(ctx)
 		return backupFormReadyMsg{profiles: profiles, kind: kind}
 	}
 }
 
 // startBackupWithOptsCmd returns a tea.Cmd that starts a backup with the given options.
-func startBackupWithOptsCmd(client *sdk.Client, opts sdk.StartBackupOptions) tea.Cmd {
+func startBackupWithOptsCmd(ctx context.Context, client *sdk.Client, opts sdk.StartBackupOptions) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		_, err := client.Backups.Start(ctx, opts)
 		return backupActionMsg{action: "start", err: err}
 	}
 }
 
 // cancelBackupCmd returns a tea.Cmd that cancels the running backup.
-func cancelBackupCmd(client *sdk.Client) tea.Cmd {
+func cancelBackupCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		_, err := client.Backups.Cancel(ctx)
 		return backupActionMsg{action: "cancel", err: err}
 	}
 }
 
 // deleteBackupCmd returns a tea.Cmd that deletes the named backup.
-func deleteBackupCmd(client *sdk.Client, name string) tea.Cmd {
+func deleteBackupCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		_, err := client.Backups.Delete(ctx, name)
 		return backupActionMsg{action: "delete", err: err}
 	}
@@ -187,9 +183,8 @@ func deleteBackupCmd(client *sdk.Client, name string) tea.Cmd {
 // the first encountered error; partial data is still returned. When skipLogs
 // is true, log fetching is skipped (e.g. during follow mode where logs stream
 // separately).
-func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
+func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		var d overviewData
 
 		// setErr records the first error encountered; goroutine-safe.
@@ -275,9 +270,8 @@ func fetchOverviewCmd(client *sdk.Client, skipLogs bool) tea.Cmd {
 
 // fetchBackupsCmd returns a tea.Cmd that fetches the backup list and PITR
 // timelines concurrently.
-func fetchBackupsCmd(client *sdk.Client) tea.Cmd {
+func fetchBackupsCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		var d backupsData
 
 		var mu sync.Mutex
@@ -322,9 +316,8 @@ type restoresData struct {
 type restoresDataMsg struct{ restoresData }
 
 // fetchRestoresCmd returns a tea.Cmd that fetches the full restore list.
-func fetchRestoresCmd(client *sdk.Client) tea.Cmd {
+func fetchRestoresCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		restores, err := client.Restores.List(ctx, sdk.ListRestoresOptions{})
 		return restoresDataMsg{restoresData{restores: restores, err: err}}
 	}
@@ -351,9 +344,8 @@ type profileYAMLMsg struct {
 }
 
 // fetchConfigCmd returns a tea.Cmd that fetches config data concurrently.
-func fetchConfigCmd(client *sdk.Client) tea.Cmd {
+func fetchConfigCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		var d configData
 
 		var mu sync.Mutex
@@ -397,9 +389,8 @@ func fetchConfigCmd(client *sdk.Client) tea.Cmd {
 
 // fetchProfileYAMLCmd returns a tea.Cmd that fetches the YAML for a
 // single storage profile by name.
-func fetchProfileYAMLCmd(client *sdk.Client, name string) tea.Cmd {
+func fetchProfileYAMLCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
 	return func() tea.Msg {
-		ctx := context.Background()
 		yaml, err := client.Config.GetProfileYAML(ctx, name)
 		return profileYAMLMsg{name: name, yaml: yaml, err: err}
 	}
@@ -413,7 +404,7 @@ type configActionMsg struct {
 
 // applyConfigCmd returns a tea.Cmd that reads a YAML file and applies it
 // as the main PBM configuration.
-func applyConfigCmd(client *sdk.Client, filePath string) tea.Cmd {
+func applyConfigCmd(ctx context.Context, client *sdk.Client, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		f, err := os.Open(filePath)
 		if err != nil {
@@ -421,7 +412,6 @@ func applyConfigCmd(client *sdk.Client, filePath string) tea.Cmd {
 		}
 		defer func() { _ = f.Close() }()
 
-		ctx := context.Background()
 		err = client.Config.SetYAML(ctx, f)
 		return configActionMsg{action: "apply config", err: err}
 	}
@@ -429,7 +419,7 @@ func applyConfigCmd(client *sdk.Client, filePath string) tea.Cmd {
 
 // applyProfileCmd returns a tea.Cmd that reads a YAML file and applies it
 // to a named storage profile (create or replace).
-func applyProfileCmd(client *sdk.Client, name, filePath, action string) tea.Cmd {
+func applyProfileCmd(ctx context.Context, client *sdk.Client, name, filePath, action string) tea.Cmd {
 	return func() tea.Msg {
 		f, err := os.Open(filePath)
 		if err != nil {
@@ -437,7 +427,6 @@ func applyProfileCmd(client *sdk.Client, name, filePath, action string) tea.Cmd 
 		}
 		defer func() { _ = f.Close() }()
 
-		ctx := context.Background()
 		_, err = client.Config.SetProfile(ctx, name, f)
 		return configActionMsg{action: action, err: err}
 	}

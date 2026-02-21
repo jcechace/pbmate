@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -30,10 +31,11 @@ type backupFormOverlay struct {
 	form   *huh.Form
 	result *backupFormResult
 	kind   backupFormKind
+	ctx    context.Context
 	client *sdk.Client
 }
 
-func newBackupFormOverlay(client *sdk.Client, kind backupFormKind, profiles []sdk.StorageProfile) (*backupFormOverlay, tea.Cmd) {
+func newBackupFormOverlay(ctx context.Context, client *sdk.Client, kind backupFormKind, profiles []sdk.StorageProfile) (*backupFormOverlay, tea.Cmd) {
 	var form *huh.Form
 	var result *backupFormResult
 	switch kind {
@@ -43,7 +45,7 @@ func newBackupFormOverlay(client *sdk.Client, kind backupFormKind, profiles []sd
 		form, result = newFullBackupForm(profiles, nil)
 	}
 	result.profiles = profiles
-	o := &backupFormOverlay{form: form, result: result, kind: kind, client: client}
+	o := &backupFormOverlay{form: form, result: result, kind: kind, ctx: ctx, client: client}
 	return o, o.form.Init()
 }
 
@@ -71,7 +73,7 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 		if !o.result.confirmed {
 			return nil, nil
 		}
-		return nil, startBackupWithOptsCmd(o.client, o.result.toOptions())
+		return nil, startBackupWithOptsCmd(o.ctx, o.client, o.result.toOptions())
 	}
 
 	if o.form.State == huh.StateAborted {
@@ -87,6 +89,7 @@ func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
 		form:   form,
 		result: result,
 		kind:   backupFormFull,
+		ctx:    o.ctx,
 		client: o.client,
 	}
 	return next, next.form.Init()
@@ -117,10 +120,11 @@ type filePickerOverlay struct {
 	title   string
 	profile string // target profile ("" = main config)
 	isNew   bool   // creating new vs overwriting existing
+	ctx     context.Context
 	client  *sdk.Client
 }
 
-func newFilePickerOverlay(client *sdk.Client, profile string, isNew bool, title string) (*filePickerOverlay, tea.Cmd) {
+func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile string, isNew bool, title string) (*filePickerOverlay, tea.Cmd) {
 	fp := filepicker.New()
 	fp.AllowedTypes = filePickerAllowedTypes
 	fp.AutoHeight = false
@@ -150,6 +154,7 @@ func newFilePickerOverlay(client *sdk.Client, profile string, isNew bool, title 
 		title:   title,
 		profile: profile,
 		isNew:   isNew,
+		ctx:     ctx,
 		client:  client,
 	}
 	return o, o.picker.Init()
@@ -167,12 +172,12 @@ func (o *filePickerOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 
 	if didSelect, path := o.picker.DidSelectFile(msg); didSelect {
 		if o.isNew {
-			return nil, applyProfileCmd(o.client, o.profile, path, "create profile")
+			return nil, applyProfileCmd(o.ctx, o.client, o.profile, path, "create profile")
 		}
 		if o.profile == "" {
-			return nil, applyConfigCmd(o.client, path)
+			return nil, applyConfigCmd(o.ctx, o.client, path)
 		}
-		return nil, applyProfileCmd(o.client, o.profile, path, "set profile")
+		return nil, applyProfileCmd(o.ctx, o.client, o.profile, path, "set profile")
 	}
 
 	return o, cmd
@@ -191,12 +196,13 @@ func (o *filePickerOverlay) View(styles *Styles, contentW, contentH int) string 
 type profileNameOverlay struct {
 	form   *huh.Form
 	result *profileNameResult
+	ctx    context.Context
 	client *sdk.Client
 }
 
-func newProfileNameOverlay(client *sdk.Client) (*profileNameOverlay, tea.Cmd) {
+func newProfileNameOverlay(ctx context.Context, client *sdk.Client) (*profileNameOverlay, tea.Cmd) {
 	form, result := newProfileNameForm()
-	o := &profileNameOverlay{form: form, result: result, client: client}
+	o := &profileNameOverlay{form: form, result: result, ctx: ctx, client: client}
 	return o, o.form.Init()
 }
 
@@ -217,7 +223,7 @@ func (o *profileNameOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 			return nil, nil
 		}
 		// Transition to file picker for the new profile.
-		fp, fpCmd := newFilePickerOverlay(o.client, o.result.name, true, "Select YAML \u2500 "+o.result.name)
+		fp, fpCmd := newFilePickerOverlay(o.ctx, o.client, o.result.name, true, "Select YAML \u2500 "+o.result.name)
 		return fp, fpCmd
 	}
 
