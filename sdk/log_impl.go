@@ -23,7 +23,7 @@ func (s *logServiceImpl) Get(ctx context.Context, opts GetLogsOptions) ([]LogEnt
 		},
 	}
 
-	entries, err := log.LogGet(ctx, s.conn, req, opts.Limit)
+	entries, err := log.LogGet(ctx, s.conn, req, int64(opts.Limit))
 	if err != nil {
 		return nil, fmt.Errorf("get logs: %w", err)
 	}

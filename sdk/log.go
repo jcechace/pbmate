@@ -66,7 +66,7 @@ type LogService interface {
 // GetLogsOptions controls filtering and pagination for log retrieval.
 type GetLogsOptions struct {
 	// Limit is the maximum number of log entries to return. Zero means no limit.
-	Limit int64
+	Limit int
 
 	// Severity is the minimum severity level to include. PBM's severity filter
 	// includes all entries at the given level and above (e.g. Info includes
