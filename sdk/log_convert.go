@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/log"
@@ -27,7 +28,10 @@ func convertLogTimestamp(ts int64) time.Time {
 
 // convertLogSeverity converts a PBM log.Severity (int) to an SDK LogSeverity.
 func convertLogSeverity(s log.Severity) LogSeverity {
-	parsed, _ := ParseLogSeverity(s.String())
+	parsed, err := ParseLogSeverity(s.String())
+	if err != nil {
+		slog.Warn("unknown PBM log severity", "value", s.String())
+	}
 	return parsed
 }
 

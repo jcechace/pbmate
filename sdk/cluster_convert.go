@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
@@ -89,7 +90,10 @@ func isStaleAgent(a topo.AgentStat, clusterTime uint32) bool {
 
 // convertOperation converts a PBM LockData to an SDK Operation.
 func convertOperation(ld lock.LockData) Operation {
-	ct, _ := ParseCommandType(string(ld.Type))
+	ct, err := ParseCommandType(string(ld.Type))
+	if err != nil {
+		slog.Warn("unknown PBM command type", "value", string(ld.Type))
+	}
 	return Operation{
 		Type:       ct,
 		OPID:       ld.OPID,

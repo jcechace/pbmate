@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -30,30 +31,42 @@ func convertUnixToTime(unix int64) time.Time {
 }
 
 // convertStatus converts a PBM status string to an SDK Status.
-// Returns the zero value for unrecognized statuses.
+// Returns the zero value and logs a warning for unrecognized statuses.
 func convertStatus(s defs.Status) Status {
-	parsed, _ := ParseStatus(string(s))
+	parsed, err := ParseStatus(string(s))
+	if err != nil {
+		slog.Warn("unknown PBM status", "value", string(s))
+	}
 	return parsed
 }
 
 // convertBackupType converts a PBM backup type string to an SDK BackupType.
-// Returns the zero value for unrecognized types.
+// Returns the zero value and logs a warning for unrecognized types.
 func convertBackupType(bt defs.BackupType) BackupType {
-	parsed, _ := ParseBackupType(string(bt))
+	parsed, err := ParseBackupType(string(bt))
+	if err != nil {
+		slog.Warn("unknown PBM backup type", "value", string(bt))
+	}
 	return parsed
 }
 
 // convertCompressionType converts a PBM compression type to an SDK CompressionType.
-// Returns the zero value for unrecognized types.
+// Returns the zero value and logs a warning for unrecognized types.
 func convertCompressionType(ct compress.CompressionType) CompressionType {
-	parsed, _ := ParseCompressionType(string(ct))
+	parsed, err := ParseCompressionType(string(ct))
+	if err != nil {
+		slog.Warn("unknown PBM compression type", "value", string(ct))
+	}
 	return parsed
 }
 
 // convertStorageType converts a PBM storage type to an SDK StorageType.
-// Returns the zero value for unrecognized types.
+// Returns the zero value and logs a warning for unrecognized types.
 func convertStorageType(st storage.Type) StorageType {
-	parsed, _ := ParseStorageType(string(st))
+	parsed, err := ParseStorageType(string(st))
+	if err != nil {
+		slog.Warn("unknown PBM storage type", "value", string(st))
+	}
 	return parsed
 }
 
@@ -63,6 +76,9 @@ func convertConfigName(name string) ConfigName {
 	if name == "" {
 		return MainConfig
 	}
-	cn, _ := NewConfigName(name)
+	cn, err := NewConfigName(name)
+	if err != nil {
+		slog.Warn("invalid PBM config name", "value", name)
+	}
 	return cn
 }
