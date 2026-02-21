@@ -70,6 +70,19 @@ func convertStorageType(st storage.Type) StorageType {
 	return parsed
 }
 
+// convertSlice converts a slice of input values to a slice of output values
+// using the provided conversion function. Returns nil for empty input.
+func convertSlice[In, Out any](items []In, fn func(In) Out) []Out {
+	if len(items) == 0 {
+		return nil
+	}
+	result := make([]Out, len(items))
+	for i := range items {
+		result[i] = fn(items[i])
+	}
+	return result
+}
+
 // convertConfigName converts a PBM profile/config name to an SDK ConfigName.
 // Empty string (PBM's representation of the main config) maps to MainConfig.
 func convertConfigName(name string) ConfigName {

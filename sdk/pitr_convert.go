@@ -27,11 +27,7 @@ func convertTimelines(tlns []oplog.Timeline) []Timeline {
 		return nil
 	}
 
-	result := make([]Timeline, len(tlns))
-	for i := range tlns {
-		result[i] = convertTimeline(tlns[i])
-	}
-	return result
+	return convertSlice(tlns, convertTimeline)
 }
 
 // collectPITRErrors aggregates error messages from PITR replset statuses.

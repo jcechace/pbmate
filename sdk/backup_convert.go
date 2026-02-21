@@ -30,15 +30,9 @@ func convertBackup(meta *backup.BackupMeta) Backup {
 
 // convertBackupReplsets converts a slice of PBM BackupReplset to SDK BackupReplsets.
 func convertBackupReplsets(replsets []backup.BackupReplset) []BackupReplset {
-	if len(replsets) == 0 {
-		return nil
-	}
-
-	result := make([]BackupReplset, len(replsets))
-	for i, rs := range replsets {
-		result[i] = convertBackupReplset(&rs)
-	}
-	return result
+	return convertSlice(replsets, func(rs backup.BackupReplset) BackupReplset {
+		return convertBackupReplset(&rs)
+	})
 }
 
 // convertBackupReplset converts a PBM BackupReplset to an SDK BackupReplset.

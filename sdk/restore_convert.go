@@ -40,15 +40,9 @@ func convertPITRTarget(pitr int64) Timestamp {
 
 // convertRestoreReplsets converts a slice of PBM RestoreReplset to SDK RestoreReplsets.
 func convertRestoreReplsets(replsets []restore.RestoreReplset) []RestoreReplset {
-	if len(replsets) == 0 {
-		return nil
-	}
-
-	result := make([]RestoreReplset, len(replsets))
-	for i, rs := range replsets {
-		result[i] = convertRestoreReplset(&rs)
-	}
-	return result
+	return convertSlice(replsets, func(rs restore.RestoreReplset) RestoreReplset {
+		return convertRestoreReplset(&rs)
+	})
 }
 
 // convertRestoreReplset converts a PBM RestoreReplset to an SDK RestoreReplset.
@@ -64,18 +58,12 @@ func convertRestoreReplset(rs *restore.RestoreReplset) RestoreReplset {
 
 // convertRestoreNodes converts a slice of PBM RestoreNode to SDK RestoreNodes.
 func convertRestoreNodes(nodes []restore.RestoreNode) []RestoreNode {
-	if len(nodes) == 0 {
-		return nil
-	}
-
-	result := make([]RestoreNode, len(nodes))
-	for i, n := range nodes {
-		result[i] = RestoreNode{
+	return convertSlice(nodes, func(n restore.RestoreNode) RestoreNode {
+		return RestoreNode{
 			Name:             n.Name,
 			Status:           convertStatus(n.Status),
 			LastTransitionTS: convertUnixToTime(n.LastTransitionTS),
 			Error:            n.Error,
 		}
-	}
-	return result
+	})
 }
