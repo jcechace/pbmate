@@ -21,7 +21,7 @@ func convertTimelines(tlns []oplog.Timeline) []Timeline {
 		return nil
 	}
 
-	// PBM bug workaround: gettimelines() unconditionally appends the
+	// TODO(pbm-fix): gettimelines() unconditionally appends the
 	// accumulator after its loop, producing [{0,0,0}] for empty input.
 	if len(tlns) == 1 && tlns[0].Start == 0 && tlns[0].End == 0 {
 		return nil

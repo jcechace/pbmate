@@ -60,7 +60,8 @@ func (s *clusterServiceImpl) RunningOperations(ctx context.Context) ([]Operation
 		return nil, fmt.Errorf("list running operations: get cluster time: %w", err)
 	}
 
-	// Filter out stale locks.
+	// TODO(pbm-fix): GetLocks returns all locks including stale ones.
+	// Filter out stale locks client-side until PBM provides an active-only API.
 	var result []Operation
 	for i := range locks {
 		if locks[i].Heartbeat.T+defs.StaleFrameSec >= ct.T {

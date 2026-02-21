@@ -72,13 +72,10 @@ func (s *commandServiceImpl) CheckLock(ctx context.Context) error {
 	return nil
 }
 
-// dispatch inserts a command into the PBM command stream collection.
-// This replicates PBM's internal sendCommand pattern because that function
-// is unexported and PBM only exports type-specific wrappers (SendCancelBackup,
-// SendDeleteBackupByName, etc.) — none for generic backup/restore dispatch.
-//
-// NOTE: Direct MongoDB interaction should only be used when no reasonable
-// exported PBM API exists. This is currently the only such exception.
+// TODO(pbm-fix): PBM's internal sendCommand is unexported and only
+// type-specific wrappers are exported (SendCancelBackup, etc.) — none
+// for generic backup/restore dispatch. This replicates sendCommand via
+// direct collection insert. Remove when PBM exports a generic dispatch API.
 func (s *commandServiceImpl) dispatch(ctx context.Context, cmd ctrl.Cmd) (string, error) {
 	cmd.TS = time.Now().UTC().Unix()
 

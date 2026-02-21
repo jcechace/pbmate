@@ -64,7 +64,8 @@ type RestoreService interface {
 
 	// Wait polls until the named restore reaches a terminal status or the
 	// context is cancelled. Context cancellation stops waiting but does NOT
-	// cancel the running restore (PBM does not support restore cancellation).
+	// cancel the running restore.
+	// TODO(pbm-fix): PBM does not support restore cancellation.
 	//
 	// Returns the final Restore and nil on success ([StatusDone], [StatusCancelled]).
 	// Returns the Restore and an [*OperationError] on failure ([StatusError],

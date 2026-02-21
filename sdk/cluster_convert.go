@@ -11,7 +11,7 @@ import (
 
 // convertReplicaSet converts a PBM Shard to an SDK ReplicaSet.
 // Node hostnames are parsed from the Shard.Host URI ("rs/host1:port,host2:port").
-// Individual node roles are not available at the topology level.
+// TODO(pbm-fix): Individual node roles are not available at the topology level.
 func convertReplicaSet(s topo.Shard) ReplicaSet {
 	return ReplicaSet{
 		Name:  s.RS,
@@ -21,7 +21,6 @@ func convertReplicaSet(s topo.Shard) ReplicaSet {
 
 // parseHostNodes parses a PBM host URI into a slice of Nodes.
 // The format is "rs/host1:port,host2:port" or just "host1:port,host2:port".
-// Roles are not available from topology data and default to zero value.
 func parseHostNodes(host string) []Node {
 	// Strip the replset prefix if present.
 	_, after, found := strings.Cut(host, "/")

@@ -21,9 +21,9 @@ type backupServiceImpl struct {
 var _ BackupService = (*backupServiceImpl)(nil)
 
 func (s *backupServiceImpl) List(ctx context.Context, opts ListBackupsOptions) ([]Backup, error) {
-	// Fetch all backups via PBM's internal query (sorted newest-first).
-	// Filtering by ConfigName/Type is done in memory — backup counts are
-	// small enough that this is always practical.
+	// TODO(pbm-fix): PBM's BackupsList does not support server-side
+	// filtering by config name or backup type. Fetch all and filter in
+	// memory — backup counts are small enough that this is always practical.
 	metas, err := backup.BackupsList(ctx, s.conn, 0)
 	if err != nil {
 		return nil, fmt.Errorf("list backups: %w", err)
