@@ -123,6 +123,10 @@ func helpSections() []helpSection {
 		{"Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
 		}},
+		{"Config", []helpEntry{
+			helpFromBinding(configKeys.Apply),
+			helpFromBinding(configKeys.NewProfile),
+		}},
 		{"Overview", []helpEntry{
 			helpFromBinding(overviewKeys.Toggle),
 			helpFromBinding(overviewKeys.Follow),

@@ -95,6 +95,23 @@ type backupKeyMap struct {
 	Toggle      key.Binding
 }
 
+// configKeyMap defines keybindings specific to the Config tab.
+type configKeyMap struct {
+	Apply      key.Binding
+	NewProfile key.Binding
+}
+
+var configKeys = configKeyMap{
+	Apply: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "apply YAML"),
+	),
+	NewProfile: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "new profile"),
+	),
+}
+
 var backupKeys = backupKeyMap{
 	Start: key.NewBinding(
 		key.WithKeys("s"),

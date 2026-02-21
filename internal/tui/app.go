@@ -3,9 +3,11 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -59,9 +61,25 @@ type Model struct {
 	backupFormResult *backupFormResult
 	backupFormKind   backupFormKind
 
+	// File picker overlay — when non-nil, a file picker is shown for
+	// selecting a YAML config file. Used by the Config tab's apply/create flows.
+	filePicker      *filepicker.Model
+	filePickerTitle string
+	// filePickerProfile is the target profile for the selected file.
+	// Empty string means apply to main config.
+	filePickerProfile string
+	// filePickerIsNew is true when creating a new profile (vs overwriting).
+	filePickerIsNew bool
+
+	// Profile name form — when non-nil, the first step of new profile
+	// creation is active (asks for a name, then opens the file picker).
+	profileNameForm       *huh.Form
+	profileNameFormResult *profileNameResult
+
 	// Sub-models.
 	overview overviewModel
 	backups  backupsModel
+	config   configModel
 
 	keys globalKeyMap
 }
@@ -79,6 +97,7 @@ func New(uri string, theme Theme) Model {
 		connecting:   true,
 		overview:     newOverviewModel(&s),
 		backups:      newBackupsModel(&s),
+		config:       newConfigModel(&s),
 		keys:         globalKeys,
 	}
 }
@@ -126,6 +145,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds := []tea.Cmd{fetchOverviewCmd(m.client, m.overview.isFollowing())}
 		if m.activeTab == tabBackups {
 			cmds = append(cmds, fetchBackupsCmd(m.client), fetchRestoresCmd(m.client))
+		}
+		if m.activeTab == tabConfig {
+			cmds = append(cmds, fetchConfigCmd(m.client))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -204,6 +226,60 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.backupFormKind = msg.kind
 		return m, m.backupForm.Init()
 
+	case configDataMsg:
+		m.config.setData(msg.configData)
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.flashErr = ""
+		}
+		// Trigger lazy profile YAML fetch if the selected profile is uncached.
+		if name := m.config.needsProfileYAML(); name != "" {
+			return m, fetchProfileYAMLCmd(m.client, name)
+		}
+		return m, nil
+
+	case profileYAMLMsg:
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
+		} else {
+			m.config.setProfileYAML(msg.name, msg.yaml)
+		}
+		return m, nil
+
+	case fetchProfileYAMLRequest:
+		if m.client != nil {
+			return m, fetchProfileYAMLCmd(m.client, msg.name)
+		}
+		return m, nil
+
+	case configApplyRequest:
+		var title string
+		if msg.profileName == "" {
+			title = "Select YAML ─ Main"
+		} else {
+			title = "Select YAML ─ " + msg.profileName
+		}
+		m.filePickerProfile = msg.profileName
+		m.filePickerIsNew = false
+		return m, m.openFilePicker(title)
+
+	case configNewProfileRequest:
+		form, result := newProfileNameForm()
+		m.profileNameForm = form
+		m.profileNameFormResult = result
+		return m, m.profileNameForm.Init()
+
+	case configActionMsg:
+		if msg.err != nil {
+			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
+		} else {
+			m.flashErr = ""
+		}
+		// Clear cached profile YAMLs so they are re-fetched.
+		m.config.profileYAMLs = make(map[string][]byte)
+		return m, tickCmd(0)
+
 	case deleteConfirmMsg:
 		form, result := newConfirmForm(msg.description, "Delete", "Cancel")
 		m.confirmForm = form
@@ -219,15 +295,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.backupForm != nil {
 			return m.updateBackupForm(keyMsg)
 		}
+		if m.filePicker != nil {
+			return m.updateFilePicker(keyMsg)
+		}
+		if m.profileNameForm != nil {
+			return m.updateProfileNameForm(keyMsg)
+		}
 		if m.confirmForm != nil {
 			return m.updateConfirmForm(keyMsg)
 		}
 		return m.updateKeys(keyMsg)
 	}
 
-	// Forward non-key messages to the active form (e.g. huh internals).
+	// Forward non-key messages to the active form / overlay.
 	if m.backupForm != nil {
 		return m.updateBackupForm(msg)
+	}
+	if m.filePicker != nil {
+		return m.updateFilePicker(msg)
+	}
+	if m.profileNameForm != nil {
+		return m.updateProfileNameForm(msg)
 	}
 	if m.confirmForm != nil {
 		return m.updateConfirmForm(msg)
@@ -286,6 +374,10 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		case tabBackups:
 			if cmd := m.backups.update(msg, m.keys); cmd != nil {
+				return m, cmd
+			}
+		case tabConfig:
+			if cmd := m.config.update(msg, m.keys); cmd != nil {
 				return m, cmd
 			}
 		}
@@ -361,6 +453,12 @@ func (m Model) contentView(height int) string {
 		}
 		return renderFormOverlay(m.backupForm, title, &m.styles, m.width, height)
 	}
+	if m.filePicker != nil {
+		return renderFilePickerOverlay(m.filePicker, m.filePickerTitle, &m.styles, m.width, height)
+	}
+	if m.profileNameForm != nil {
+		return renderFormOverlay(m.profileNameForm, "New Profile", &m.styles, m.width, height)
+	}
 	if m.confirmForm != nil {
 		return renderFormOverlay(m.confirmForm, m.confirmFormTitle, &m.styles, m.width, height)
 	}
@@ -371,18 +469,10 @@ func (m Model) contentView(height int) string {
 	case tabBackups:
 		return m.backups.view(m.width, height)
 	case tabConfig:
-		return m.placeholderContent("Config - PBM configuration and profiles", height)
+		return m.config.view(m.width, height)
 	default:
 		return ""
 	}
-}
-
-// placeholderContent renders a simple placeholder for unimplemented tabs.
-func (m Model) placeholderContent(text string, height int) string {
-	return lipgloss.NewStyle().
-		Width(m.width).
-		Height(height).
-		Render(text)
 }
 
 // bottomBarView renders the single merged bottom bar with status HUD on the
@@ -514,6 +604,7 @@ func (m *Model) updateViewportDims() {
 
 	m.overview.resize(m.width, contentH)
 	m.backups.resize(m.width, contentH)
+	m.config.resize(m.width, contentH)
 }
 
 // --- Backup form management ---
@@ -582,6 +673,173 @@ func (m *Model) transitionToFullForm() tea.Cmd {
 	m.backupFormResult = result
 	m.backupFormKind = backupFormFull
 	return m.backupForm.Init()
+}
+
+// --- Config form management ---
+
+// --- File picker management ---
+
+// filePickerAllowedTypes restricts the file picker to YAML files.
+var filePickerAllowedTypes = []string{".yaml", ".yml"}
+
+// filePickerHeight is the number of visible rows in the file picker.
+const filePickerHeight = 18
+
+// openFilePicker creates and initializes a file picker overlay.
+func (m *Model) openFilePicker(title string) tea.Cmd {
+	fp := filepicker.New()
+	fp.AllowedTypes = filePickerAllowedTypes
+	fp.AutoHeight = false
+	fp.SetHeight(filePickerHeight)
+	fp.ShowHidden = false
+	fp.ShowPermissions = false
+	fp.ShowSize = true
+	fp.DirAllowed = false
+	fp.FileAllowed = true
+
+	// Start from an absolute path so Back (filepath.Dir) can navigate up.
+	if wd, err := os.Getwd(); err == nil {
+		fp.CurrentDirectory = wd
+	}
+
+	// Customize keybindings: remove esc from Back (used for dismiss),
+	// and use h/backspace/left for parent directory navigation.
+	km := filepicker.DefaultKeyMap()
+	km.Back = key.NewBinding(
+		key.WithKeys("h", "backspace", "left"),
+		key.WithHelp("h", "back"),
+	)
+	fp.KeyMap = km
+
+	m.filePicker = &fp
+	m.filePickerTitle = title
+	return m.filePicker.Init()
+}
+
+// updateFilePicker forwards a message to the active file picker and handles
+// file selection or dismissal.
+func (m Model) updateFilePicker(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, m.keys.Back) || key.Matches(keyMsg, m.keys.Quit) {
+			m.clearFilePicker()
+			return m, nil
+		}
+	}
+
+	fp, cmd := m.filePicker.Update(msg)
+	m.filePicker = &fp
+
+	// Check if the user selected a file.
+	if didSelect, path := m.filePicker.DidSelectFile(msg); didSelect {
+		profile := m.filePickerProfile
+		isNew := m.filePickerIsNew
+		m.clearFilePicker()
+
+		if isNew {
+			// filePickerProfile already holds the new profile name
+			// (set during the profile name form completion).
+			return m, applyProfileCmd(m.client, profile, path, "create profile")
+		}
+		if profile == "" {
+			return m, applyConfigCmd(m.client, path)
+		}
+		return m, applyProfileCmd(m.client, profile, path, "set profile")
+	}
+
+	return m, cmd
+}
+
+// clearFilePicker resets all file picker state.
+func (m *Model) clearFilePicker() {
+	m.filePicker = nil
+	m.filePickerTitle = ""
+	m.filePickerProfile = ""
+	m.filePickerIsNew = false
+}
+
+// --- Profile name form management ---
+
+// updateProfileNameForm forwards a message to the profile name form and
+// transitions to the file picker on completion.
+func (m Model) updateProfileNameForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, m.keys.Back) || key.Matches(keyMsg, m.keys.Quit) {
+			m.profileNameForm = nil
+			m.profileNameFormResult = nil
+			return m, nil
+		}
+	}
+
+	formModel, cmd := m.profileNameForm.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		m.profileNameForm = f
+	}
+
+	if m.profileNameForm.State == huh.StateCompleted {
+		result := m.profileNameFormResult
+		m.profileNameForm = nil
+		m.profileNameFormResult = nil
+
+		if !result.confirmed || result.name == "" {
+			return m, nil
+		}
+
+		// Transition to file picker for the new profile.
+		m.filePickerProfile = result.name
+		m.filePickerIsNew = true
+		return m, m.openFilePicker("Select YAML ─ " + result.name)
+	}
+
+	if m.profileNameForm.State == huh.StateAborted {
+		m.profileNameForm = nil
+		m.profileNameFormResult = nil
+		return m, nil
+	}
+
+	return m, cmd
+}
+
+// filePickerInnerWidth is the content width inside the file picker panel.
+const filePickerInnerWidth = 60
+
+// renderFilePickerOverlay renders the file picker centered over the content
+// area inside a bordered panel with a title and current path breadcrumb.
+func renderFilePickerOverlay(fp *filepicker.Model, title string, styles *Styles, contentW, contentH int) string {
+	// Current directory path — truncate from the left if too wide.
+	dir := fp.CurrentDirectory
+	maxPathW := filePickerInnerWidth - 2 // leave room for "…/" prefix
+	if len(dir) > maxPathW {
+		dir = "…" + dir[len(dir)-maxPathW:]
+	}
+	pathLine := styles.StatusMuted.Render(dir)
+
+	// Hint line for navigation.
+	hintLine := styles.StatusMuted.Render("h:back  l:open  enter:select  esc:cancel")
+
+	body := pathLine + "\n" +
+		styles.StatusMuted.Render(strings.Repeat("─", filePickerInnerWidth)) + "\n" +
+		fp.View() + "\n" +
+		styles.StatusMuted.Render(strings.Repeat("─", filePickerInnerWidth)) + "\n" +
+		hintLine
+
+	border := lipgloss.RoundedBorder()
+	borderColor := styles.FocusedBorderColor
+
+	panelWidth := filePickerInnerWidth + panelPaddingH
+
+	panel := lipgloss.NewStyle().
+		Border(border).
+		BorderForeground(borderColor).
+		Padding(1, 1).
+		Width(panelWidth).
+		Render(body)
+
+	outerW := panelWidth + panelBorderH
+	panel = replaceTitleBorder(panel, title, outerW, border, borderColor)
+
+	return lipgloss.Place(contentW, contentH,
+		lipgloss.Center, lipgloss.Center,
+		panel)
 }
 
 // --- Confirm form management ---

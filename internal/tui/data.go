@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -326,6 +327,119 @@ func fetchRestoresCmd(client *sdk.Client) tea.Cmd {
 		ctx := context.Background()
 		restores, err := client.Restores.List(ctx, sdk.ListRestoresOptions{})
 		return restoresDataMsg{restoresData{restores: restores, err: err}}
+	}
+}
+
+// --- Config tab data ---
+
+// configData holds the result of a single config poll cycle.
+type configData struct {
+	config   *sdk.Config
+	yaml     []byte
+	profiles []sdk.StorageProfile
+	err      error
+}
+
+// configDataMsg wraps configData as a BubbleTea message.
+type configDataMsg struct{ configData }
+
+// profileYAMLMsg carries a lazily-fetched profile YAML.
+type profileYAMLMsg struct {
+	name string
+	yaml []byte
+	err  error
+}
+
+// fetchConfigCmd returns a tea.Cmd that fetches config data concurrently.
+func fetchConfigCmd(client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		var d configData
+
+		var mu sync.Mutex
+		setErr := func(err error) {
+			if err != nil {
+				mu.Lock()
+				if d.err == nil {
+					d.err = err
+				}
+				mu.Unlock()
+			}
+		}
+
+		g, gctx := errgroup.WithContext(ctx)
+
+		g.Go(func() error {
+			v, err := client.Config.Get(gctx)
+			d.config = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.Config.GetYAML(gctx)
+			d.yaml = v
+			setErr(err)
+			return nil
+		})
+
+		g.Go(func() error {
+			v, err := client.Config.ListProfiles(gctx)
+			d.profiles = v
+			setErr(err)
+			return nil
+		})
+
+		_ = g.Wait()
+		return configDataMsg{d}
+	}
+}
+
+// fetchProfileYAMLCmd returns a tea.Cmd that fetches the YAML for a
+// single storage profile by name.
+func fetchProfileYAMLCmd(client *sdk.Client, name string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		yaml, err := client.Config.GetProfileYAML(ctx, name)
+		return profileYAMLMsg{name: name, yaml: yaml, err: err}
+	}
+}
+
+// configActionMsg carries the result of a config action (apply config, set/create profile).
+type configActionMsg struct {
+	action string // "apply config", "set profile", "create profile"
+	err    error
+}
+
+// applyConfigCmd returns a tea.Cmd that reads a YAML file and applies it
+// as the main PBM configuration.
+func applyConfigCmd(client *sdk.Client, filePath string) tea.Cmd {
+	return func() tea.Msg {
+		f, err := os.Open(filePath)
+		if err != nil {
+			return configActionMsg{action: "apply config", err: fmt.Errorf("open %s: %w", filePath, err)}
+		}
+		defer func() { _ = f.Close() }()
+
+		ctx := context.Background()
+		err = client.Config.SetYAML(ctx, f)
+		return configActionMsg{action: "apply config", err: err}
+	}
+}
+
+// applyProfileCmd returns a tea.Cmd that reads a YAML file and applies it
+// to a named storage profile (create or replace).
+func applyProfileCmd(client *sdk.Client, name, filePath, action string) tea.Cmd {
+	return func() tea.Msg {
+		f, err := os.Open(filePath)
+		if err != nil {
+			return configActionMsg{action: action, err: fmt.Errorf("open %s: %w", filePath, err)}
+		}
+		defer func() { _ = f.Close() }()
+
+		ctx := context.Background()
+		_, err = client.Config.SetProfile(ctx, name, f)
+		return configActionMsg{action: action, err: err}
 	}
 }
 
