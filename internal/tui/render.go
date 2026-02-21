@@ -79,6 +79,7 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 }
 
 // helpOverlayWidth is the content width inside the help overlay panel.
+// Sized to fit the widest help entry ("shift+tab  previous field") with padding.
 const helpOverlayWidth = 38
 
 // helpEntry is a single key→description pair in the help overlay.

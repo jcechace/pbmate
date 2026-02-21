@@ -16,7 +16,7 @@ import (
 const (
 	maxBackupNameOverview = 16  // max backup name length in the overview status panel
 	statusLabelWidth      = 10  // fixed label column width in the status panel
-	maxLogEntries         = 200 // max log entries kept in the follow buffer
+	maxLogEntries         = 200 // max log entries in follow buffer; balances memory vs scroll depth
 )
 
 // overviewFocus identifies which quadrant has focus in the overview layout.

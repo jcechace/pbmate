@@ -108,6 +108,7 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 var filePickerAllowedTypes = []string{".yaml", ".yml"}
 
 // filePickerHeight is the number of visible rows in the file picker.
+// Fits comfortably in typical 24-row terminals with room for chrome.
 const filePickerHeight = 18
 
 // filePickerOverlay wraps a file picker for selecting YAML config files.
