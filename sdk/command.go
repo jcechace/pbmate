@@ -156,6 +156,38 @@ type DeleteBackupsBefore struct {
 func (c DeleteBackupsBefore) kind() string         { return fmt.Sprintf("%T", c) }
 func (c DeleteBackupsBefore) deleteBackupCommand() {}
 
+// DeletePITRCommand is a sealed interface for PITR oplog chunk deletion
+// variants. There are exactly two implementations:
+//   - [DeletePITRBefore] deletes all oplog chunks older than a timestamp.
+//   - [DeletePITRAll] deletes all oplog chunks (equivalent to
+//     DeletePITRBefore with OlderThan set to the current time).
+//
+// Most callers should use [PITRService.Delete] instead of dispatching
+// through [CommandService] directly.
+type DeletePITRCommand interface {
+	Command
+	deletePITRCommand() // seal to this package
+}
+
+// DeletePITRBefore requests deletion of all PITR oplog chunks older than
+// a timestamp. The deletion is processed asynchronously by PBM agents.
+type DeletePITRBefore struct {
+	// OlderThan is the cutoff time. All oplog chunks ending before this
+	// value are candidates for deletion. Required — zero value is rejected
+	// with an error.
+	OlderThan time.Time
+}
+
+func (c DeletePITRBefore) kind() string       { return fmt.Sprintf("%T", c) }
+func (c DeletePITRBefore) deletePITRCommand() {}
+
+// DeletePITRAll requests deletion of all PITR oplog chunks. This is
+// equivalent to [DeletePITRBefore] with OlderThan set to the current time.
+type DeletePITRAll struct{}
+
+func (c DeletePITRAll) kind() string       { return fmt.Sprintf("%T", c) }
+func (c DeletePITRAll) deletePITRCommand() {}
+
 // AddProfileCommand requests creation or replacement of a named storage profile.
 // The storage field is unexported and populated by [ConfigService] from parsed YAML;
 // callers cannot construct this command directly — use ConfigService instead.

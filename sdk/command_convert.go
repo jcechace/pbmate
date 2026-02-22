@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
 	"github.com/percona/percona-backup-mongodb/pbm/config"
@@ -24,6 +25,15 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertAddProfileCommandToPBM(c)
 	case RemoveProfileCommand:
 		return convertRemoveProfileCommandToPBM(c), nil
+	case DeletePITRBefore:
+		return convertDeletePITRBeforeToPBM(c), nil
+	case DeletePITRAll:
+		// DeletePITRAll is resolved to DeletePITRBefore{OlderThan: now}
+		// by pitrServiceImpl.deleteAll before reaching here. If it arrives
+		// at the converter directly, treat it as "now".
+		return convertDeletePITRBeforeToPBM(DeletePITRBefore{
+			OlderThan: time.Now().UTC(),
+		}), nil
 	case CancelBackupCommand:
 		return ctrl.Cmd{Cmd: ctrl.CmdCancelBackup}, nil
 	default:
@@ -97,6 +107,15 @@ func convertRemoveProfileCommandToPBM(cmd RemoveProfileCommand) ctrl.Cmd {
 		Cmd: ctrl.CmdRemoveConfigProfile,
 		Profile: &ctrl.ProfileCmd{
 			Name: cmd.Name,
+		},
+	}
+}
+
+func convertDeletePITRBeforeToPBM(cmd DeletePITRBefore) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdDeletePITR,
+		DeletePITR: &ctrl.DeletePITRCmd{
+			OlderThan: cmd.OlderThan.Unix(),
 		},
 	}
 }

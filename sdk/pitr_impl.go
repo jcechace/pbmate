@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
@@ -14,6 +15,7 @@ import (
 
 type pitrServiceImpl struct {
 	conn connect.Client
+	cmds CommandService
 	log  *slog.Logger
 }
 
@@ -71,4 +73,42 @@ func (s *pitrServiceImpl) Timelines(ctx context.Context) ([]Timeline, error) {
 	}
 
 	return convertTimelines(tlns), nil
+}
+
+func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (CommandResult, error) {
+	switch c := cmd.(type) {
+	case DeletePITRBefore:
+		return s.deleteBefore(ctx, c)
+	case DeletePITRAll:
+		return s.deleteAll(ctx)
+	default:
+		return CommandResult{}, fmt.Errorf("unsupported delete PITR command type: %T", cmd)
+	}
+}
+
+func (s *pitrServiceImpl) deleteBefore(ctx context.Context, cmd DeletePITRBefore) (CommandResult, error) {
+	if cmd.OlderThan.IsZero() {
+		return CommandResult{}, fmt.Errorf("delete PITR chunks: older-than time must be set")
+	}
+	if cmd.OlderThan.After(time.Now().UTC()) {
+		return CommandResult{}, fmt.Errorf("delete PITR chunks: older-than time %s is in the future",
+			cmd.OlderThan.Format(time.RFC3339))
+	}
+
+	s.log.InfoContext(ctx, "deleting PITR chunks older than",
+		"olderThan", cmd.OlderThan.Format(time.RFC3339),
+	)
+	result, err := s.cmds.Send(ctx, cmd)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("delete PITR chunks older than %s: %w",
+			cmd.OlderThan.Format(time.RFC3339), err)
+	}
+	return result, nil
+}
+
+func (s *pitrServiceImpl) deleteAll(ctx context.Context) (CommandResult, error) {
+	s.log.InfoContext(ctx, "deleting all PITR chunks")
+	return s.deleteBefore(ctx, DeletePITRBefore{
+		OlderThan: time.Now().UTC(),
+	})
 }

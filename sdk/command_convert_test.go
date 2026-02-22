@@ -142,6 +142,32 @@ func TestConvertDeleteBackupsBeforeToPBM(t *testing.T) {
 	})
 }
 
+func TestConvertDeletePITRBeforeToPBM(t *testing.T) {
+	olderThan := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
+	cmd := DeletePITRBefore{OlderThan: olderThan}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdDeletePITR, result.Cmd)
+	require.NotNil(t, result.DeletePITR)
+	assert.Equal(t, olderThan.Unix(), result.DeletePITR.OlderThan)
+}
+
+func TestConvertDeletePITRAllToPBM(t *testing.T) {
+	before := time.Now().UTC()
+	cmd := DeletePITRAll{}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdDeletePITR, result.Cmd)
+	require.NotNil(t, result.DeletePITR)
+	// DeletePITRAll resolves to "now" — the timestamp should be at or after
+	// the time we captured before the call.
+	assert.GreaterOrEqual(t, result.DeletePITR.OlderThan, before.Unix())
+}
+
 func TestConvertCancelBackupCommandToPBM(t *testing.T) {
 	cmd := CancelBackupCommand{}
 

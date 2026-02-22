@@ -31,6 +31,27 @@ type PITRService interface {
 	// Note: timelines represent raw oplog coverage. A PITR restore also
 	// requires a base backup snapshot within the timeline's range.
 	Timelines(ctx context.Context) ([]Timeline, error)
+
+	// Delete requests deletion of PITR oplog chunks. The deletion is
+	// processed asynchronously by PBM agents — the command returns
+	// immediately. Returns a [*ConcurrentOperationError] if another
+	// operation is running.
+	//
+	// The cmd parameter is a sealed [DeletePITRCommand] with two variants:
+	//   - [DeletePITRBefore] deletes chunks older than a cutoff time.
+	//   - [DeletePITRAll] deletes all chunks (equivalent to "older than now").
+	//
+	// Example — delete chunks older than 7 days:
+	//
+	//	cutoff := time.Now().Add(-7 * 24 * time.Hour)
+	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITRBefore{
+	//	    OlderThan: cutoff,
+	//	})
+	//
+	// Example — delete all chunks:
+	//
+	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITRAll{})
+	Delete(ctx context.Context, cmd DeletePITRCommand) (CommandResult, error)
 }
 
 // PITRStatus represents the current state of PITR (Point-in-Time Recovery).
