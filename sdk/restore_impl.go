@@ -62,6 +62,10 @@ func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Resto
 }
 
 func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error) {
+	if err := validateRestoreCommand(cmd); err != nil {
+		return RestoreResult{}, err
+	}
+
 	name := time.Now().UTC().Format(time.RFC3339Nano)
 
 	// Inject the auto-generated name into the concrete command type.
@@ -84,6 +88,29 @@ func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand)
 		CommandResult: result,
 		Name:          name,
 	}, nil
+}
+
+func validateRestoreCommand(cmd StartRestoreCommand) error {
+	switch c := cmd.(type) {
+	case StartSnapshotRestore:
+		if c.BackupName == "" {
+			return fmt.Errorf("start restore: backup name is required")
+		}
+		if (c.NamespaceFrom != "") != (c.NamespaceTo != "") {
+			return fmt.Errorf("start restore: namespace-from and namespace-to must be set together")
+		}
+	case StartPITRRestore:
+		if c.BackupName == "" {
+			return fmt.Errorf("start pitr restore: backup name is required")
+		}
+		if c.Target.IsZero() {
+			return fmt.Errorf("start pitr restore: target timestamp is required")
+		}
+		if (c.NamespaceFrom != "") != (c.NamespaceTo != "") {
+			return fmt.Errorf("start pitr restore: namespace-from and namespace-to must be set together")
+		}
+	}
+	return nil
 }
 
 func (s *restoreServiceImpl) Wait(ctx context.Context, name string, opts RestoreWaitOptions) (*Restore, error) {

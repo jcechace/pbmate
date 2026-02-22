@@ -123,6 +123,10 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 }
 
 func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupByName) (CommandResult, error) {
+	if cmd.Name == "" {
+		return CommandResult{}, fmt.Errorf("delete backup: name is required")
+	}
+
 	s.log.InfoContext(ctx, "deleting backup", "name", cmd.Name)
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {

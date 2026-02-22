@@ -125,6 +125,10 @@ func (s *configServiceImpl) SetProfile(ctx context.Context, name string, r io.Re
 }
 
 func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (CommandResult, error) {
+	if name == "" {
+		return CommandResult{}, fmt.Errorf("remove profile: name is required")
+	}
+
 	s.log.InfoContext(ctx, "removing profile", "name", name)
 	result, err := s.cmds.Send(ctx, RemoveProfileCommand{Name: name})
 	if err != nil {
@@ -134,6 +138,10 @@ func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (Com
 }
 
 func (s *configServiceImpl) Resync(ctx context.Context, cmd ResyncCommand) (CommandResult, error) {
+	if c, ok := cmd.(ResyncProfile); ok && c.Name == "" {
+		return CommandResult{}, fmt.Errorf("resync profile: name is required")
+	}
+
 	s.log.InfoContext(ctx, "resyncing storage", "command", fmt.Sprintf("%T", cmd))
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
