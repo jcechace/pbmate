@@ -63,20 +63,28 @@ type BackupService interface {
 	// is auto-generated from the current timestamp. Returns a
 	// [*ConcurrentOperationError] if another PBM operation is already running.
 	//
-	// Example:
+	// The cmd parameter is a sealed [StartBackupCommand] with variants:
+	//   - [StartLogicalBackup] for logical (mongodump) backups.
+	//   - [StartIncrementalBackup] for incremental backups.
 	//
-	//	result, err := client.Backups.Start(ctx, sdk.StartBackupOptions{
-	//	    Type: sdk.BackupTypeLogical,
+	// Example — logical backup:
+	//
+	//	result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
+	//
+	// Example — selective logical backup to a named profile:
+	//
+	//	name, _ := sdk.NewConfigName("archive")
+	//	result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{
+	//	    ConfigName: name,
+	//	    Namespaces: []string{"mydb.mycol"},
 	//	})
-	//	if err != nil {
-	//	    var concurrent *sdk.ConcurrentOperationError
-	//	    if errors.As(err, &concurrent) {
-	//	        fmt.Printf("busy: %s is running\n", concurrent.Type)
-	//	    }
-	//	    return err
-	//	}
-	//	fmt.Printf("started backup %s (opid: %s)\n", result.Name, result.OPID)
-	Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error)
+	//
+	// Example — incremental backup base:
+	//
+	//	result, err := client.Backups.Start(ctx, sdk.StartIncrementalBackup{
+	//	    Base: true,
+	//	})
+	Start(ctx context.Context, cmd StartBackupCommand) (BackupResult, error)
 
 	// Wait polls until the named backup reaches a terminal status or the
 	// context is cancelled. Context cancellation stops waiting but does NOT

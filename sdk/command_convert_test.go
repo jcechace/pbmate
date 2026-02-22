@@ -15,14 +15,12 @@ import (
 	"github.com/percona/percona-backup-mongodb/pbm/storage/fs"
 )
 
-func TestConvertBackupCommandToPBM(t *testing.T) {
-	cmd := BackupCommand{
-		Name:        "2024-01-15T10:30:00Z",
-		Type:        BackupTypeLogical,
+func TestConvertStartLogicalBackupToPBM(t *testing.T) {
+	cmd := StartLogicalBackup{
 		ConfigName:  MainConfig,
 		Compression: CompressionTypeZSTD,
 		Namespaces:  []string{"db1.coll1"},
-		IncrBase:    true,
+		name:        "2024-01-15T10:30:00Z",
 	}
 
 	result, err := convertCommandToPBM(cmd)
@@ -34,24 +32,42 @@ func TestConvertBackupCommandToPBM(t *testing.T) {
 	assert.Equal(t, "2024-01-15T10:30:00Z", result.Backup.Name)
 	assert.Equal(t, compress.CompressionTypeZstandard, result.Backup.Compression)
 	assert.Equal(t, []string{"db1.coll1"}, result.Backup.Namespaces)
-	assert.True(t, result.Backup.IncrBase)
 	assert.Equal(t, "", result.Backup.Profile, "MainConfig should map to empty string")
 }
 
-func TestConvertBackupCommandWithProfile(t *testing.T) {
+func TestConvertStartLogicalBackupWithProfile(t *testing.T) {
 	cn, err := NewConfigName("my-s3")
 	require.NoError(t, err)
 
-	cmd := BackupCommand{
-		Name:       "2024-01-15T10:30:00Z",
-		Type:       BackupTypePhysical,
+	cmd := StartLogicalBackup{
 		ConfigName: cn,
+		name:       "2024-01-15T10:30:00Z",
 	}
 
 	result, err := convertCommandToPBM(cmd)
 	require.NoError(t, err)
 
 	assert.Equal(t, "my-s3", result.Backup.Profile)
+}
+
+func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
+	cmd := StartIncrementalBackup{
+		ConfigName:  MainConfig,
+		Compression: CompressionTypeS2,
+		Base:        true,
+		name:        "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdBackup, result.Cmd)
+	require.NotNil(t, result.Backup)
+	assert.Equal(t, defs.IncrementalBackup, result.Backup.Type)
+	assert.Equal(t, "2024-01-15T10:30:00Z", result.Backup.Name)
+	assert.Equal(t, compress.CompressionTypeS2, result.Backup.Compression)
+	assert.True(t, result.Backup.IncrBase)
+	assert.Nil(t, result.Backup.Namespaces, "incremental backups don't support namespaces")
 }
 
 func TestConvertRestoreCommandToPBM(t *testing.T) {

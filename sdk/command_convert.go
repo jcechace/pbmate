@@ -13,8 +13,10 @@ import (
 // convertCommandToPBM converts an SDK Command to PBM's ctrl.Cmd.
 func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 	switch c := cmd.(type) {
-	case BackupCommand:
-		return convertBackupCommandToPBM(c), nil
+	case StartLogicalBackup:
+		return convertStartLogicalBackupToPBM(c), nil
+	case StartIncrementalBackup:
+		return convertStartIncrementalBackupToPBM(c), nil
 	case RestoreCommand:
 		return convertRestoreCommandToPBM(c), nil
 	case DeleteBackupByName:
@@ -41,14 +43,26 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 	}
 }
 
-func convertBackupCommandToPBM(cmd BackupCommand) ctrl.Cmd {
+func convertStartLogicalBackupToPBM(cmd StartLogicalBackup) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdBackup,
 		Backup: &ctrl.BackupCmd{
-			Type:        defs.BackupType(cmd.Type.String()),
-			IncrBase:    cmd.IncrBase,
-			Name:        cmd.Name,
+			Type:        defs.LogicalBackup,
+			Name:        cmd.name,
 			Namespaces:  cmd.Namespaces,
+			Compression: compress.CompressionType(cmd.Compression.String()),
+			Profile:     configNameToPBM(cmd.ConfigName),
+		},
+	}
+}
+
+func convertStartIncrementalBackupToPBM(cmd StartIncrementalBackup) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdBackup,
+		Backup: &ctrl.BackupCmd{
+			Type:        defs.IncrementalBackup,
+			IncrBase:    cmd.Base,
+			Name:        cmd.name,
 			Compression: compress.CompressionType(cmd.Compression.String()),
 			Profile:     configNameToPBM(cmd.ConfigName),
 		},

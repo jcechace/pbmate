@@ -75,21 +75,20 @@ func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup
 	return &b, nil
 }
 
-func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) (BackupResult, error) {
-	if opts.ConfigName.IsZero() {
-		opts.ConfigName = MainConfig
+func (s *backupServiceImpl) Start(ctx context.Context, cmd StartBackupCommand) (BackupResult, error) {
+	name := time.Now().UTC().Format(time.RFC3339)
+
+	// Inject the auto-generated name into the concrete command type.
+	switch c := cmd.(type) {
+	case StartLogicalBackup:
+		c.name = name
+		cmd = c
+	case StartIncrementalBackup:
+		c.name = name
+		cmd = c
 	}
 
-	cmd := BackupCommand{
-		Name:        time.Now().UTC().Format(time.RFC3339),
-		Type:        opts.Type,
-		ConfigName:  opts.ConfigName,
-		Compression: opts.Compression,
-		Namespaces:  opts.Namespaces,
-		IncrBase:    opts.IncrBase,
-	}
-
-	s.log.InfoContext(ctx, "starting backup", "name", cmd.Name, "type", cmd.Type)
+	s.log.InfoContext(ctx, "starting backup", "name", name, "type", fmt.Sprintf("%T", cmd))
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
 		return BackupResult{}, fmt.Errorf("start backup: %w", err)
@@ -97,7 +96,7 @@ func (s *backupServiceImpl) Start(ctx context.Context, opts StartBackupOptions) 
 
 	return BackupResult{
 		CommandResult: result,
-		Name:          cmd.Name,
+		Name:          name,
 	}, nil
 }
 
