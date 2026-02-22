@@ -73,7 +73,7 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 		if !o.result.confirmed {
 			return nil, nil
 		}
-		return nil, startBackupWithOptsCmd(o.ctx, o.client, o.result.toOptions())
+		return nil, startBackupCmd(o.ctx, o.client, o.result.toCommand())
 	}
 
 	if o.form.State == huh.StateAborted {

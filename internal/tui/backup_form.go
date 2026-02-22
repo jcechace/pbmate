@@ -41,39 +41,47 @@ type backupFormResult struct {
 	profiles []sdk.StorageProfile
 }
 
-// toOptions converts the form result into SDK StartBackupOptions.
-func (r backupFormResult) toOptions() sdk.StartBackupOptions {
-	opts := sdk.StartBackupOptions{}
-
-	if bt, err := sdk.ParseBackupType(r.backupType); err == nil {
-		opts.Type = bt
+// toCommand converts the form result into a sealed SDK StartBackupCommand.
+func (r backupFormResult) toCommand() sdk.StartBackupCommand {
+	configName := sdk.ConfigName{}
+	if r.configName != defaultConfigName {
+		if cn, err := sdk.NewConfigName(r.configName); err == nil {
+			configName = cn
+		}
 	}
 
+	compression := sdk.CompressionType{}
 	// "default" leaves Compression as zero value (server decides).
 	// All other values including "none" are parsed to their SDK equivalents.
 	if r.compression != "default" {
 		if ct, err := sdk.ParseCompressionType(r.compression); err == nil {
-			opts.Compression = ct
+			compression = ct
 		}
 	}
 
-	if r.configName != defaultConfigName {
-		cn, err := sdk.NewConfigName(r.configName)
-		if err == nil {
-			opts.ConfigName = cn
+	if r.backupType == "incremental" {
+		return sdk.StartIncrementalBackup{
+			ConfigName:  configName,
+			Compression: compression,
+			Base:        r.incrBase,
 		}
+	}
+
+	// Default: logical backup.
+	cmd := sdk.StartLogicalBackup{
+		ConfigName:  configName,
+		Compression: compression,
 	}
 
 	if r.namespaces != "" && r.namespaces != "*.*" {
-		opts.Namespaces = strings.Split(r.namespaces, ",")
-		for i := range opts.Namespaces {
-			opts.Namespaces[i] = strings.TrimSpace(opts.Namespaces[i])
+		nss := strings.Split(r.namespaces, ",")
+		for i := range nss {
+			nss[i] = strings.TrimSpace(nss[i])
 		}
+		cmd.Namespaces = nss
 	}
 
-	opts.IncrBase = r.incrBase
-
-	return opts
+	return cmd
 }
 
 // --- Quick backup form ---

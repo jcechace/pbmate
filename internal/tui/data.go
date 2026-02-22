@@ -154,10 +154,10 @@ func fetchProfilesCmd(ctx context.Context, client *sdk.Client, kind backupFormKi
 	}
 }
 
-// startBackupWithOptsCmd returns a tea.Cmd that starts a backup with the given options.
-func startBackupWithOptsCmd(ctx context.Context, client *sdk.Client, opts sdk.StartBackupOptions) tea.Cmd {
+// startBackupCmd returns a tea.Cmd that starts a backup with the given command.
+func startBackupCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartBackupCommand) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.Backups.Start(ctx, opts)
+		_, err := client.Backups.Start(ctx, cmd)
 		return backupActionMsg{action: "start", err: err}
 	}
 }
