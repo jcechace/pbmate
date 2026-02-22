@@ -98,14 +98,29 @@ type BackupService interface {
 	//	})
 	Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error)
 
-	// Delete requests deletion of a backup by name. The deletion is processed
-	// asynchronously by PBM agents — the command returns immediately.
-	// Returns a [*ConcurrentOperationError] if another operation is running.
+	// Delete requests deletion of one or more backups. The deletion is
+	// processed asynchronously by PBM agents — the command returns
+	// immediately. Returns a [*ConcurrentOperationError] if another
+	// operation is running.
 	//
-	// Example:
+	// The cmd parameter is a sealed [DeleteBackupCommand] with two variants:
+	//   - [DeleteBackupByName] deletes a single backup.
+	//   - [DeleteBackupOlderThan] bulk-deletes backups older than a cutoff.
 	//
-	//	_, err := client.Backups.Delete(ctx, "2026-02-19T20:28:16Z")
-	Delete(ctx context.Context, name string) (CommandResult, error)
+	// Example — delete by name:
+	//
+	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupByName{
+	//	    Name: "2026-02-19T20:28:16Z",
+	//	})
+	//
+	// Example — bulk delete older than a cutoff:
+	//
+	//	cutoff := time.Now().Add(-30 * 24 * time.Hour)
+	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupOlderThan{
+	//	    OlderThan: cutoff,
+	//	    Type:      sdk.BackupTypeLogical,
+	//	})
+	Delete(ctx context.Context, cmd DeleteBackupCommand) (CommandResult, error)
 
 	// Cancel requests cancellation of the currently running backup. If no
 	// backup is running, the command is accepted but has no effect.

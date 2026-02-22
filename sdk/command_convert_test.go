@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -73,8 +74,8 @@ func TestConvertRestoreCommandToPBM(t *testing.T) {
 	assert.Equal(t, []string{"db1.coll1"}, result.Restore.Namespaces)
 }
 
-func TestConvertDeleteBackupCommandToPBM(t *testing.T) {
-	cmd := DeleteBackupCommand{
+func TestConvertDeleteBackupByNameToPBM(t *testing.T) {
+	cmd := DeleteBackupByName{
 		Name: "2024-01-15T10:30:00Z",
 	}
 
@@ -84,6 +85,61 @@ func TestConvertDeleteBackupCommandToPBM(t *testing.T) {
 	assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
 	require.NotNil(t, result.Delete)
 	assert.Equal(t, "2024-01-15T10:30:00Z", result.Delete.Backup)
+	assert.Zero(t, result.Delete.OlderThan)
+	assert.Empty(t, result.Delete.Type)
+	assert.Empty(t, result.Delete.Profile)
+}
+
+func TestConvertDeleteBackupOlderThanToPBM(t *testing.T) {
+	t.Run("all fields set", func(t *testing.T) {
+		cn, err := NewConfigName("my-s3")
+		require.NoError(t, err)
+
+		olderThan := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
+		cmd := DeleteBackupOlderThan{
+			OlderThan:  olderThan,
+			Type:       BackupTypeLogical,
+			ConfigName: cn,
+		}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
+		require.NotNil(t, result.Delete)
+		assert.Empty(t, result.Delete.Backup)
+		assert.Equal(t, olderThan.Unix(), result.Delete.OlderThan)
+		assert.Equal(t, defs.LogicalBackup, result.Delete.Type)
+		assert.Equal(t, "my-s3", result.Delete.Profile)
+	})
+
+	t.Run("minimal", func(t *testing.T) {
+		olderThan := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+		cmd := DeleteBackupOlderThan{
+			OlderThan: olderThan,
+		}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
+		require.NotNil(t, result.Delete)
+		assert.Equal(t, olderThan.Unix(), result.Delete.OlderThan)
+		assert.Empty(t, result.Delete.Type)
+		assert.Empty(t, result.Delete.Profile)
+	})
+
+	t.Run("main config maps to empty profile", func(t *testing.T) {
+		cmd := DeleteBackupOlderThan{
+			OlderThan:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+			ConfigName: MainConfig,
+		}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Empty(t, result.Delete.Profile)
+	})
 }
 
 func TestConvertCancelBackupCommandToPBM(t *testing.T) {

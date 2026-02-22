@@ -112,11 +112,44 @@ func (s *backupServiceImpl) Wait(ctx context.Context, name string, opts BackupWa
 	})
 }
 
-func (s *backupServiceImpl) Delete(ctx context.Context, name string) (CommandResult, error) {
-	s.log.InfoContext(ctx, "deleting backup", "name", name)
-	result, err := s.cmds.Send(ctx, DeleteBackupCommand{Name: name})
+func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand) (CommandResult, error) {
+	switch c := cmd.(type) {
+	case DeleteBackupByName:
+		return s.deleteByName(ctx, c)
+	case DeleteBackupOlderThan:
+		return s.deleteOlderThan(ctx, c)
+	default:
+		return CommandResult{}, fmt.Errorf("unsupported delete command type: %T", cmd)
+	}
+}
+
+func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupByName) (CommandResult, error) {
+	s.log.InfoContext(ctx, "deleting backup", "name", cmd.Name)
+	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
-		return CommandResult{}, fmt.Errorf("delete backup %q: %w", name, err)
+		return CommandResult{}, fmt.Errorf("delete backup %q: %w", cmd.Name, err)
+	}
+	return result, nil
+}
+
+func (s *backupServiceImpl) deleteOlderThan(ctx context.Context, cmd DeleteBackupOlderThan) (CommandResult, error) {
+	if cmd.OlderThan.IsZero() {
+		return CommandResult{}, fmt.Errorf("delete backups: older-than time must be set")
+	}
+	if cmd.OlderThan.After(time.Now().UTC()) {
+		return CommandResult{}, fmt.Errorf("delete backups: older-than time %s is in the future",
+			cmd.OlderThan.Format(time.RFC3339))
+	}
+
+	s.log.InfoContext(ctx, "deleting backups older than",
+		"olderThan", cmd.OlderThan.Format(time.RFC3339),
+		"type", cmd.Type,
+		"configName", cmd.ConfigName,
+	)
+	result, err := s.cmds.Send(ctx, cmd)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("delete backups older than %s: %w",
+			cmd.OlderThan.Format(time.RFC3339), err)
 	}
 	return result, nil
 }

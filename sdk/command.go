@@ -3,6 +3,7 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // CommandService handles dispatching commands to PBM agents.
@@ -112,14 +113,48 @@ type RestoreCommand struct {
 
 func (c RestoreCommand) kind() string { return fmt.Sprintf("%T", c) }
 
-// DeleteBackupCommand requests deletion of a specific backup and its data
-// from storage. Most callers should use [BackupService.Delete] instead.
-type DeleteBackupCommand struct {
+// DeleteBackupCommand is a sealed interface for backup deletion variants.
+// There are exactly two implementations:
+//   - [DeleteBackupByName] deletes a single backup by name.
+//   - [DeleteBackupOlderThan] deletes all backups older than a timestamp,
+//     optionally filtered by type and storage profile.
+//
+// Most callers should use [BackupService.Delete] instead of dispatching
+// through [CommandService] directly.
+type DeleteBackupCommand interface {
+	Command
+	deleteBackupCommand() // seal to this package
+}
+
+// DeleteBackupByName requests deletion of a single backup and its data
+// from storage.
+type DeleteBackupByName struct {
 	// Name is the backup to delete (e.g. "2026-02-20T10:00:00Z").
 	Name string
 }
 
-func (c DeleteBackupCommand) kind() string { return fmt.Sprintf("%T", c) }
+func (c DeleteBackupByName) kind() string         { return fmt.Sprintf("%T", c) }
+func (c DeleteBackupByName) deleteBackupCommand() {}
+
+// DeleteBackupOlderThan requests deletion of all backups older than a
+// timestamp. The deletion is processed asynchronously by PBM agents.
+type DeleteBackupOlderThan struct {
+	// OlderThan is the cutoff time. All backups with a start time before
+	// this value are candidates for deletion. Required — zero value is
+	// rejected with an error.
+	OlderThan time.Time
+
+	// Type filters deletion to a specific backup type. Zero value means
+	// all types.
+	Type BackupType
+
+	// ConfigName filters deletion to backups on a specific storage profile.
+	// Zero value means all profiles.
+	ConfigName ConfigName
+}
+
+func (c DeleteBackupOlderThan) kind() string         { return fmt.Sprintf("%T", c) }
+func (c DeleteBackupOlderThan) deleteBackupCommand() {}
 
 // AddProfileCommand requests creation or replacement of a named storage profile.
 // The storage field is unexported and populated by [ConfigService] from parsed YAML;
