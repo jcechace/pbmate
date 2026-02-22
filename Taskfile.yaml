@@ -55,9 +55,9 @@ tasks:
   # TUI (root module)
   # ---------------------------------------------------------------------------
   tui:build:
-    desc: Build the TUI module
+    desc: Build the TUI binary
     cmds:
-      - go build ./...
+      - go build -o pbmate .
 
   tui:vet:
     desc: Run go vet on the TUI module
