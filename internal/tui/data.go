@@ -173,7 +173,7 @@ func cancelBackupCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 // deleteBackupCmd returns a tea.Cmd that deletes the named backup.
 func deleteBackupCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.Backups.Delete(ctx, name)
+		_, err := client.Backups.Delete(ctx, sdk.DeleteBackupByName{Name: name})
 		return backupActionMsg{action: "delete", err: err}
 	}
 }
