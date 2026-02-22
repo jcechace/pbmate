@@ -159,61 +159,52 @@
 
 ---
 
-## SDK Completeness (planned)
+## SDK Completeness
 
-Gap analysis vs PBM CLI completed. Each feature below will be refined before
-implementation. Design questions (e.g., type choices, validation, API shape)
-are resolved per-feature, not upfront.
+Gap analysis vs PBM CLI completed. Features were refined individually before
+implementation, with design questions (type choices, validation, API shape)
+resolved per-feature.
 
-### Log Filtering
-Add server-side filtering to `GetLogsOptions` and `FollowOptions`: event type,
-replica set, node, and operation ID. Currently only severity is filterable.
-PBM's `log.LogRequest` already supports all these fields — pure wiring.
+### Sealed command architecture
 
-### Bulk Backup Deletion
-Add `BackupService.DeleteBefore()` for deleting backups older than a timestamp,
-with optional type and profile filtering. Currently only single-name deletion
-is supported. Design questions: how to represent the profile filter (ConfigName
-vs string — profile-only context, but filtering "main" is valid too).
+Major architectural refactor: user-facing command types use sealed interfaces
+to make invalid states unrepresentable. Each operation with variants gets a
+sealed interface (`StartBackupCommand`, `StartRestoreCommand`, etc.) with
+concrete types for each variant. Name fields are unexported and auto-generated
+by service methods.
 
-### Delete PITR
-Add `PITRService.Delete()` for deleting oplog slices older than a timestamp.
-Currently no way to manage oplog storage growth through the SDK.
+- [x] Sealed `StartBackupCommand` — `StartLogicalBackup`, `StartIncrementalBackup`
+- [x] Sealed `StartRestoreCommand` — `StartSnapshotRestore`, `StartPITRRestore`
+- [x] Sealed `DeleteBackupCommand` — `DeleteBackupByName`, `DeleteBackupsBefore`
+- [x] Sealed `DeletePITRCommand` — `DeletePITRBefore`, `DeletePITRAll`
+- [x] Sealed `ResyncCommand` — `ResyncMain`, `ResyncProfile`, `ResyncAllProfiles`
 
-### Restore Options
-Extend `StartRestoreOptions` with: base snapshot for controlled PITR restores,
-namespace remapping (ns-from/ns-to), users-and-roles for selective restores,
-and replset remapping for cross-cluster migration.
+### Completed
 
-### Config SetVar
-Add `ConfigService.SetVar()` for setting individual config keys (e.g.,
-`pitr.enabled=true`) without uploading full YAML. Calls PBM's
-`config.SetConfigVar` directly (not a command dispatch).
-
-### Resync
-Add `ConfigService.Resync()` — unified method covering both main storage
-metadata resync (`config --force-resync`) and profile storage sync
-(`profile sync`). PBM uses the same `CmdResync` command for both. Design
-questions: how to represent "which storage" in the options (profile name as
-string vs ConfigName — resync with no name means main, but that's a different
-semantic from ConfigName).
-
-### Backup CompressionLevel
-Add `CompressionLevel *int` to `StartBackupOptions` and `BackupCommand`.
-Straightforward field addition.
-
-### Server Info
-Add `Client.ServerInfo()` returning PBM library version (from `pbm/version`)
-and MongoDB server version (from `version.GetMongoVersion()`). Agent versions
-are already available per-agent via `ClusterService.Agents()`.
+- [x] Log filtering — `LogFilter` struct with event, replica set, node, OPID;
+      embedded in `GetLogsOptions` (adds `TimeMin`/`TimeMax`) and `FollowOptions`
+- [x] Bulk backup deletion — sealed `DeleteBackupCommand` with `DeleteBackupByName`
+      and `DeleteBackupsBefore` (older-than + type + profile filter)
+- [x] Delete PITR — sealed `DeletePITRCommand` with `DeletePITRBefore` and
+      `DeletePITRAll` on `PITRService.Delete()`
+- [x] Restore options — sealed `StartRestoreCommand` with `StartSnapshotRestore`
+      and `StartPITRRestore`, including namespace remapping, users-and-roles,
+      and RS remapping fields
+- [x] Backup CompressionLevel — `CompressionLevel *int` on `StartLogicalBackup`
+      and `StartIncrementalBackup`
+- [x] Resync — sealed `ResyncCommand` with `ResyncMain`, `ResyncProfile`, and
+      `ResyncAllProfiles` on `ConfigService.Resync()`
+- [x] Server info — `ClusterService.ServerInfo()` returning MongoDB version
+      and PBM library version
 
 ### Deferred
 
 | Feature | Reason |
 |---------|--------|
-| Cleanup command | Needs analysis: does PBM's cleanup codepath differ materially from delete-backup + delete-pitr, or is the separate implementation historical? |
-| Oplog replay | Advanced disaster recovery. `CmdTypeReplay` constant ready. Implement when MCP or TUI needs arise. |
+| Config SetVar | Deferred pending PITR enable/disable design — needs a cohesive config mutation surface |
+| Cleanup command | Needs analysis: does PBM's cleanup codepath differ materially from delete-backup + delete-pitr? |
+| Oplog replay | Advanced disaster recovery. `CmdTypeReplay` constant ready. Implement when needed. |
 | Physical/external backup | Out-of-band file operations. Display types exist. Start/Finish deferred. |
 | Performance knobs | `NumParallelColls`, `NumInsertionWorkers` — server-side tuning with sensible PBM defaults. |
-| Backup collections list | `--with-collections` requires storage I/O (reads archive files). Expensive, opt-in only. Non-trivial new package dependencies. |
+| Backup collections list | `--with-collections` requires storage I/O (reads archive files). Non-trivial. |
 | Diagnostic reports | CLI-oriented, composable from existing service methods. |
