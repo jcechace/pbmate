@@ -51,7 +51,10 @@ type overviewDataMsg struct{ overviewData }
 // logFollowMsg carries one or more log entries from the follow goroutine.
 // Entries are batched: the cmd blocks for the first entry then drains all
 // additionally buffered entries without blocking.
+// The session field ties the message to a specific follow session so stale
+// messages from a previous session are discarded.
 type logFollowMsg struct {
+	session uint64
 	entries []sdk.LogEntry
 	err     error
 }
@@ -59,35 +62,41 @@ type logFollowMsg struct {
 // logFollowDoneMsg signals that the follow channel has closed.
 // err is set if the stream ended due to an error (e.g. connection lost).
 type logFollowDoneMsg struct {
-	err error
+	session uint64
+	err     error
 }
 
 // waitForLogEntry returns a tea.Cmd that blocks until at least one entry
-// arrives on the channel, then drains any additional buffered entries so
-// they are delivered as a single batch (one Update / one re-render).
+// arrives on the channel or the context is cancelled. It drains any
+// additional buffered entries so they are delivered as a single batch.
 // When the entries channel closes, the error channel is checked for a
 // follow-stream error to surface to the user.
-func waitForLogEntry(entries <-chan sdk.LogEntry, errs <-chan error) tea.Cmd {
+func waitForLogEntry(ctx context.Context, session uint64, entries <-chan sdk.LogEntry, errs <-chan error) tea.Cmd {
 	return func() tea.Msg {
-		// Block for the first entry.
-		entry, ok := <-entries
-		if !ok {
-			// Entries channel closed — check for an error.
-			return logFollowDoneMsg{err: drainErr(errs)}
-		}
-		batch := []sdk.LogEntry{entry}
+		// Block for the first entry, with context cancellation escape.
+		select {
+		case <-ctx.Done():
+			return logFollowDoneMsg{session: session, err: ctx.Err()}
+		case entry, ok := <-entries:
+			if !ok {
+				// Entries channel closed — check for an error.
+				return logFollowDoneMsg{session: session, err: drainErr(errs)}
+			}
 
-		// Drain any additional entries that are already buffered.
-		for {
-			select {
-			case e, ok := <-entries:
-				if !ok {
-					// Channel closed mid-drain; deliver what we have.
-					return logFollowMsg{entries: batch}
+			batch := []sdk.LogEntry{entry}
+
+			// Drain any additional entries that are already buffered.
+			for {
+				select {
+				case e, ok := <-entries:
+					if !ok {
+						// Channel closed mid-drain; deliver what we have.
+						return logFollowMsg{session: session, entries: batch}
+					}
+					batch = append(batch, e)
+				default:
+					return logFollowMsg{session: session, entries: batch}
 				}
-				batch = append(batch, e)
-			default:
-				return logFollowMsg{entries: batch}
 			}
 		}
 	}

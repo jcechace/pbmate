@@ -175,6 +175,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(0)
 
 	case logFollowMsg:
+		// Discard messages from a stale follow session.
+		if msg.session != m.overview.logFollowSession {
+			return m, nil
+		}
 		if msg.err != nil {
 			// Follow channel errored; stop following.
 			m.overview.stopFollow()
@@ -186,6 +190,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.overview.nextLogCmd()
 
 	case logFollowDoneMsg:
+		// Discard done messages from a stale follow session.
+		if msg.session != m.overview.logFollowSession {
+			return m, nil
+		}
 		m.overview.stopFollow()
 		if msg.err != nil {
 			m.flashErr = fmt.Sprintf("follow: %v", msg.err)

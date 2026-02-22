@@ -39,9 +39,11 @@ type overviewModel struct {
 	data   overviewData
 
 	// Log follow state (reference types survive model copying).
-	logFollowCancel context.CancelFunc
-	logFollowCh     <-chan sdk.LogEntry
-	logFollowErrs   <-chan error
+	logFollowCancel  context.CancelFunc
+	logFollowCtx     context.Context
+	logFollowCh      <-chan sdk.LogEntry
+	logFollowErrs    <-chan error
+	logFollowSession uint64 // monotonic counter to identify the current session
 
 	// Sub-panels.
 	cluster  clusterPanel
@@ -79,12 +81,14 @@ func (m *overviewModel) toggleFollow() tea.Cmd {
 	// Start following — pin to bottom so new entries auto-scroll.
 	ctx, cancel := context.WithCancel(m.ctx)
 	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{})
+	m.logFollowSession++
 	m.logFollowCancel = cancel
+	m.logFollowCtx = ctx
 	m.logFollowCh = entries
 	m.logFollowErrs = errs
 	m.logs.setFollowing(true)
 
-	return waitForLogEntry(entries, errs)
+	return waitForLogEntry(ctx, m.logFollowSession, entries, errs)
 }
 
 // stopFollow cancels the follow goroutine and resets follow state.
@@ -94,6 +98,7 @@ func (m *overviewModel) stopFollow() {
 		m.logFollowCancel()
 	}
 	m.logFollowCancel = nil
+	m.logFollowCtx = nil
 	m.logFollowCh = nil
 	m.logFollowErrs = nil
 	m.logs.setFollowing(false)
@@ -111,7 +116,7 @@ func (m *overviewModel) appendLogEntries(entries []sdk.LogEntry) {
 
 // nextLogCmd returns a command that waits for the next follow log batch.
 func (m *overviewModel) nextLogCmd() tea.Cmd {
-	return waitForLogEntry(m.logFollowCh, m.logFollowErrs)
+	return waitForLogEntry(m.logFollowCtx, m.logFollowSession, m.logFollowCh, m.logFollowErrs)
 }
 
 // setData rebuilds all panels from fresh overview data.
