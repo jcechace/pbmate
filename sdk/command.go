@@ -14,21 +14,15 @@ import (
 // internally. Use CommandService directly only when you need low-level control
 // over command construction.
 //
-// Example — dispatch a backup command directly:
+// Example — check for concurrent operations before a manual workflow:
 //
-//	cmd := sdk.BackupCommand{
-//	    Name: "2026-02-20T10:00:00Z",
-//	    Type: sdk.BackupTypeLogical,
-//	}
-//	result, err := client.Commands.Send(ctx, cmd)
-//	if err != nil {
+//	if err := client.Commands.CheckLock(ctx); err != nil {
 //	    var concurrent *sdk.ConcurrentOperationError
 //	    if errors.As(err, &concurrent) {
 //	        fmt.Printf("blocked by %s (opid: %s)\n", concurrent.Type, concurrent.OPID)
 //	    }
 //	    return err
 //	}
-//	fmt.Printf("dispatched, opid: %s\n", result.OPID)
 type CommandService interface {
 	// Send dispatches a command to PBM agents and returns the result.
 	// It calls [CommandService.CheckLock] internally before dispatching;

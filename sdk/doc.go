@@ -7,9 +7,9 @@
 //
 // # Client
 //
-// Create a client by passing a MongoDB connection URI:
+// Create a client with functional options:
 //
-//	client, err := sdk.NewClient(ctx, "mongodb://user:pass@host:27017")
+//	client, err := sdk.NewClient(ctx, sdk.WithMongoURI("mongodb://user:pass@host:27017"))
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -21,10 +21,19 @@
 //
 //   - [BackupService]  — list, get, start, wait, delete, and cancel backups
 //   - [RestoreService] — list, get, start, and wait for restores
-//   - [ConfigService]  — read configuration and storage profiles
+//   - [ConfigService]  — read/write configuration, manage storage profiles, resync
 //   - [ClusterService] — cluster topology, agents, and running operations
-//   - [PITRService]    — PITR status and oplog timelines
+//   - [PITRService]    — PITR status, oplog timelines, and chunk deletion
 //   - [LogService]     — query and follow PBM logs
+//   - [CommandService] — low-level command dispatch (power users)
+//
+// # Sealed Commands
+//
+// Operations with distinct variants use sealed interfaces that prevent
+// invalid command construction at compile time. For example,
+// [BackupService.Start] accepts a [StartBackupCommand] which is either a
+// [StartLogicalBackup] or [StartIncrementalBackup] — each variant exposes
+// only the fields valid for that strategy.
 //
 // # Value Objects
 //
