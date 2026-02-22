@@ -215,14 +215,28 @@ func (b Backup) InProgress() bool {
 	return !b.Status.IsTerminal()
 }
 
-// Duration returns the elapsed time from start to the last status transition.
+// Duration returns the wall-clock time from start to completion.
 // Returns zero if the backup hasn't started or hasn't reached a terminal
-// status yet.
+// status yet. For in-progress duration, use [Backup.Elapsed].
 func (b Backup) Duration() time.Duration {
 	if b.StartTS.IsZero() || b.LastTransitionTS.IsZero() || !b.Status.IsTerminal() {
 		return 0
 	}
 	return b.LastTransitionTS.Sub(b.StartTS)
+}
+
+// Elapsed returns the time spent so far. For completed backups this is the
+// final duration (identical to [Backup.Duration]). For in-progress backups
+// it returns the live elapsed time since start. Returns zero if the backup
+// hasn't started.
+func (b Backup) Elapsed() time.Duration {
+	if b.StartTS.IsZero() {
+		return 0
+	}
+	if b.Status.IsTerminal() && !b.LastTransitionTS.IsZero() {
+		return b.LastTransitionTS.Sub(b.StartTS)
+	}
+	return time.Since(b.StartTS)
 }
 
 // BackupReplset holds per-replica-set metadata for a backup.

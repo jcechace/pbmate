@@ -116,14 +116,28 @@ func (r Restore) InProgress() bool {
 	return !r.Status.IsTerminal()
 }
 
-// Duration returns the elapsed time from start to the last status transition.
+// Duration returns the wall-clock time from start to completion.
 // Returns zero if the restore hasn't started or hasn't reached a terminal
-// status yet.
+// status yet. For in-progress duration, use [Restore.Elapsed].
 func (r Restore) Duration() time.Duration {
 	if r.StartTS.IsZero() || r.LastTransitionTS.IsZero() || !r.Status.IsTerminal() {
 		return 0
 	}
 	return r.LastTransitionTS.Sub(r.StartTS)
+}
+
+// Elapsed returns the time spent so far. For completed restores this is the
+// final duration (identical to [Restore.Duration]). For in-progress restores
+// it returns the live elapsed time since start. Returns zero if the restore
+// hasn't started.
+func (r Restore) Elapsed() time.Duration {
+	if r.StartTS.IsZero() {
+		return 0
+	}
+	if r.Status.IsTerminal() && !r.LastTransitionTS.IsZero() {
+		return r.LastTransitionTS.Sub(r.StartTS)
+	}
+	return time.Since(r.StartTS)
 }
 
 // RestoreReplset holds per-replica-set metadata for a restore.
