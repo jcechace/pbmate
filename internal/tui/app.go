@@ -81,6 +81,17 @@ func New(uri string, theme Theme) Model {
 	}
 }
 
+// setFlash sets or clears the transient error message in the status bar.
+// On success (err == nil) the message is cleared. On failure the prefix
+// and error are combined into a flash message.
+func (m *Model) setFlash(prefix string, err error) {
+	if err != nil {
+		m.flashErr = fmt.Sprintf("%s: %v", prefix, err)
+	} else {
+		m.flashErr = ""
+	}
+}
+
 // Close cancels the root context and disconnects the SDK client.
 // Safe to call when the client is nil (e.g. connection never succeeded).
 func (m Model) Close() {
@@ -134,11 +145,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case overviewDataMsg:
 		m.overview.setData(msg.overviewData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash("fetch", msg.err)
 		// Adaptive polling: faster when operations are running.
 		if len(m.overview.data.operations) > 0 {
 			m.pollInterval = activeInterval
@@ -149,28 +156,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case backupsDataMsg:
 		m.backups.setBackupData(msg.backupsData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash("fetch", msg.err)
 		return m, nil
 
 	case restoresDataMsg:
 		m.backups.setRestoreData(msg.restoresData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash("fetch", msg.err)
 		return m, nil
 
 	case backupActionMsg:
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash(msg.action, msg.err)
 		// Trigger immediate re-fetch to pick up the change.
 		return m, tickCmd(0)
 
@@ -207,11 +202,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case configDataMsg:
 		m.config.setData(msg.configData)
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash("fetch", msg.err)
 		// Trigger lazy profile YAML fetch if the selected profile is uncached.
 		if name := m.config.needsProfileYAML(); name != "" {
 			return m, fetchProfileYAMLCmd(m.ctx, m.client, name)
@@ -219,9 +210,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case profileYAMLMsg:
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("fetch: %v", msg.err)
-		} else {
+		m.setFlash("fetch", msg.err)
+		if msg.err == nil {
 			m.config.setProfileYAML(msg.name, msg.yaml)
 		}
 		return m, nil
@@ -249,11 +239,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case configActionMsg:
-		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("%s failed: %v", msg.action, msg.err)
-		} else {
-			m.flashErr = ""
-		}
+		m.setFlash(msg.action, msg.err)
 		// Clear cached profile YAMLs so they are re-fetched.
 		m.config.profileYAMLs = make(map[string][]byte)
 		return m, tickCmd(0)
