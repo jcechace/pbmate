@@ -126,9 +126,94 @@
 - [x] Standardize error message prefixes to verb-noun format across all SDK services
 - [x] Show profile name in delete confirmation dialog
 
-### Phase 5d: Additional tabs and features (planned)
-- [ ] Config tab
+### Phase 5d: Config tab (complete)
+- [x] Config tab with main config + profile list + profile detail
+- [x] Profile YAML syntax highlighting (Chroma, theme-matched)
+- [x] File picker overlay for applying config / profile YAML
+- [x] Profile name form for creating new profiles
+- [x] `huh` form overlays extracted to `formOverlay` interface (overlay.go)
+
+### Code quality improvements (complete)
+- [x] SDK: Log warnings for unknown PBM enum values in conversions
+- [x] SDK: Skip warnings for empty/unset PBM enum values (zero = valid)
+- [x] SDK: Generic `convertSlice` helper
+- [x] SDK: Unify Limit type to int across all service options
+- [x] SDK: Remove duplicate convertLogTimestamp
+- [x] SDK: Wrap Client.Close error with context
+- [x] SDK: Add TODO(pbm-fix) markers to PBM workarounds
+- [x] SDK: MarshalText/UnmarshalText round-trip tests for all value objects
+- [x] TUI: Extract formOverlay interface to unify 4 overlay handler patterns
+- [x] TUI: Map Chroma syntax highlighting style to user's theme
+- [x] TUI: Unify bare "main" literals to defaultConfigName constant
+- [x] TUI: Rename backupFormInnerWidth to formOverlayInnerWidth
+- [x] TUI: Document rationales for magic number constants
+- [x] TUI: Thread root context through cmd factories and overlays
+- [x] TUI: Remove unimplemented Restore keybinding
+- [x] TUI: Unit tests for pure render helpers (statusIndicator, agentIndicator, etc.)
+
+### Phase 5e: Additional TUI features (planned)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
 - [ ] `--readonly` flag
 - [ ] Connection reconnect on failure (currently dead-end after connect error)
+
+---
+
+## SDK Completeness (planned)
+
+Gap analysis vs PBM CLI completed. Each feature below will be refined before
+implementation. Design questions (e.g., type choices, validation, API shape)
+are resolved per-feature, not upfront.
+
+### Log Filtering
+Add server-side filtering to `GetLogsOptions` and `FollowOptions`: event type,
+replica set, node, and operation ID. Currently only severity is filterable.
+PBM's `log.LogRequest` already supports all these fields — pure wiring.
+
+### Bulk Backup Deletion
+Add `BackupService.DeleteBefore()` for deleting backups older than a timestamp,
+with optional type and profile filtering. Currently only single-name deletion
+is supported. Design questions: how to represent the profile filter (ConfigName
+vs string — profile-only context, but filtering "main" is valid too).
+
+### Delete PITR
+Add `PITRService.Delete()` for deleting oplog slices older than a timestamp.
+Currently no way to manage oplog storage growth through the SDK.
+
+### Restore Options
+Extend `StartRestoreOptions` with: base snapshot for controlled PITR restores,
+namespace remapping (ns-from/ns-to), users-and-roles for selective restores,
+and replset remapping for cross-cluster migration.
+
+### Config SetVar
+Add `ConfigService.SetVar()` for setting individual config keys (e.g.,
+`pitr.enabled=true`) without uploading full YAML. Calls PBM's
+`config.SetConfigVar` directly (not a command dispatch).
+
+### Resync
+Add `ConfigService.Resync()` — unified method covering both main storage
+metadata resync (`config --force-resync`) and profile storage sync
+(`profile sync`). PBM uses the same `CmdResync` command for both. Design
+questions: how to represent "which storage" in the options (profile name as
+string vs ConfigName — resync with no name means main, but that's a different
+semantic from ConfigName).
+
+### Backup CompressionLevel
+Add `CompressionLevel *int` to `StartBackupOptions` and `BackupCommand`.
+Straightforward field addition.
+
+### Server Info
+Add `Client.ServerInfo()` returning PBM library version (from `pbm/version`)
+and MongoDB server version (from `version.GetMongoVersion()`). Agent versions
+are already available per-agent via `ClusterService.Agents()`.
+
+### Deferred
+
+| Feature | Reason |
+|---------|--------|
+| Cleanup command | Needs analysis: does PBM's cleanup codepath differ materially from delete-backup + delete-pitr, or is the separate implementation historical? |
+| Oplog replay | Advanced disaster recovery. `CmdTypeReplay` constant ready. Implement when MCP or TUI needs arise. |
+| Physical/external backup | Out-of-band file operations. Display types exist. Start/Finish deferred. |
+| Performance knobs | `NumParallelColls`, `NumInsertionWorkers` — server-side tuning with sensible PBM defaults. |
+| Backup collections list | `--with-collections` requires storage I/O (reads archive files). Expensive, opt-in only. Non-trivial new package dependencies. |
+| Diagnostic reports | CLI-oriented, composable from existing service methods. |
