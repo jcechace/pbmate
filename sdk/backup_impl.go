@@ -76,6 +76,7 @@ func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup
 }
 
 func (s *backupServiceImpl) Start(ctx context.Context, cmd StartBackupCommand) (BackupResult, error) {
+	// PBM uses RFC 3339 (second precision) for backup names.
 	name := time.Now().UTC().Format(time.RFC3339)
 
 	// Inject the auto-generated name into the concrete command type.

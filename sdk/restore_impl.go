@@ -66,6 +66,8 @@ func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand)
 		return RestoreResult{}, err
 	}
 
+	// PBM uses RFC 3339 Nano (sub-second precision) for restore names,
+	// unlike backup names which use second-precision RFC 3339.
 	name := time.Now().UTC().Format(time.RFC3339Nano)
 
 	// Inject the auto-generated name into the concrete command type.
