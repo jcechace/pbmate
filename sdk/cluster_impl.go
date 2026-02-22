@@ -9,6 +9,7 @@ import (
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	"github.com/percona/percona-backup-mongodb/pbm/lock"
 	"github.com/percona/percona-backup-mongodb/pbm/topo"
+	"github.com/percona/percona-backup-mongodb/pbm/version"
 )
 
 type clusterServiceImpl struct {
@@ -78,4 +79,16 @@ func (s *clusterServiceImpl) ClusterTime(ctx context.Context) (Timestamp, error)
 	}
 
 	return convertTimestamp(ct), nil
+}
+
+func (s *clusterServiceImpl) ServerInfo(ctx context.Context) (*ServerInfo, error) {
+	mongoVer, err := version.GetMongoVersion(ctx, s.conn.MongoClient())
+	if err != nil {
+		return nil, fmt.Errorf("get server info: mongo version: %w", err)
+	}
+
+	return &ServerInfo{
+		MongoVersion: mongoVer.VersionString,
+		PBMVersion:   version.Current().Version,
+	}, nil
 }
