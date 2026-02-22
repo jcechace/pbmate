@@ -151,6 +151,9 @@
 - [x] TUI: Remove unimplemented Restore keybinding
 - [x] TUI: Unit tests for pure render helpers (statusIndicator, agentIndicator, etc.)
 
+### Theming fixes (complete)
+- [x] Build per-flavor huh themes instead of using adaptive `ThemeCatppuccin()`
+
 ### Phase 5e: Additional TUI features (planned)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views

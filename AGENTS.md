@@ -61,29 +61,16 @@ Rules:
 
 ## SDK Design
 
-The SDK follows the **godo pattern** (DigitalOcean's Go client): a concrete
-`Client` struct with interface-typed fields for each domain service.
+See `sdk/README.md` for the full API documentation, examples, and design
+rationale (conversion boundary, sealed commands, value objects, interfaces).
 
-Services:
-- `BackupService` -- list, get, start, and cancel backups
-- `RestoreService` -- list, get, and start restores
-- `CommandService` -- send commands (backup, restore, cancel) with lock checking
-- `ConfigService` -- read configuration and storage profiles
-- `ClusterService` -- cluster topology, agents, running operations
-- `PITRService` -- PITR status and oplog timelines
-- `LogService` -- query and follow PBM logs
+Each service follows a consistent file convention:
+- `<service>.go` -- public interface + domain types (no PBM imports)
+- `<service>_impl.go` -- unexported implementation struct
+- `<service>_convert.go` -- PBM types to SDK types conversion
+- `<service>_convert_test.go` -- conversion unit tests
 
-Each service has:
-- A public interface definition + domain types in `<service>.go`
-- An unexported implementation struct in `<service>_impl.go`
-- Pure conversion functions (PBM types to SDK types) in `<service>_convert.go`
-- Conversion unit tests in `<service>_convert_test.go`
-
-Shared conversion helpers (Timestamp, Status, BackupType, etc.) live in
-`convert.go` with tests in `convert_test.go`.
-
-Domain types are owned by the SDK (not aliased from PBM). This isolates
-consumers from PBM internal changes and enables testing without MongoDB.
+Shared conversion helpers live in `convert.go` / `convert_test.go`.
 
 ### Enum types
 
@@ -131,24 +118,34 @@ pbmate/
 ├── .gitignore
 ├── AGENTS.md               # This file
 ├── PROGRESS.md             # Progress tracking (keep updated)
+├── TUI.md                  # TUI design document
 ├── go.mod                  # TUI module: github.com/jcechace/pbmate
+├── main.go                 # TUI entry point: --uri and --theme flags
 ├── Taskfile.yaml           # Task runner config
 ├── sdk/
 │   ├── go.mod              # SDK module: github.com/jcechace/pbmate/sdk/v2
+│   ├── doc.go              # Package-level documentation
 │   ├── client.go           # Client struct, NewClient, Close
 │   ├── types.go            # Shared types: Timestamp, Status, BackupType, etc.
-│   ├── errors.go           # ErrNotFound, ConcurrentOperationError
+│   ├── types_test.go       # MarshalText/UnmarshalText round-trip tests
+│   ├── errors.go           # ErrNotFound, ConcurrentOperationError, ErrDeleteProtectedByPITR
 │   ├── convert.go          # Shared conversion helpers (Timestamp, Status, etc.)
 │   ├── convert_test.go     # Tests for shared conversion helpers
-│   ├── backup.go           # BackupService interface + types
-│   ├── backup_impl.go      # backupServiceImpl
+│   ├── wait.go             # Generic waitForTerminal helper
+│   ├── wait_test.go        # waitForTerminal unit tests
+│   ├── backup.go           # BackupService interface + types + domain methods
+│   ├── backup_impl.go      # backupServiceImpl (incl. CanDelete)
 │   ├── backup_convert.go   # PBM BackupMeta -> SDK Backup conversion
 │   ├── backup_convert_test.go
-│   ├── restore.go          # RestoreService interface + types
+│   ├── backup_test.go      # Backup domain method tests
+│   ├── backup_chain.go     # BackupChain type, GroupIncrementalChains, FindChainBase
+│   ├── backup_chain_test.go
+│   ├── restore.go          # RestoreService interface + types + domain methods
 │   ├── restore_impl.go     # restoreServiceImpl
 │   ├── restore_convert.go  # PBM RestoreMeta -> SDK Restore conversion
 │   ├── restore_convert_test.go
-│   ├── command.go          # CommandService interface, Command types
+│   ├── restore_test.go     # Restore domain method tests
+│   ├── command.go          # CommandService interface, sealed Command types
 │   ├── command_impl.go     # commandServiceImpl (lock check + dispatch)
 │   ├── command_convert.go  # SDK Command -> PBM ctrl.Cmd conversion
 │   ├── command_convert_test.go
@@ -167,21 +164,30 @@ pbmate/
 │   ├── log.go              # LogService interface + types
 │   ├── log_impl.go         # logServiceImpl
 │   ├── log_convert.go      # PBM log.Entry -> SDK LogEntry conversion
-│   └── log_convert_test.go
-├── main.go                 # TUI entry point: --uri and --theme flags
+│   ├── log_convert_test.go
+│   └── cmd/smoketest/      # Manual smoke test binary
 ├── internal/
 │   └── tui/
 │       ├── app.go          # Root model: tab routing, bottom bar, global keys
 │       ├── overview.go     # Overview tab: layout, focus, follow state, status panel
 │       ├── cluster_panel.go # Cluster tree + detail viewports (from overview)
 │       ├── backups.go      # Backups tab (list + detail panels)
+│       ├── backup_chain.go # Chain grouping, ordering, resolution for display
+│       ├── backup_chain_test.go
+│       ├── backup_form.go  # Quick/full backup huh forms
+│       ├── config.go       # Config tab (main config + profiles + YAML viewer)
+│       ├── config_form.go  # Profile name huh form
+│       ├── overlay.go      # formOverlay interface + confirm/backup/profile overlays
 │       ├── log_panel.go    # Reusable log viewer: viewport, pin/wrap/follow
 │       ├── data.go         # Data fetching commands and message types
+│       ├── data_test.go
 │       ├── render.go       # Shared rendering: titled panels, status dots, detail
+│       ├── render_test.go  # Tests for pure render helpers
 │       ├── layout.go       # Layout helpers, panel type, dimension math
+│       ├── layout_test.go
 │       ├── keys.go         # Key bindings (global + per-tab keymaps)
 │       ├── styles.go       # Lipgloss styles derived from theme
-│       ├── theme.go        # Theme definitions (Catppuccin + adaptive)
+│       ├── theme.go        # Theme definitions (Catppuccin + adaptive + huh themes)
 │       └── poll.go         # Tick intervals and adaptive polling
 ├── mcp/
 │   └── go.mod              # MCP module: github.com/jcechace/pbmate/mcp

@@ -124,9 +124,11 @@ Future: detail panel sub-tabs (Info, Replicas, Logs), `/` filter.
 ### 3. Config
 
 Left panel: main config + storage profiles list.
-Right panel: detail (storage settings, PITR config, compression, raw YAML).
+Right panel: detail (storage settings, PITR config, compression, raw YAML with
+syntax highlighting).
 
-Read-only for MVP. Later: `e` edit via YAML, `p` add profile.
+Actions: `e` apply YAML configuration (file picker overlay), `p` create new
+storage profile (name form + file picker).
 
 ## Keybindings
 
@@ -261,11 +263,14 @@ if a fetch errors, we still schedule the next tick.
 | `overviewDataMsg`   | `fetchOverviewCmd`   | Overview data arrived             |
 | `backupsDataMsg`    | `fetchBackupsCmd`    | Backup list arrived               |
 | `restoresDataMsg`   | `fetchRestoresCmd`   | Restore list arrived              |
+| `configDataMsg`     | `fetchConfigCmd`     | Config data arrived               |
+| `profileYAMLMsg`    | `fetchProfileYAMLCmd`| Profile YAML content arrived      |
 | `backupActionMsg`   | action commands      | Backup/delete/cancel completed    |
+| `configActionMsg`   | config commands      | Config apply/profile completed    |
 | `logFollowMsg`      | `nextLogCmd`         | New log entries from follow       |
 | `logFollowDoneMsg`  | follow goroutine     | Follow channel closed             |
 | `backupFormReadyMsg`| `fetchProfilesCmd`   | Profiles loaded, form can open    |
-| `deleteConfirmMsg`  | `requestDeleteConfirm`| Confirm overlay needed           |
+| `deleteConfirmMsg`  | backups sub-model    | Confirm overlay needed            |
 
 ### Message Routing Priority
 
@@ -276,14 +281,14 @@ if a fetch errors, we still schedule the next tick.
    These are handled regardless of overlay state, so polling continues while
    forms are open.
 
-2. **Key messages** -- routed based on overlay state:
-   - `backupForm != nil` → `updateBackupForm` (huh form gets all keys)
-   - `confirmForm != nil` → `updateConfirmForm`
-   - `showHelp == true` → only `?`/`esc` to dismiss
-   - otherwise → `updateKeys` → global bindings, then forward to active tab
+2. **Overlay routing** -- if `activeOverlay != nil`, all remaining messages
+   (key and non-key) are forwarded to the overlay via the `formOverlay`
+   interface. The overlay handles its own key dispatch and huh internals
+   (cursor blink timers, etc.). `esc`/`q` dismisses the overlay.
 
-3. **Non-key messages with active form** -- forwarded to the form (huh
-   internals like cursor blink timers).
+3. **Key messages without overlay** -- routed through `updateKeys`:
+   - `showHelp == true` → only `?`/`esc` to dismiss
+   - otherwise → global bindings, then forward to active tab's sub-model
 
 ### Sub-Model Pattern
 
@@ -339,10 +344,9 @@ Each logFollowMsg handler calls nextLogCmd() again, creating a chain that
 drains the channel one batch at a time. This is the standard BubbleTea pattern
 for bridging blocking I/O.
 
-**Known issue**: a goroutine leak occurs when follow is stopped between
-dispatching nextLogCmd and its message arriving -- the goroutine blocks on the
-channel read forever because nobody closes the channel. This needs a
-cancellable context or a done-channel to unblock it.
+Follow sessions use a monotonic session ID so that stale messages from a
+previous follow session are discarded. The `nextLogCmd` closure selects on
+both the entries channel and a cancellation context to avoid goroutine leaks.
 
 ## Styling
 
@@ -353,9 +357,12 @@ cancellable context or a done-channel to unblock it.
 - Bordered panels with lipgloss `RoundedBorder` and **titled top borders**:
   `╭─ Cluster ─────╮`. Title color matches the border color (primary when
   focused, subtle when unfocused).
-- Adaptive colors (`lipgloss.AdaptiveColor`) for light/dark terminals.
 - Compact, information-dense -- no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
+- The default theme uses `lipgloss.AdaptiveColor` for light/dark terminals.
+  Named flavors use hardcoded `lipgloss.Color` for exact color matching.
+- `huh` form themes are built per-flavor from catppuccin-go, not from huh's
+  built-in `ThemeCatppuccin()` (which is adaptive and ignores the chosen flavor).
 
 ## Form Overlays
 
@@ -371,35 +378,3 @@ polling continues in the background.
 - **Custom backup** (`S`): multi-step wizard with type, compression, and profile
   selection. Profiles are fetched asynchronously before the form opens.
 - `esc` or `q` dismisses any open overlay.
-
-## Project Structure
-
-```
-pbmate/
-├── main.go                       # Entry point: flags, SDK client, tea.Program
-├── internal/
-│   └── tui/
-│       ├── app.go                # Root model: Init, Update, View, tab routing, bottom bar
-│       ├── overview.go           # Overview tab: layout, focus, follow state, status panel
-│       ├── cluster_panel.go      # Cluster tree + detail viewports (extracted from overview)
-│       ├── backups.go            # Backups tab: list + detail + restore toggle
-│       ├── backup_chain.go       # Pure chain logic: grouping, ordering, resolution
-│       ├── backup_chain_test.go  # Tests for chain logic
-│       ├── backup_form.go        # Quick/full backup forms + confirm overlay + renderFormOverlay
-│       ├── log_panel.go          # Reusable log viewer: viewport, pin/wrap/follow
-│       ├── data.go               # Data fetching commands, message types, action commands
-│       ├── render.go             # Shared rendering: titled panels, cursor list, status dots
-│       ├── layout.go             # Layout constants and helpers: splits, panel type
-│       ├── keys.go               # Key bindings (global + per-tab keymaps)
-│       ├── styles.go             # Lipgloss styles derived from theme
-│       ├── theme.go              # Theme definitions (Catppuccin + adaptive)
-│       └── poll.go               # Tick intervals and tick command
-```
-
-## Dependencies
-
-- `charmbracelet/bubbletea` -- framework
-- `charmbracelet/bubbles` -- key, viewport
-- `charmbracelet/lipgloss` -- styling and layout
-- `charmbracelet/huh` -- form overlays (backup wizard, confirm dialogs)
-- `jcechace/pbmate/sdk/v2` -- PBMate SDK
