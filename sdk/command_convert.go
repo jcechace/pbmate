@@ -17,8 +17,10 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertStartLogicalBackupToPBM(c), nil
 	case StartIncrementalBackup:
 		return convertStartIncrementalBackupToPBM(c), nil
-	case RestoreCommand:
-		return convertRestoreCommandToPBM(c), nil
+	case StartSnapshotRestore:
+		return convertStartSnapshotRestoreToPBM(c), nil
+	case StartPITRRestore:
+		return convertStartPITRRestoreToPBM(c), nil
 	case DeleteBackupByName:
 		return convertDeleteByNameToPBM(c), nil
 	case DeleteBackupsBefore:
@@ -69,14 +71,33 @@ func convertStartIncrementalBackupToPBM(cmd StartIncrementalBackup) ctrl.Cmd {
 	}
 }
 
-func convertRestoreCommandToPBM(cmd RestoreCommand) ctrl.Cmd {
+func convertStartSnapshotRestoreToPBM(cmd StartSnapshotRestore) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdRestore,
 		Restore: &ctrl.RestoreCmd{
-			Name:       cmd.Name,
-			BackupName: cmd.BackupName,
-			Namespaces: cmd.Namespaces,
-			OplogTS:    convertTimestampToPBM(cmd.PITRTarget),
+			Name:          cmd.name,
+			BackupName:    cmd.BackupName,
+			Namespaces:    cmd.Namespaces,
+			NamespaceFrom: cmd.NamespaceFrom,
+			NamespaceTo:   cmd.NamespaceTo,
+			UsersAndRoles: cmd.UsersAndRoles,
+			RSMap:         cmd.RSMap,
+		},
+	}
+}
+
+func convertStartPITRRestoreToPBM(cmd StartPITRRestore) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdRestore,
+		Restore: &ctrl.RestoreCmd{
+			Name:          cmd.name,
+			BackupName:    cmd.BackupName,
+			Namespaces:    cmd.Namespaces,
+			NamespaceFrom: cmd.NamespaceFrom,
+			NamespaceTo:   cmd.NamespaceTo,
+			UsersAndRoles: cmd.UsersAndRoles,
+			RSMap:         cmd.RSMap,
+			OplogTS:       convertTimestampToPBM(cmd.Target),
 		},
 	}
 }

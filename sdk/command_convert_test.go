@@ -70,12 +70,15 @@ func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
 	assert.Nil(t, result.Backup.Namespaces, "incremental backups don't support namespaces")
 }
 
-func TestConvertRestoreCommandToPBM(t *testing.T) {
-	cmd := RestoreCommand{
-		Name:       "restore-2024",
-		BackupName: "2024-01-15T10:30:00Z",
-		PITRTarget: Timestamp{T: 1700000000, I: 1},
-		Namespaces: []string{"db1.coll1"},
+func TestConvertStartSnapshotRestoreToPBM(t *testing.T) {
+	cmd := StartSnapshotRestore{
+		BackupName:    "2024-01-15T10:30:00Z",
+		Namespaces:    []string{"db1.coll1"},
+		NamespaceFrom: "srcDB.srcColl",
+		NamespaceTo:   "dstDB.dstColl",
+		UsersAndRoles: true,
+		RSMap:         map[string]string{"rs0": "rs1"},
+		name:          "restore-2024",
 	}
 
 	result, err := convertCommandToPBM(cmd)
@@ -84,6 +87,29 @@ func TestConvertRestoreCommandToPBM(t *testing.T) {
 	assert.Equal(t, ctrl.CmdRestore, result.Cmd)
 	require.NotNil(t, result.Restore)
 	assert.Equal(t, "restore-2024", result.Restore.Name)
+	assert.Equal(t, "2024-01-15T10:30:00Z", result.Restore.BackupName)
+	assert.Equal(t, []string{"db1.coll1"}, result.Restore.Namespaces)
+	assert.Equal(t, "srcDB.srcColl", result.Restore.NamespaceFrom)
+	assert.Equal(t, "dstDB.dstColl", result.Restore.NamespaceTo)
+	assert.True(t, result.Restore.UsersAndRoles)
+	assert.Equal(t, map[string]string{"rs0": "rs1"}, result.Restore.RSMap)
+	assert.True(t, result.Restore.OplogTS.IsZero(), "snapshot restore should have zero OplogTS")
+}
+
+func TestConvertStartPITRRestoreToPBM(t *testing.T) {
+	cmd := StartPITRRestore{
+		BackupName: "2024-01-15T10:30:00Z",
+		Target:     Timestamp{T: 1700000000, I: 1},
+		Namespaces: []string{"db1.coll1"},
+		name:       "restore-pitr-2024",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Equal(t, ctrl.CmdRestore, result.Cmd)
+	require.NotNil(t, result.Restore)
+	assert.Equal(t, "restore-pitr-2024", result.Restore.Name)
 	assert.Equal(t, "2024-01-15T10:30:00Z", result.Restore.BackupName)
 	assert.Equal(t, uint32(1700000000), result.Restore.OplogTS.T)
 	assert.Equal(t, uint32(1), result.Restore.OplogTS.I)

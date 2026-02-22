@@ -61,15 +61,20 @@ func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Resto
 	return &r, nil
 }
 
-func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions) (RestoreResult, error) {
-	cmd := RestoreCommand{
-		Name:       time.Now().UTC().Format(time.RFC3339Nano),
-		BackupName: opts.BackupName,
-		PITRTarget: opts.PITRTarget,
-		Namespaces: opts.Namespaces,
+func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error) {
+	name := time.Now().UTC().Format(time.RFC3339Nano)
+
+	// Inject the auto-generated name into the concrete command type.
+	switch c := cmd.(type) {
+	case StartSnapshotRestore:
+		c.name = name
+		cmd = c
+	case StartPITRRestore:
+		c.name = name
+		cmd = c
 	}
 
-	s.log.InfoContext(ctx, "starting restore", "name", cmd.Name, "backup", cmd.BackupName)
+	s.log.InfoContext(ctx, "starting restore", "name", name, "type", fmt.Sprintf("%T", cmd))
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
 		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
@@ -77,7 +82,7 @@ func (s *restoreServiceImpl) Start(ctx context.Context, opts StartRestoreOptions
 
 	return RestoreResult{
 		CommandResult: result,
-		Name:          cmd.Name,
+		Name:          name,
 	}, nil
 }
 

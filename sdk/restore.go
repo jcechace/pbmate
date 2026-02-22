@@ -20,7 +20,7 @@ type RestoreWaitOptions struct {
 // Example — restore from the latest backup:
 //
 //	backups, _ := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 1})
-//	result, err := client.Restores.Start(ctx, sdk.StartRestoreOptions{
+//	result, err := client.Restores.Start(ctx, sdk.StartSnapshotRestore{
 //	    BackupName: backups[0].Name,
 //	})
 //	if err != nil {
@@ -48,19 +48,23 @@ type RestoreService interface {
 	// is auto-generated from the current timestamp. Returns a
 	// [*ConcurrentOperationError] if another PBM operation is already running.
 	//
+	// The cmd parameter is a sealed [StartRestoreCommand] with variants:
+	//   - [StartSnapshotRestore] for restoring a backup as-is.
+	//   - [StartPITRRestore] for restoring to a specific point in time.
+	//
 	// Example — snapshot restore:
 	//
-	//	result, err := client.Restores.Start(ctx, sdk.StartRestoreOptions{
+	//	result, err := client.Restores.Start(ctx, sdk.StartSnapshotRestore{
 	//	    BackupName: "2026-02-19T20:28:16Z",
 	//	})
 	//
-	// Example — PITR restore to a specific point in time:
+	// Example — PITR restore:
 	//
-	//	result, err := client.Restores.Start(ctx, sdk.StartRestoreOptions{
+	//	result, err := client.Restores.Start(ctx, sdk.StartPITRRestore{
 	//	    BackupName: "2026-02-19T20:28:16Z",
-	//	    PITRTarget: sdk.Timestamp{T: 1740000000},
+	//	    Target:     sdk.Timestamp{T: 1740000000},
 	//	})
-	Start(ctx context.Context, opts StartRestoreOptions) (RestoreResult, error)
+	Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error)
 
 	// Wait polls until the named restore reaches a terminal status or the
 	// context is cancelled. Context cancellation stops waiting but does NOT
