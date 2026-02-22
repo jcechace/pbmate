@@ -137,6 +137,25 @@ type BackupService interface {
 	//
 	//	_, err := client.Backups.Cancel(ctx)
 	Cancel(ctx context.Context) (CommandResult, error)
+
+	// CanDelete checks whether the named backup can be safely deleted.
+	// Returns nil if deletion is safe, or a descriptive error explaining
+	// why the backup is protected.
+	//
+	// For incremental backups the check covers the entire chain from the
+	// base, regardless of which increment name is given.
+	//
+	// Possible errors:
+	//   - [ErrNotFound]: no backup with this name exists.
+	//   - [ErrBackupInProgress]: the backup has not reached a terminal status.
+	//   - [ErrDeleteProtectedByPITR]: the backup is the last PITR base snapshot.
+	//
+	// Example:
+	//
+	//	if err := client.Backups.CanDelete(ctx, bk.Name); err != nil {
+	//	    fmt.Printf("cannot delete: %v\n", err)
+	//	}
+	CanDelete(ctx context.Context, name string) error
 }
 
 // ListBackupsOptions controls filtering and pagination for backup listing.

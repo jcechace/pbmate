@@ -9,6 +9,7 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/backup"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
+	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
 )
 
@@ -164,4 +165,57 @@ func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {
 		return CommandResult{}, fmt.Errorf("cancel backup: %w", err)
 	}
 	return result, nil
+}
+
+func (s *backupServiceImpl) CanDelete(ctx context.Context, name string) error {
+	if name == "" {
+		return fmt.Errorf("can delete: name is required")
+	}
+
+	mgr := backup.NewDBManager(s.conn)
+	bcp, err := mgr.GetBackupByName(ctx, name)
+	if err != nil {
+		if errors.Is(err, pbmerrors.ErrNotFound) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("can delete %q: %w", name, err)
+	}
+
+	if bcp.Type != defs.IncrementalBackup {
+		return translateCanDeleteError(backup.CanDeleteBackup(ctx, s.conn, bcp))
+	}
+
+	// Incremental backup: walk up to the chain base so the PITR anchor
+	// check covers the entire chain's time span.
+	base := bcp
+	for base.SrcBackup != "" {
+		base, err = mgr.GetBackupByName(ctx, base.SrcBackup)
+		if err != nil {
+			return fmt.Errorf("can delete %q: resolve chain base: %w", name, err)
+		}
+	}
+
+	increments, err := backup.FetchAllIncrements(ctx, s.conn, base)
+	if err != nil {
+		return fmt.Errorf("can delete %q: fetch chain: %w", name, err)
+	}
+
+	return translateCanDeleteError(backup.CanDeleteIncrementalChain(ctx, s.conn, base, increments))
+}
+
+// translateCanDeleteError converts PBM delete-check sentinel errors to
+// SDK-owned equivalents. Errors that cannot occur due to internal routing
+// (ErrIncrementalBackup, ErrNonIncrementalBackup, ErrNotBaseIncrement) are
+// passed through with context wrapping.
+func translateCanDeleteError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, backup.ErrBackupInProgress):
+		return ErrBackupInProgress
+	case errors.Is(err, backup.ErrBaseForPITR):
+		return ErrDeleteProtectedByPITR
+	default:
+		return fmt.Errorf("can delete: %w", err)
+	}
 }
