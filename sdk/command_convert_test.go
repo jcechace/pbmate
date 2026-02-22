@@ -90,13 +90,13 @@ func TestConvertDeleteBackupByNameToPBM(t *testing.T) {
 	assert.Empty(t, result.Delete.Profile)
 }
 
-func TestConvertDeleteBackupOlderThanToPBM(t *testing.T) {
+func TestConvertDeleteBackupsBeforeToPBM(t *testing.T) {
 	t.Run("all fields set", func(t *testing.T) {
 		cn, err := NewConfigName("my-s3")
 		require.NoError(t, err)
 
 		olderThan := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
-		cmd := DeleteBackupOlderThan{
+		cmd := DeleteBackupsBefore{
 			OlderThan:  olderThan,
 			Type:       BackupTypeLogical,
 			ConfigName: cn,
@@ -115,7 +115,7 @@ func TestConvertDeleteBackupOlderThanToPBM(t *testing.T) {
 
 	t.Run("minimal", func(t *testing.T) {
 		olderThan := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-		cmd := DeleteBackupOlderThan{
+		cmd := DeleteBackupsBefore{
 			OlderThan: olderThan,
 		}
 
@@ -130,7 +130,7 @@ func TestConvertDeleteBackupOlderThanToPBM(t *testing.T) {
 	})
 
 	t.Run("main config maps to empty profile", func(t *testing.T) {
-		cmd := DeleteBackupOlderThan{
+		cmd := DeleteBackupsBefore{
 			OlderThan:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 			ConfigName: MainConfig,
 		}

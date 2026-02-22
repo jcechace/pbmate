@@ -116,7 +116,7 @@ func (c RestoreCommand) kind() string { return fmt.Sprintf("%T", c) }
 // DeleteBackupCommand is a sealed interface for backup deletion variants.
 // There are exactly two implementations:
 //   - [DeleteBackupByName] deletes a single backup by name.
-//   - [DeleteBackupOlderThan] deletes all backups older than a timestamp,
+//   - [DeleteBackupsBefore] deletes all backups older than a timestamp,
 //     optionally filtered by type and storage profile.
 //
 // Most callers should use [BackupService.Delete] instead of dispatching
@@ -136,9 +136,9 @@ type DeleteBackupByName struct {
 func (c DeleteBackupByName) kind() string         { return fmt.Sprintf("%T", c) }
 func (c DeleteBackupByName) deleteBackupCommand() {}
 
-// DeleteBackupOlderThan requests deletion of all backups older than a
+// DeleteBackupsBefore requests deletion of all backups older than a
 // timestamp. The deletion is processed asynchronously by PBM agents.
-type DeleteBackupOlderThan struct {
+type DeleteBackupsBefore struct {
 	// OlderThan is the cutoff time. All backups with a start time before
 	// this value are candidates for deletion. Required — zero value is
 	// rejected with an error.
@@ -153,8 +153,8 @@ type DeleteBackupOlderThan struct {
 	ConfigName ConfigName
 }
 
-func (c DeleteBackupOlderThan) kind() string         { return fmt.Sprintf("%T", c) }
-func (c DeleteBackupOlderThan) deleteBackupCommand() {}
+func (c DeleteBackupsBefore) kind() string         { return fmt.Sprintf("%T", c) }
+func (c DeleteBackupsBefore) deleteBackupCommand() {}
 
 // AddProfileCommand requests creation or replacement of a named storage profile.
 // The storage field is unexported and populated by [ConfigService] from parsed YAML;

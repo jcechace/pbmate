@@ -116,8 +116,8 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 	switch c := cmd.(type) {
 	case DeleteBackupByName:
 		return s.deleteByName(ctx, c)
-	case DeleteBackupOlderThan:
-		return s.deleteOlderThan(ctx, c)
+	case DeleteBackupsBefore:
+		return s.deleteBefore(ctx, c)
 	default:
 		return CommandResult{}, fmt.Errorf("unsupported delete command type: %T", cmd)
 	}
@@ -132,7 +132,7 @@ func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupBy
 	return result, nil
 }
 
-func (s *backupServiceImpl) deleteOlderThan(ctx context.Context, cmd DeleteBackupOlderThan) (CommandResult, error) {
+func (s *backupServiceImpl) deleteBefore(ctx context.Context, cmd DeleteBackupsBefore) (CommandResult, error) {
 	if cmd.OlderThan.IsZero() {
 		return CommandResult{}, fmt.Errorf("delete backups: older-than time must be set")
 	}

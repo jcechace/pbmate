@@ -18,8 +18,8 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertRestoreCommandToPBM(c), nil
 	case DeleteBackupByName:
 		return convertDeleteByNameToPBM(c), nil
-	case DeleteBackupOlderThan:
-		return convertDeleteOlderThanToPBM(c), nil
+	case DeleteBackupsBefore:
+		return convertDeleteBackupsBeforeToPBM(c), nil
 	case AddProfileCommand:
 		return convertAddProfileCommandToPBM(c)
 	case RemoveProfileCommand:
@@ -66,7 +66,7 @@ func convertDeleteByNameToPBM(cmd DeleteBackupByName) ctrl.Cmd {
 	}
 }
 
-func convertDeleteOlderThanToPBM(cmd DeleteBackupOlderThan) ctrl.Cmd {
+func convertDeleteBackupsBeforeToPBM(cmd DeleteBackupsBefore) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdDeleteBackup,
 		Delete: &ctrl.DeleteBackupCmd{

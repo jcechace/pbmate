@@ -105,7 +105,7 @@ type BackupService interface {
 	//
 	// The cmd parameter is a sealed [DeleteBackupCommand] with two variants:
 	//   - [DeleteBackupByName] deletes a single backup.
-	//   - [DeleteBackupOlderThan] bulk-deletes backups older than a cutoff.
+	//   - [DeleteBackupsBefore] bulk-deletes backups older than a cutoff.
 	//
 	// Example — delete by name:
 	//
@@ -116,7 +116,7 @@ type BackupService interface {
 	// Example — bulk delete older than a cutoff:
 	//
 	//	cutoff := time.Now().Add(-30 * 24 * time.Hour)
-	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupOlderThan{
+	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupsBefore{
 	//	    OlderThan: cutoff,
 	//	    Type:      sdk.BackupTypeLogical,
 	//	})
