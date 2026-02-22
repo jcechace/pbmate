@@ -35,6 +35,33 @@ func TestConvertStartLogicalBackupToPBM(t *testing.T) {
 	assert.Equal(t, "", result.Backup.Profile, "MainConfig should map to empty string")
 }
 
+func TestConvertStartLogicalBackupWithCompressionLevel(t *testing.T) {
+	level := 5
+	cmd := StartLogicalBackup{
+		Compression:      CompressionTypeZSTD,
+		CompressionLevel: &level,
+		name:             "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Backup.CompressionLevel)
+	assert.Equal(t, 5, *result.Backup.CompressionLevel)
+}
+
+func TestConvertStartLogicalBackupWithNilCompressionLevel(t *testing.T) {
+	cmd := StartLogicalBackup{
+		Compression: CompressionTypeZSTD,
+		name:        "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Nil(t, result.Backup.CompressionLevel, "nil CompressionLevel should pass through as nil")
+}
+
 func TestConvertStartLogicalBackupWithProfile(t *testing.T) {
 	cn, err := NewConfigName("my-s3")
 	require.NoError(t, err)
@@ -68,6 +95,22 @@ func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
 	assert.Equal(t, compress.CompressionTypeS2, result.Backup.Compression)
 	assert.True(t, result.Backup.IncrBase)
 	assert.Nil(t, result.Backup.Namespaces, "incremental backups don't support namespaces")
+}
+
+func TestConvertStartIncrementalBackupWithCompressionLevel(t *testing.T) {
+	level := 3
+	cmd := StartIncrementalBackup{
+		Compression:      CompressionTypeS2,
+		CompressionLevel: &level,
+		Base:             true,
+		name:             "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Backup.CompressionLevel)
+	assert.Equal(t, 3, *result.Backup.CompressionLevel)
 }
 
 func TestConvertStartSnapshotRestoreToPBM(t *testing.T) {

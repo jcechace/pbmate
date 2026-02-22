@@ -83,6 +83,11 @@ type StartLogicalBackup struct {
 	// Zero value uses the server default.
 	Compression CompressionType
 
+	// CompressionLevel overrides the server-configured compression level.
+	// Valid values depend on the compression algorithm. Nil uses the server
+	// default.
+	CompressionLevel *int
+
 	// Namespaces limits the backup to specific databases or collections
 	// (e.g. ["mydb.mycol"]). Nil means a full backup of all namespaces.
 	Namespaces []string
@@ -103,6 +108,11 @@ type StartIncrementalBackup struct {
 	// Compression overrides the server-configured compression algorithm.
 	// Zero value uses the server default.
 	Compression CompressionType
+
+	// CompressionLevel overrides the server-configured compression level.
+	// Valid values depend on the compression algorithm. Nil uses the server
+	// default.
+	CompressionLevel *int
 
 	// Base starts a new incremental backup chain when true. When false,
 	// the backup extends the existing chain.
