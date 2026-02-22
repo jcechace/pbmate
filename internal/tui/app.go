@@ -147,7 +147,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.overview.setData(msg.overviewData)
 		m.setFlash("fetch", msg.err)
 		// Adaptive polling: faster when operations are running.
-		if len(m.overview.data.operations) > 0 {
+		if m.overview.HasRunningOps() {
 			m.pollInterval = activeInterval
 		} else {
 			m.pollInterval = idleInterval
@@ -295,7 +295,7 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil:
 		return m, m.openBackupForm(backupFormFull)
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
-		if len(m.overview.data.operations) > 0 {
+		if m.overview.HasRunningOps() {
 			overlay, cmd := newConfirmOverlay(
 				"Cancel Backup",
 				"Cancel the currently running backup?",
@@ -414,9 +414,9 @@ func (m Model) bottomBarView() string {
 	case m.connecting:
 		statusParts = append(statusParts, m.styles.StatusWarning.Render("Connecting..."))
 	default:
-		statusParts = append(statusParts, m.clusterTimeText())
-		statusParts = append(statusParts, m.pitrStatusText())
-		statusParts = append(statusParts, m.runningOpText())
+		statusParts = append(statusParts, m.overview.ClusterTimeText())
+		statusParts = append(statusParts, m.overview.PITRStatusText())
+		statusParts = append(statusParts, m.overview.RunningOpText())
 	}
 	leftZone := " " + strings.Join(statusParts, "  ")
 
@@ -469,33 +469,6 @@ func (m Model) renderHints(bindings []key.Binding, maxWidth int) string {
 	return strings.Join(parts, hintSep)
 }
 
-// pitrStatusText returns a short PITR status string for the status bar.
-func (m Model) pitrStatusText() string {
-	if m.overview.data.pitr == nil {
-		return "PITR:--"
-	}
-	if !m.overview.data.pitr.Enabled {
-		return "PITR:off"
-	}
-	if m.overview.data.pitr.Running {
-		return "PITR:on"
-	}
-	return "PITR:paused"
-}
-
-// runningOpText returns a short running operation string for the status bar.
-func (m Model) runningOpText() string {
-	if len(m.overview.data.operations) == 0 {
-		return "Op:none"
-	}
-	op := m.overview.data.operations[0]
-	text := fmt.Sprintf("Op:%s", op.Type)
-	if len(m.overview.data.operations) > 1 {
-		text += fmt.Sprintf("(+%d)", len(m.overview.data.operations)-1)
-	}
-	return text
-}
-
 // contextBindings returns the keybinding hints for the bottom bar.
 // Only essential navigation and help/quit are shown; all other bindings
 // are accessible through the ? help overlay.
@@ -509,14 +482,6 @@ func (m Model) contextBindings() []key.Binding {
 	}
 	bindings = append(bindings, m.keys.Help, m.keys.Quit)
 	return bindings
-}
-
-// clusterTimeText returns the cluster time for the status bar.
-func (m Model) clusterTimeText() string {
-	if m.overview.data.clusterTime.IsZero() {
-		return "--:--"
-	}
-	return m.overview.data.clusterTime.Time().UTC().Format("15:04")
 }
 
 // updateViewportDims precomputes all viewport dimensions from the current

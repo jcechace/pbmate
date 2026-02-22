@@ -69,6 +69,46 @@ func (m *overviewModel) isFollowing() bool {
 	return m.logs.following
 }
 
+// HasRunningOps reports whether any operations are currently running.
+func (m *overviewModel) HasRunningOps() bool {
+	return len(m.data.operations) > 0
+}
+
+// PITRStatusText returns a short PITR status string for the status bar.
+func (m *overviewModel) PITRStatusText() string {
+	if m.data.pitr == nil {
+		return "PITR:--"
+	}
+	if !m.data.pitr.Enabled {
+		return "PITR:off"
+	}
+	if m.data.pitr.Running {
+		return "PITR:on"
+	}
+	return "PITR:paused"
+}
+
+// RunningOpText returns a short running operation summary for the status bar.
+func (m *overviewModel) RunningOpText() string {
+	if len(m.data.operations) == 0 {
+		return "Op:none"
+	}
+	op := m.data.operations[0]
+	text := fmt.Sprintf("Op:%s", op.Type)
+	if len(m.data.operations) > 1 {
+		text += fmt.Sprintf("(+%d)", len(m.data.operations)-1)
+	}
+	return text
+}
+
+// ClusterTimeText returns the cluster time for the status bar.
+func (m *overviewModel) ClusterTimeText() string {
+	if m.data.clusterTime.IsZero() {
+		return "--:--"
+	}
+	return m.data.clusterTime.Time().UTC().Format("15:04")
+}
+
 // toggleFollow starts or stops the log follow mode and returns a command
 // to begin listening for log entries. Follow errors arrive asynchronously
 // via the error channel and are surfaced through logFollowDoneMsg.
