@@ -97,7 +97,7 @@ type BackupService interface {
 	//
 	// Example:
 	//
-	//	result, _ := client.Backups.Start(ctx, sdk.StartBackupOptions{})
+	//	result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
 	//	bk, err := client.Backups.Wait(ctx, result.Name, sdk.BackupWaitOptions{
 	//	    PollInterval: 2 * time.Second,
 	//	    OnProgress: func(b *sdk.Backup) {
