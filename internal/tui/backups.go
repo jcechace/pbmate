@@ -157,7 +157,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 
 	// Toggle collapse on space/enter when on a profile header.
 	if m.mode == listBackups && m.focus == panelLeft {
-		if msg.String() == " " || msg.String() == "enter" {
+		if key.Matches(msg, overviewKeys.Toggle) {
 			if item := m.selectedItem(); item != nil && item.kind == itemProfileHeader {
 				m.collapsed[item.profile] = !m.collapsed[item.profile]
 				m.rebuildItems()
