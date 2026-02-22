@@ -28,24 +28,25 @@ type formOverlay interface {
 
 // backupFormOverlay wraps the backup start form (quick confirm or full wizard).
 type backupFormOverlay struct {
-	form   *huh.Form
-	result *backupFormResult
-	kind   backupFormKind
-	ctx    context.Context
-	client *sdk.Client
+	form      *huh.Form
+	result    *backupFormResult
+	kind      backupFormKind
+	ctx       context.Context
+	client    *sdk.Client
+	formTheme *huh.Theme
 }
 
-func newBackupFormOverlay(ctx context.Context, client *sdk.Client, kind backupFormKind, profiles []sdk.StorageProfile) (*backupFormOverlay, tea.Cmd) {
+func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, kind backupFormKind, profiles []sdk.StorageProfile) (*backupFormOverlay, tea.Cmd) {
 	var form *huh.Form
 	var result *backupFormResult
 	switch kind {
 	case backupFormQuick:
-		form, result = newQuickBackupForm()
+		form, result = newQuickBackupForm(formTheme)
 	case backupFormFull:
-		form, result = newFullBackupForm(profiles, nil)
+		form, result = newFullBackupForm(formTheme, profiles, nil)
 	}
 	result.profiles = profiles
-	o := &backupFormOverlay{form: form, result: result, kind: kind, ctx: ctx, client: client}
+	o := &backupFormOverlay{form: form, result: result, kind: kind, ctx: ctx, client: client, formTheme: formTheme}
 	return o, o.form.Init()
 }
 
@@ -84,13 +85,14 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 }
 
 func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
-	form, result := newFullBackupForm(o.result.profiles, o.result)
+	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result)
 	next := &backupFormOverlay{
-		form:   form,
-		result: result,
-		kind:   backupFormFull,
-		ctx:    o.ctx,
-		client: o.client,
+		form:      form,
+		result:    result,
+		kind:      backupFormFull,
+		ctx:       o.ctx,
+		client:    o.client,
+		formTheme: o.formTheme,
 	}
 	return next, next.form.Init()
 }
@@ -200,8 +202,8 @@ type profileNameOverlay struct {
 	client *sdk.Client
 }
 
-func newProfileNameOverlay(ctx context.Context, client *sdk.Client) (*profileNameOverlay, tea.Cmd) {
-	form, result := newProfileNameForm()
+func newProfileNameOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme) (*profileNameOverlay, tea.Cmd) {
+	form, result := newProfileNameForm(formTheme)
 	o := &profileNameOverlay{form: form, result: result, ctx: ctx, client: client}
 	return o, o.form.Init()
 }
@@ -251,8 +253,8 @@ type confirmOverlay struct {
 	actionCmd tea.Cmd // executed if confirmed
 }
 
-func newConfirmOverlay(title, description, affirmative, negative string, actionCmd tea.Cmd) (*confirmOverlay, tea.Cmd) {
-	form, result := newConfirmForm(description, affirmative, negative)
+func newConfirmOverlay(formTheme *huh.Theme, title, description, affirmative, negative string, actionCmd tea.Cmd) (*confirmOverlay, tea.Cmd) {
+	form, result := newConfirmForm(formTheme, description, affirmative, negative)
 	o := &confirmOverlay{form: form, result: result, title: title, actionCmd: actionCmd}
 	return o, o.form.Init()
 }

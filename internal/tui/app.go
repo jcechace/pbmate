@@ -196,7 +196,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case backupFormReadyMsg:
-		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, msg.kind, msg.profiles)
+		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.kind, msg.profiles)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -234,7 +234,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case configNewProfileRequest:
-		overlay, cmd := newProfileNameOverlay(m.ctx, m.client)
+		overlay, cmd := newProfileNameOverlay(m.ctx, m.client, m.styles.FormTheme)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -245,7 +245,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd(0)
 
 	case deleteConfirmMsg:
-		overlay, cmd := newConfirmOverlay(msg.title, msg.description, "Delete", "Cancel",
+		overlay, cmd := newConfirmOverlay(m.styles.FormTheme, msg.title, msg.description, "Delete", "Cancel",
 			deleteBackupCmd(m.ctx, m.client, msg.baseName))
 		m.activeOverlay = overlay
 		return m, cmd
@@ -296,7 +296,7 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openBackupForm(backupFormFull)
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
 		if m.overview.HasRunningOps() {
-			overlay, cmd := newConfirmOverlay(
+			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
 				"Cancel Backup",
 				"Cancel the currently running backup?",
 				"Cancel Backup", "Keep Running",

@@ -88,7 +88,7 @@ func (r backupFormResult) toCommand() sdk.StartBackupCommand {
 
 // newQuickBackupForm creates a compact confirm form for starting a backup
 // with defaults. The user can confirm ("Start") or choose to customize.
-func newQuickBackupForm() (*huh.Form, *backupFormResult) {
+func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
@@ -96,7 +96,7 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 		confirmed:   true,
 	}
 
-	theme := huh.ThemeCatppuccin()
+	theme := *formTheme
 	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
 
 	form := huh.NewForm(
@@ -111,7 +111,7 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 				Value(&result.confirmed),
 		),
 	).
-		WithTheme(theme).
+		WithTheme(&theme).
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -125,7 +125,7 @@ func newQuickBackupForm() (*huh.Form, *backupFormResult) {
 // newFullBackupForm creates a multi-group wizard form for configuring a backup.
 // initialResult carries values from the quick form (or defaults if opened
 // directly via S). profiles is the list of named storage profiles.
-func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult) (*huh.Form, *backupFormResult) {
+func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *backupFormResult) (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
@@ -214,7 +214,7 @@ func newFullBackupForm(profiles []sdk.StorageProfile, initial *backupFormResult)
 				Value(&result.confirmed),
 		),
 	).
-		WithTheme(huh.ThemeCatppuccin()).
+		WithTheme(formTheme).
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -232,10 +232,10 @@ type confirmFormResult struct {
 
 // newConfirmForm creates a compact confirmation overlay with a description
 // and Yes/No (or custom) buttons.
-func newConfirmForm(description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
+func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
 	result := &confirmFormResult{confirmed: true}
 
-	theme := huh.ThemeCatppuccin()
+	theme := *formTheme
 	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
 
 	form := huh.NewForm(
@@ -249,7 +249,7 @@ func newConfirmForm(description, affirmative, negative string) (*huh.Form, *conf
 				Value(&result.confirmed),
 		),
 	).
-		WithTheme(theme).
+		WithTheme(&theme).
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).

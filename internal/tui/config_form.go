@@ -13,10 +13,10 @@ type profileNameResult struct {
 
 // newProfileNameForm creates a compact form that asks only for a profile name.
 // Used as the first step of new profile creation (followed by a file picker).
-func newProfileNameForm() (*huh.Form, *profileNameResult) {
+func newProfileNameForm(formTheme *huh.Theme) (*huh.Form, *profileNameResult) {
 	result := &profileNameResult{confirmed: true}
 
-	theme := huh.ThemeCatppuccin()
+	theme := *formTheme
 	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
 
 	form := huh.NewForm(
@@ -32,7 +32,7 @@ func newProfileNameForm() (*huh.Form, *profileNameResult) {
 				Value(&result.confirmed),
 		),
 	).
-		WithTheme(theme).
+		WithTheme(&theme).
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).

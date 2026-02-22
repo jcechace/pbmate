@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Styles holds all lipgloss styles derived from a Theme.
 type Styles struct {
@@ -33,6 +36,9 @@ type Styles struct {
 
 	// ChromaStyle is the Chroma syntax highlighting style name for YAML rendering.
 	ChromaStyle string
+
+	// FormTheme is the huh form theme matching the active TUI theme.
+	FormTheme *huh.Theme
 }
 
 // NewStyles creates a Styles set from the given Theme.
@@ -83,5 +89,6 @@ func NewStyles(t Theme) Styles {
 		StatusMuted:   lipgloss.NewStyle().Foreground(t.Muted),
 
 		ChromaStyle: t.ChromaStyle,
+		FormTheme:   t.HuhTheme(),
 	}
 }
