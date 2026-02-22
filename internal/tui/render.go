@@ -286,11 +286,8 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	if !bk.StartTS.IsZero() {
 		fmt.Fprintf(b, "  Started:     %s\n", bk.StartTS.UTC().Format("2006-01-02 15:04:05"))
 	}
-	if !bk.LastTransitionTS.IsZero() && !bk.StartTS.IsZero() {
-		dur := bk.LastTransitionTS.Sub(bk.StartTS).Truncate(time.Second)
-		if dur > 0 {
-			fmt.Fprintf(b, "  Duration:    %s\n", dur)
-		}
+	if dur := bk.Elapsed().Truncate(time.Second); dur > 0 {
+		fmt.Fprintf(b, "  Duration:    %s\n", dur)
 	}
 
 	if bk.Error != "" {
@@ -327,14 +324,11 @@ func renderRestoreDetail(b *strings.Builder, rs *sdk.Restore, styles *Styles) {
 	if !rs.StartTS.IsZero() {
 		fmt.Fprintf(b, "  Started:     %s\n", rs.StartTS.UTC().Format("2006-01-02 15:04:05"))
 	}
-	if !rs.FinishTS.IsZero() {
-		fmt.Fprintf(b, "  Finished:    %s\n", rs.FinishTS.UTC().Format("2006-01-02 15:04:05"))
+	if !rs.LastTransitionTS.IsZero() {
+		fmt.Fprintf(b, "  Finished:    %s\n", rs.LastTransitionTS.UTC().Format("2006-01-02 15:04:05"))
 	}
-	if !rs.FinishTS.IsZero() && !rs.StartTS.IsZero() {
-		dur := rs.FinishTS.Sub(rs.StartTS).Truncate(time.Second)
-		if dur > 0 {
-			fmt.Fprintf(b, "  Duration:    %s\n", dur)
-		}
+	if dur := rs.Elapsed().Truncate(time.Second); dur > 0 {
+		fmt.Fprintf(b, "  Duration:    %s\n", dur)
 	}
 
 	if !rs.PITRTarget.IsZero() {
