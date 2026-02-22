@@ -142,13 +142,16 @@ type BackupService interface {
 	// Returns nil if deletion is safe, or a descriptive error explaining
 	// why the backup is protected.
 	//
-	// For incremental backups the check covers the entire chain from the
-	// base, regardless of which increment name is given.
+	// For incremental backups, the name must be the chain base. Non-base
+	// increments are rejected with [ErrNotChainBase] — callers should
+	// resolve to the base name (via [BackupChain.Base] or [FindChainBase])
+	// before calling CanDelete.
 	//
 	// Possible errors:
 	//   - [ErrNotFound]: no backup with this name exists.
 	//   - [ErrBackupInProgress]: the backup has not reached a terminal status.
 	//   - [ErrDeleteProtectedByPITR]: the backup is the last PITR base snapshot.
+	//   - [ErrNotChainBase]: the backup is a non-base incremental backup.
 	//
 	// Example:
 	//

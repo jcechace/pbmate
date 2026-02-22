@@ -17,6 +17,13 @@ var ErrBackupInProgress = errors.New("backup is currently running")
 // point-in-time recovery continuity while PITR is enabled.
 var ErrDeleteProtectedByPITR = errors.New("backup is the last PITR base snapshot and cannot be deleted while PITR is enabled")
 
+// ErrNotChainBase is returned by [BackupService.CanDelete] when the target
+// backup is an incremental backup that is not the base of its chain.
+// PBM requires deleting the entire chain from the base; individual
+// increments cannot be removed. Callers should resolve to the chain base
+// name (via [BackupChain.Base] or [FindChainBase]) and retry.
+var ErrNotChainBase = errors.New("backup is not the base of its incremental chain; delete the chain base instead")
+
 // ConcurrentOperationError is returned when a command cannot be dispatched
 // because another PBM operation is already running.
 type ConcurrentOperationError struct {

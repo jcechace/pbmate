@@ -185,22 +185,19 @@ func (s *backupServiceImpl) CanDelete(ctx context.Context, name string) error {
 		return translateCanDeleteError(backup.CanDeleteBackup(ctx, s.conn, bcp))
 	}
 
-	// Incremental backup: walk up to the chain base so the PITR anchor
-	// check covers the entire chain's time span.
-	base := bcp
-	for base.SrcBackup != "" {
-		base, err = mgr.GetBackupByName(ctx, base.SrcBackup)
-		if err != nil {
-			return fmt.Errorf("can delete %q: resolve chain base: %w", name, err)
-		}
+	// Incremental backups must be deleted as entire chains starting from
+	// the base. Reject non-base increments so callers know to resolve to
+	// the chain base name first.
+	if bcp.SrcBackup != "" {
+		return ErrNotChainBase
 	}
 
-	increments, err := backup.FetchAllIncrements(ctx, s.conn, base)
+	increments, err := backup.FetchAllIncrements(ctx, s.conn, bcp)
 	if err != nil {
 		return fmt.Errorf("can delete %q: fetch chain: %w", name, err)
 	}
 
-	return translateCanDeleteError(backup.CanDeleteIncrementalChain(ctx, s.conn, base, increments))
+	return translateCanDeleteError(backup.CanDeleteIncrementalChain(ctx, s.conn, bcp, increments))
 }
 
 // translateCanDeleteError converts PBM delete-check sentinel errors to
