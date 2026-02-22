@@ -38,6 +38,12 @@ func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
 		return convertDeletePITRBeforeToPBM(DeletePITRBefore{
 			OlderThan: time.Now().UTC(),
 		}), nil
+	case ResyncMain:
+		return convertResyncMainToPBM(c), nil
+	case ResyncProfile:
+		return convertResyncProfileToPBM(c), nil
+	case ResyncAllProfiles:
+		return convertResyncAllProfilesToPBM(c), nil
 	case CancelBackupCommand:
 		return ctrl.Cmd{Cmd: ctrl.CmdCancelBackup}, nil
 	default:
@@ -153,6 +159,34 @@ func convertDeletePITRBeforeToPBM(cmd DeletePITRBefore) ctrl.Cmd {
 		Cmd: ctrl.CmdDeletePITR,
 		DeletePITR: &ctrl.DeletePITRCmd{
 			OlderThan: cmd.OlderThan.Unix(),
+		},
+	}
+}
+
+func convertResyncMainToPBM(cmd ResyncMain) ctrl.Cmd {
+	c := ctrl.Cmd{Cmd: ctrl.CmdResync}
+	if cmd.IncludeRestores {
+		c.Resync = &ctrl.ResyncCmd{IncludeRestores: true}
+	}
+	return c
+}
+
+func convertResyncProfileToPBM(cmd ResyncProfile) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdResync,
+		Resync: &ctrl.ResyncCmd{
+			Name:  cmd.Name,
+			Clear: cmd.Clear,
+		},
+	}
+}
+
+func convertResyncAllProfilesToPBM(cmd ResyncAllProfiles) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdResync,
+		Resync: &ctrl.ResyncCmd{
+			All:   true,
+			Clear: cmd.Clear,
 		},
 	}
 }

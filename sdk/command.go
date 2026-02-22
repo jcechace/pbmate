@@ -277,6 +277,57 @@ type DeletePITRAll struct{}
 func (c DeletePITRAll) kind() string       { return fmt.Sprintf("%T", c) }
 func (c DeletePITRAll) deletePITRCommand() {}
 
+// ResyncCommand is a sealed interface for storage resynchronization variants.
+// Resync commands instruct PBM agents to re-read backup metadata from storage.
+// There are exactly three implementations:
+//   - [ResyncMain] resyncs the main storage configuration.
+//   - [ResyncProfile] resyncs a single named storage profile.
+//   - [ResyncAllProfiles] resyncs all storage profiles.
+//
+// Most callers should use [ConfigService.Resync] instead of dispatching
+// through [CommandService] directly.
+type ResyncCommand interface {
+	Command
+	resyncCommand() // seal to this package
+}
+
+// ResyncMain requests a resynchronization of the main storage configuration.
+// PBM agents re-read backup and restore metadata from the main storage.
+type ResyncMain struct {
+	// IncludeRestores includes physical restore metadata in the resync
+	// when true. Only relevant for physical backup storage.
+	IncludeRestores bool
+}
+
+func (c ResyncMain) kind() string   { return fmt.Sprintf("%T", c) }
+func (c ResyncMain) resyncCommand() {}
+
+// ResyncProfile requests a resynchronization of a single named storage profile.
+// PBM agents re-read backup metadata from the specified profile's storage.
+type ResyncProfile struct {
+	// Name is the storage profile to resync. Required.
+	Name string
+
+	// Clear removes existing backup metadata for this profile before
+	// resyncing when true. Use this when the storage contents have changed
+	// externally and stale metadata needs to be purged.
+	Clear bool
+}
+
+func (c ResyncProfile) kind() string   { return fmt.Sprintf("%T", c) }
+func (c ResyncProfile) resyncCommand() {}
+
+// ResyncAllProfiles requests a resynchronization of all storage profiles.
+// PBM agents re-read backup metadata from every configured profile's storage.
+type ResyncAllProfiles struct {
+	// Clear removes existing backup metadata for all profiles before
+	// resyncing when true.
+	Clear bool
+}
+
+func (c ResyncAllProfiles) kind() string   { return fmt.Sprintf("%T", c) }
+func (c ResyncAllProfiles) resyncCommand() {}
+
 // AddProfileCommand requests creation or replacement of a named storage profile.
 // The storage field is unexported and populated by [ConfigService] from parsed YAML;
 // callers cannot construct this command directly — use ConfigService instead.

@@ -53,6 +53,12 @@ type ConfigService interface {
 	// RemoveProfile deletes a named storage profile. This is dispatched as a
 	// command — the agent clears associated backup metadata before removing.
 	RemoveProfile(ctx context.Context, name string) (CommandResult, error)
+
+	// Resync instructs PBM agents to re-read backup metadata from storage.
+	// This is useful after manual storage changes or configuration updates.
+	// The cmd parameter determines which storage to resync — see
+	// [ResyncMain], [ResyncProfile], and [ResyncAllProfiles].
+	Resync(ctx context.Context, cmd ResyncCommand) (CommandResult, error)
 }
 
 // Config represents the PBM configuration. Optional sections (PITR, Backup,

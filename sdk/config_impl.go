@@ -132,3 +132,12 @@ func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (Com
 	}
 	return result, nil
 }
+
+func (s *configServiceImpl) Resync(ctx context.Context, cmd ResyncCommand) (CommandResult, error) {
+	s.log.InfoContext(ctx, "resyncing storage", "command", fmt.Sprintf("%T", cmd))
+	result, err := s.cmds.Send(ctx, cmd)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("resync: %w", err)
+	}
+	return result, nil
+}

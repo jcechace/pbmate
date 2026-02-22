@@ -253,6 +253,85 @@ func TestConvertDeletePITRAllToPBM(t *testing.T) {
 	assert.GreaterOrEqual(t, result.DeletePITR.OlderThan, before.Unix())
 }
 
+func TestConvertResyncMainToPBM(t *testing.T) {
+	t.Run("default", func(t *testing.T) {
+		cmd := ResyncMain{}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		assert.Nil(t, result.Resync, "default ResyncMain should have nil Resync opts")
+	})
+
+	t.Run("include restores", func(t *testing.T) {
+		cmd := ResyncMain{IncludeRestores: true}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		require.NotNil(t, result.Resync)
+		assert.True(t, result.Resync.IncludeRestores)
+		assert.False(t, result.Resync.All)
+		assert.Empty(t, result.Resync.Name)
+	})
+}
+
+func TestConvertResyncProfileToPBM(t *testing.T) {
+	t.Run("sync", func(t *testing.T) {
+		cmd := ResyncProfile{Name: "my-s3"}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		require.NotNil(t, result.Resync)
+		assert.Equal(t, "my-s3", result.Resync.Name)
+		assert.False(t, result.Resync.Clear)
+		assert.False(t, result.Resync.All)
+	})
+
+	t.Run("clear", func(t *testing.T) {
+		cmd := ResyncProfile{Name: "my-s3", Clear: true}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		require.NotNil(t, result.Resync)
+		assert.Equal(t, "my-s3", result.Resync.Name)
+		assert.True(t, result.Resync.Clear)
+	})
+}
+
+func TestConvertResyncAllProfilesToPBM(t *testing.T) {
+	t.Run("sync", func(t *testing.T) {
+		cmd := ResyncAllProfiles{}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		require.NotNil(t, result.Resync)
+		assert.True(t, result.Resync.All)
+		assert.False(t, result.Resync.Clear)
+		assert.Empty(t, result.Resync.Name)
+	})
+
+	t.Run("clear", func(t *testing.T) {
+		cmd := ResyncAllProfiles{Clear: true}
+
+		result, err := convertCommandToPBM(cmd)
+		require.NoError(t, err)
+
+		assert.Equal(t, ctrl.CmdResync, result.Cmd)
+		require.NotNil(t, result.Resync)
+		assert.True(t, result.Resync.All)
+		assert.True(t, result.Resync.Clear)
+	})
+}
+
 func TestConvertCancelBackupCommandToPBM(t *testing.T) {
 	cmd := CancelBackupCommand{}
 
