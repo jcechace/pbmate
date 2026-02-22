@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/log"
@@ -17,11 +18,7 @@ type logServiceImpl struct {
 var _ LogService = (*logServiceImpl)(nil)
 
 func (s *logServiceImpl) Get(ctx context.Context, opts GetLogsOptions) ([]LogEntry, error) {
-	req := &log.LogRequest{
-		LogKeys: log.LogKeys{
-			Severity: convertLogSeverityToInternal(opts.Severity),
-		},
-	}
+	req := convertLogRequest(&opts.LogFilter, opts.TimeMin, opts.TimeMax)
 
 	entries, err := log.LogGet(ctx, s.conn, req, int64(opts.Limit))
 	if err != nil {
@@ -36,11 +33,7 @@ func (s *logServiceImpl) Get(ctx context.Context, opts GetLogsOptions) ([]LogEnt
 }
 
 func (s *logServiceImpl) Follow(ctx context.Context, opts FollowOptions) (<-chan LogEntry, <-chan error) {
-	req := &log.LogRequest{
-		LogKeys: log.LogKeys{
-			Severity: convertLogSeverityToInternal(opts.Severity),
-		},
-	}
+	req := convertLogRequest(&opts.LogFilter, time.Time{}, time.Time{})
 
 	pbmEntries, pbmErrs := log.Follow(ctx, s.conn, req, false)
 

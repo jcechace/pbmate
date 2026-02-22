@@ -2,6 +2,9 @@ package sdk
 
 import (
 	"log/slog"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/percona/percona-backup-mongodb/pbm/log"
 )
@@ -46,6 +49,29 @@ func convertLogSeverityToInternal(s LogSeverity) log.Severity {
 		return log.Debug
 	default:
 		return log.Info
+	}
+}
+
+// convertLogFilter maps an SDK LogFilter to PBM's LogKeys.
+func convertLogFilter(f *LogFilter) log.LogKeys {
+	return log.LogKeys{
+		Severity: convertLogSeverityToInternal(f.Severity),
+		RS:       f.ReplicaSet,
+		Node:     f.Node,
+		Event:    f.Event,
+		ObjName:  f.ObjectName,
+		OPID:     f.OPID,
+		Epoch:    primitive.Timestamp{T: f.Epoch.T, I: f.Epoch.I},
+	}
+}
+
+// convertLogRequest builds a full PBM LogRequest from an SDK LogFilter and
+// optional time bounds.
+func convertLogRequest(f *LogFilter, timeMin, timeMax time.Time) *log.LogRequest {
+	return &log.LogRequest{
+		LogKeys: convertLogFilter(f),
+		TimeMin: timeMin,
+		TimeMax: timeMax,
 	}
 }
 
