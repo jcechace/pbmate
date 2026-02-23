@@ -223,6 +223,20 @@ and data fields filled in.
 - [x] Backup data fields — `FirstWriteTS` on `Backup`, `Size` and
       `SizeUncompressed` on `BackupReplset`
 
+### Command architecture simplification (complete)
+
+Removed dead `Command` interface and `CommandService` from public API. Since
+all commands are sealed, external code cannot implement `Command`, making the
+generic `Send(Command)` surface unreachable. Services now call specific
+converters directly via internal `*commandServiceImpl` helpers.
+
+- [x] Extract shared `isLockStale` helper
+- [x] Move `CheckLock` to `ClusterService`
+- [x] Remove `Command` interface, `CommandService`, `Client.Commands` field
+- [x] Replace `Send(Command)` with `validateAndCheckLock` + specific converter + `dispatch`
+- [x] Remove `convertCommandToPBM` type switch (services call specific converters)
+- [x] Update tests to call specific converters directly
+
 ### Deferred
 
 | Feature | Reason |

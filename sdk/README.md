@@ -50,10 +50,9 @@ The client exposes domain-specific services as interface-typed fields:
 | [BackupService](backup.go) | `client.Backups` | List, get, start, wait, delete, cancel backups; pre-delete safety check |
 | [RestoreService](restore.go) | `client.Restores` | List, get, start, wait for restores |
 | [ConfigService](config.go) | `client.Config` | Read/write configuration and storage profiles |
-| [ClusterService](cluster.go) | `client.Cluster` | Cluster topology, agent status, running operations |
+| [ClusterService](cluster.go) | `client.Cluster` | Cluster topology, agent status, running operations, lock checks |
 | [PITRService](pitr.go) | `client.PITR` | PITR status, oplog timelines, chunk deletion |
 | [LogService](log.go) | `client.Logs` | Query and stream PBM logs |
-| [CommandService](command.go) | `client.Commands` | Low-level command dispatch (power users) |
 
 Every service is an interface — mock any of them in your tests.
 
@@ -263,7 +262,7 @@ Other sealed hierarchies: `StartRestoreCommand` (snapshot vs PITR), `DeleteBacku
 
 ### Command Validation
 
-Every command type implements `Validate() error`. The `CommandService.Send` method calls `Validate()` before checking locks or dispatching, so invalid commands fail fast with a clear error — no round-trip to MongoDB needed. Commands with no constraints return `nil`.
+Every command type implements `Validate() error`. Service methods call `Validate()` before checking locks or dispatching, so invalid commands fail fast with a clear error — no round-trip to MongoDB needed. Commands with no constraints return `nil`.
 
 ```go
 cmd := sdk.StartLogicalBackup{
