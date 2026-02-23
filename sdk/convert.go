@@ -95,6 +95,14 @@ func convertSlice[In, Out any](items []In, fn func(In) Out) []Out {
 	return result
 }
 
+// isLockStale reports whether a lock heartbeat is stale relative to clusterTime.
+// A lock is considered stale when its heartbeat is older than PBM's stale frame
+// threshold. Both callers — CheckLock and RunningOperations — must agree on
+// this definition to avoid inconsistencies.
+func isLockStale(heartbeatT, clusterTimeT uint32) bool {
+	return heartbeatT+defs.StaleFrameSec < clusterTimeT
+}
+
 // convertConfigName converts a PBM profile/config name to an SDK ConfigName.
 // Empty string (PBM's representation of the main config) maps to MainConfig.
 func convertConfigName(name string) ConfigName {

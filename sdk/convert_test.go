@@ -167,6 +167,30 @@ func TestConvertConfigName(t *testing.T) {
 	assert.Equal(t, "my-profile", convertConfigName("my-profile").String())
 }
 
+func TestIsLockStale(t *testing.T) {
+	// defs.StaleFrameSec is the threshold. A lock is stale when
+	// heartbeat + StaleFrameSec < clusterTime.
+
+	t.Run("fresh lock", func(t *testing.T) {
+		// Heartbeat is recent: clusterTime == heartbeat
+		assert.False(t, isLockStale(1000, 1000))
+	})
+
+	t.Run("at threshold boundary", func(t *testing.T) {
+		// Heartbeat + StaleFrameSec == clusterTime → NOT stale (< is strict)
+		assert.False(t, isLockStale(1000, 1000+defs.StaleFrameSec))
+	})
+
+	t.Run("one second past threshold", func(t *testing.T) {
+		// Heartbeat + StaleFrameSec < clusterTime → stale
+		assert.True(t, isLockStale(1000, 1000+defs.StaleFrameSec+1))
+	})
+
+	t.Run("well past threshold", func(t *testing.T) {
+		assert.True(t, isLockStale(1000, 2000))
+	})
+}
+
 func TestOperationError(t *testing.T) {
 	err := &OperationError{Name: "2024-01-15T10:30:00Z", Message: "storage unreachable"}
 	assert.Equal(t, `operation "2024-01-15T10:30:00Z" failed: storage unreachable`, err.Error())

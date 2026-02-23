@@ -10,7 +10,6 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
-	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	"github.com/percona/percona-backup-mongodb/pbm/lock"
 	"github.com/percona/percona-backup-mongodb/pbm/topo"
 )
@@ -64,7 +63,7 @@ func (s *commandServiceImpl) CheckLock(ctx context.Context) error {
 	}
 
 	for _, l := range locks {
-		if l.Heartbeat.T+defs.StaleFrameSec >= clusterTime.T {
+		if !isLockStale(l.Heartbeat.T, clusterTime.T) {
 			cmdType, _ := ParseCommandType(string(l.Type))
 			return &ConcurrentOperationError{
 				Type: cmdType,

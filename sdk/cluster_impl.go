@@ -6,7 +6,6 @@ import (
 	"log/slog"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
-	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	"github.com/percona/percona-backup-mongodb/pbm/lock"
 	"github.com/percona/percona-backup-mongodb/pbm/topo"
 	"github.com/percona/percona-backup-mongodb/pbm/version"
@@ -65,7 +64,7 @@ func (s *clusterServiceImpl) RunningOperations(ctx context.Context) ([]Operation
 	// Filter out stale locks client-side until PBM provides an active-only API.
 	var result []Operation
 	for i := range locks {
-		if locks[i].Heartbeat.T+defs.StaleFrameSec >= ct.T {
+		if !isLockStale(locks[i].Heartbeat.T, ct.T) {
 			result = append(result, convertOperation(locks[i]))
 		}
 	}
