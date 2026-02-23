@@ -14,6 +14,7 @@ func convertBackup(meta *backup.BackupMeta) Backup {
 		Compression:      convertCompressionType(meta.Compression),
 		ConfigName:       convertConfigName(meta.Store.Name),
 		StartTS:          convertUnixToTime(meta.StartTS),
+		FirstWriteTS:     convertTimestamp(meta.FirstWriteTS),
 		LastWriteTS:      convertTimestamp(meta.LastWriteTS),
 		LastTransitionTS: convertUnixToTime(meta.LastTransitionTS),
 		Size:             meta.Size,
@@ -43,6 +44,8 @@ func convertBackupReplset(rs *backup.BackupReplset) BackupReplset {
 		Node:             rs.Node,
 		LastWriteTS:      convertTimestamp(rs.LastWriteTS),
 		LastTransitionTS: convertUnixToTime(rs.LastTransitionTS),
+		Size:             rs.Size,
+		SizeUncompressed: rs.SizeUncompressed,
 		IsConfigSvr:      derefBool(rs.IsConfigSvr),
 		Error:            rs.Error,
 	}

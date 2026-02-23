@@ -182,6 +182,7 @@ type Backup struct {
 	Compression      CompressionType // compression algorithm used; zero if server default
 	ConfigName       ConfigName      // storage profile; always normalized — MainConfig for the default storage, never zero
 	StartTS          time.Time       // when the backup process started
+	FirstWriteTS     Timestamp       // first oplog write position; use with LastWriteTS for oplog range
 	LastWriteTS      Timestamp       // restore-to point (oplog position); use LastWriteTS.Time() for display
 	LastTransitionTS time.Time       // when the status last changed
 	Size             int64           // compressed size in bytes; zero while in progress
@@ -249,6 +250,8 @@ type BackupReplset struct {
 	Node             string    // the node that performed the backup for this RS
 	LastWriteTS      Timestamp // per-RS restore-to point
 	LastTransitionTS time.Time // when this RS's status last changed
+	Size             int64     // compressed size in bytes for this replica set
+	SizeUncompressed int64     // original data size in bytes for this replica set
 	IsConfigSvr      bool      // true for the config server replica set
 	Error            string    // per-RS error message, if any
 }

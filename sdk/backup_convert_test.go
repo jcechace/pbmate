@@ -21,6 +21,7 @@ func TestConvertBackup(t *testing.T) {
 		Compression:      compress.CompressionTypeGZIP,
 		Store:            backup.Storage{Name: "my-profile"},
 		StartTS:          1705312200,
+		FirstWriteTS:     primitive.Timestamp{T: 1705312100, I: 1},
 		LastWriteTS:      primitive.Timestamp{T: 1705312300, I: 1},
 		LastTransitionTS: 1705312400,
 		Size:             1024000,
@@ -38,6 +39,8 @@ func TestConvertBackup(t *testing.T) {
 				Node:             "rs00:27017",
 				LastWriteTS:      primitive.Timestamp{T: 1705312300, I: 1},
 				LastTransitionTS: 1705312400,
+				Size:             512000,
+				SizeUncompressed: 1024000,
 				IsConfigSvr:      &boolTrue,
 				Error:            "",
 			},
@@ -53,6 +56,8 @@ func TestConvertBackup(t *testing.T) {
 	assert.Equal(t, CompressionTypeGZIP, b.Compression)
 	assert.Equal(t, "my-profile", b.ConfigName.String())
 	assert.Equal(t, int64(1705312200), b.StartTS.Unix())
+	assert.Equal(t, uint32(1705312100), b.FirstWriteTS.T)
+	assert.Equal(t, uint32(1), b.FirstWriteTS.I)
 	assert.Equal(t, uint32(1705312300), b.LastWriteTS.T)
 	assert.Equal(t, uint32(1), b.LastWriteTS.I)
 	assert.Equal(t, int64(1705312400), b.LastTransitionTS.Unix())
@@ -72,6 +77,8 @@ func TestConvertBackup(t *testing.T) {
 	assert.Equal(t, StatusDone, rs.Status)
 	assert.Equal(t, "rs00:27017", rs.Node)
 	assert.Equal(t, uint32(1705312300), rs.LastWriteTS.T)
+	assert.Equal(t, int64(512000), rs.Size)
+	assert.Equal(t, int64(1024000), rs.SizeUncompressed)
 	assert.True(t, rs.IsConfigSvr)
 	assert.Empty(t, rs.Error)
 }
