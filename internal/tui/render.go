@@ -256,8 +256,12 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	ind := statusIndicator(bk.Status, styles)
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, bk.Status)
 
-	// Restore time is the key operational field — highlight it.
-	if !bk.LastWriteTS.IsZero() {
+	// Oplog range — show as restore window when both timestamps are available.
+	if !bk.FirstWriteTS.IsZero() && !bk.LastWriteTS.IsZero() {
+		first := bk.FirstWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
+		last := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
+		fmt.Fprintf(b, "  Oplog Range: %s → %s\n", first, styles.Bold.Render(last))
+	} else if !bk.LastWriteTS.IsZero() {
 		restoreTime := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
 		fmt.Fprintf(b, "  Restore To:  %s\n", styles.Bold.Render(restoreTime))
 	}
@@ -304,7 +308,15 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 			if node == "" {
 				node = "-"
 			}
-			fmt.Fprintf(b, "  %s %s: %s  (%s)\n", rsInd, rs.Name, rs.Status, node)
+			line := fmt.Sprintf("  %s %s: %s  (%s)", rsInd, rs.Name, rs.Status, node)
+			if rs.Size > 0 {
+				line += fmt.Sprintf("  %s", humanBytes(rs.Size))
+				if rs.SizeUncompressed > 0 {
+					line += fmt.Sprintf(" / %s", humanBytes(rs.SizeUncompressed))
+				}
+			}
+			b.WriteString(line)
+			b.WriteByte('\n')
 		}
 	}
 }
