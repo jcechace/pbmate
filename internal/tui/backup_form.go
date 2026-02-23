@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -30,12 +31,13 @@ const (
 
 // backupFormResult holds the user's selections from the backup form.
 type backupFormResult struct {
-	backupType  string
-	compression string
-	configName  string
-	namespaces  string
-	incrBase    bool
-	confirmed   bool // true = start, false = customize (quick form only)
+	backupType    string
+	compression   string
+	configName    string
+	namespaces    string
+	parallelColls string // number of parallel collections; "" = server default
+	incrBase      bool
+	confirmed     bool // true = start, false = customize (quick form only)
 
 	// Profiles are stored for handoff from quick → full form.
 	profiles []sdk.StorageProfile
@@ -59,18 +61,22 @@ func (r backupFormResult) toCommand() sdk.StartBackupCommand {
 		}
 	}
 
+	numParallelColls := parseOptionalInt(r.parallelColls)
+
 	if r.backupType == "incremental" {
 		return sdk.StartIncrementalBackup{
-			ConfigName:  configName,
-			Compression: compression,
-			Base:        r.incrBase,
+			ConfigName:       configName,
+			Compression:      compression,
+			Base:             r.incrBase,
+			NumParallelColls: numParallelColls,
 		}
 	}
 
 	// Default: logical backup.
 	cmd := sdk.StartLogicalBackup{
-		ConfigName:  configName,
-		Compression: compression,
+		ConfigName:       configName,
+		Compression:      compression,
+		NumParallelColls: numParallelColls,
 	}
 
 	if r.namespaces != "" && r.namespaces != "*.*" {
@@ -82,6 +88,20 @@ func (r backupFormResult) toCommand() sdk.StartBackupCommand {
 	}
 
 	return cmd
+}
+
+// parseOptionalInt parses a string to *int. Returns nil for empty or
+// non-numeric input (which means "use server default").
+func parseOptionalInt(s string) *int {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return nil
+	}
+	return &n
 }
 
 // --- Quick backup form ---
@@ -164,7 +184,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 				Value(&result.configName),
 		),
 
-		// Group 2: Compression.
+		// Group 2: Compression & performance tuning.
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Compression").
@@ -179,6 +199,11 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 					huh.NewOption("None", "none"),
 				).
 				Value(&result.compression),
+
+			huh.NewInput().
+				Title("Parallel Collections").
+				Placeholder("server default").
+				Value(&result.parallelColls),
 		),
 
 		// Group 3: Advanced — logical-specific options.
