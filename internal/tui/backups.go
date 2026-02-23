@@ -149,10 +149,19 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		m.handleVertical(-1)
 	case key.Matches(msg, backupKeys.Restore):
 		if m.mode == listBackups {
+			// Snapshot restore from a completed backup.
 			if sel := m.selectedBackup(); sel != nil && sel.Status.Equal(sdk.StatusDone) {
 				name := sel.Name
 				return func() tea.Msg {
-					return restoreRequest{backupName: name}
+					return restoreRequest{mode: restoreModeSnapshot, backupName: name}
+				}
+			}
+			// PITR restore from a timeline item.
+			if item := m.selectedItem(); item != nil && item.kind == itemPITR {
+				tl := item.timeline
+				backups := m.allBackups()
+				return func() tea.Msg {
+					return restoreRequest{mode: restoreModePITR, timeline: tl, backups: backups}
 				}
 			}
 		}
@@ -239,6 +248,17 @@ func (m *backupsModel) moveRestoreCursor(delta int) {
 	}
 	m.rebuildListContent()
 	m.rebuildDetailContent()
+}
+
+// allBackups flattens all grouped backups into a single slice.
+// Used to pass the full backup list to the PITR restore overlay
+// for base backup auto-selection.
+func (m *backupsModel) allBackups() []sdk.Backup {
+	var all []sdk.Backup
+	for _, profile := range m.profiles {
+		all = append(all, m.grouped[profile]...)
+	}
+	return all
 }
 
 // --- Backup tree item management ---

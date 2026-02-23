@@ -268,12 +268,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case restoreRequest:
-		if m.client != nil {
-			overlay, cmd := newRestoreFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backupName, m.backups.timelines)
-			m.activeOverlay = overlay
-			return m, cmd
+		if m.client == nil {
+			return m, nil
 		}
-		return m, nil
+		var overlay *restoreFormOverlay
+		var cmd tea.Cmd
+		switch msg.mode {
+		case restoreModeSnapshot:
+			overlay, cmd = newSnapshotRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backupName)
+		case restoreModePITR:
+			overlay, cmd = newPITRRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.timeline, msg.backups)
+		}
+		m.activeOverlay = overlay
+		return m, cmd
 
 	case restoreActionMsg:
 		m.setFlash(msg.action, msg.err)

@@ -109,18 +109,42 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 // Restore form overlay
 // =============================================================================
 
-// restoreFormOverlay wraps the restore wizard form.
+// restoreFormOverlay wraps the restore wizard form. The mode determines
+// whether this is a snapshot restore (from a selected backup) or a PITR
+// restore (from a selected timeline, with auto-selected base backup).
 type restoreFormOverlay struct {
 	form       *huh.Form
 	result     *restoreFormResult
-	backupName string
+	mode       restoreMode
+	backupName string       // set for snapshot mode
+	backups    []sdk.Backup // set for PITR mode (for base backup auto-selection)
 	ctx        context.Context
 	client     *sdk.Client
 }
 
-func newRestoreFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backupName string, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newRestoreForm(formTheme, backupName, timelines)
-	o := &restoreFormOverlay{form: form, result: result, backupName: backupName, ctx: ctx, client: client}
+func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backupName string) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newSnapshotRestoreForm(formTheme, backupName)
+	o := &restoreFormOverlay{
+		form:       form,
+		result:     result,
+		mode:       restoreModeSnapshot,
+		backupName: backupName,
+		ctx:        ctx,
+		client:     client,
+	}
+	return o, o.form.Init()
+}
+
+func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newPITRRestoreForm(formTheme, timeline)
+	o := &restoreFormOverlay{
+		form:    form,
+		result:  result,
+		mode:    restoreModePITR,
+		backups: backups,
+		ctx:     ctx,
+		client:  client,
+	}
 	return o, o.form.Init()
 }
 
@@ -140,14 +164,7 @@ func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 		if !o.result.confirmed {
 			return nil, nil
 		}
-		restoreCmd, err := o.result.toCommand(o.backupName)
-		if err != nil {
-			// Bad PITR target — return an error flash via restoreActionMsg.
-			return nil, func() tea.Msg {
-				return restoreActionMsg{action: "restore", err: err}
-			}
-		}
-		return nil, startRestoreCmd(o.ctx, o.client, restoreCmd)
+		return nil, o.dispatchRestore()
 	}
 
 	if o.form.State == huh.StateAborted {
@@ -157,8 +174,47 @@ func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 	return o, cmd
 }
 
+// dispatchRestore builds the SDK command and dispatches it. For PITR mode
+// this includes auto-selecting the base backup from the cached backup list.
+func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
+	switch o.mode {
+	case restoreModeSnapshot:
+		cmd := o.result.toSnapshotCommand(o.backupName)
+		return startRestoreCmd(o.ctx, o.client, cmd)
+
+	case restoreModePITR:
+		target, err := parsePITRTarget(o.result.pitrTarget)
+		if err != nil {
+			return restoreErrorCmd(err)
+		}
+		baseName, err := findBaseBackup(target, o.backups)
+		if err != nil {
+			return restoreErrorCmd(err)
+		}
+		pitrCmd, err := o.result.toPITRCommand(baseName)
+		if err != nil {
+			return restoreErrorCmd(err)
+		}
+		return startRestoreCmd(o.ctx, o.client, pitrCmd)
+
+	default:
+		panic("unreachable: unknown restoreMode")
+	}
+}
+
 func (o *restoreFormOverlay) View(styles *Styles, contentW, contentH int) string {
-	return renderFormOverlay(o.form, "Restore", styles, contentW, contentH)
+	title := "Restore"
+	if o.mode == restoreModePITR {
+		title = "PITR Restore"
+	}
+	return renderFormOverlay(o.form, title, styles, contentW, contentH)
+}
+
+// restoreErrorCmd wraps an error as a restoreActionMsg command.
+func restoreErrorCmd(err error) tea.Cmd {
+	return func() tea.Msg {
+		return restoreActionMsg{action: "restore", err: err}
+	}
 }
 
 // =============================================================================

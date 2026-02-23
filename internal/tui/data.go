@@ -338,10 +338,14 @@ type restoreActionMsg struct {
 }
 
 // restoreRequest is emitted by the backups sub-model when the user presses
-// restore on a completed backup. The root model handles it by opening the
-// restore form overlay.
+// restore. The mode determines the form variant:
+//   - snapshot: restore from the selected backup (backupName is set)
+//   - pitr: restore to a point in time (timeline and backups are set)
 type restoreRequest struct {
-	backupName string
+	mode       restoreMode
+	backupName string        // set for snapshot mode
+	timeline   *sdk.Timeline // set for PITR mode
+	backups    []sdk.Backup  // set for PITR mode (for base backup auto-selection)
 }
 
 // startRestoreCmd returns a tea.Cmd that starts a restore with the given command.
