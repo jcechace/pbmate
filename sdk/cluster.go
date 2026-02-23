@@ -37,6 +37,13 @@ type ClusterService interface {
 	// useful for comparing against backup and PITR timestamps.
 	ClusterTime(ctx context.Context) (Timestamp, error)
 
+	// CheckLock verifies no non-stale PBM operation is currently running.
+	// Returns a [*ConcurrentOperationError] if one is, nil otherwise.
+	//
+	// A lock is considered stale when its heartbeat is older than PBM's
+	// stale frame threshold relative to the cluster time.
+	CheckLock(ctx context.Context) error
+
 	// ServerInfo returns version information about the connected MongoDB
 	// server and the PBM library compiled into the SDK.
 	ServerInfo(ctx context.Context) (*ServerInfo, error)
