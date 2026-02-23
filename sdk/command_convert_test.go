@@ -92,6 +92,31 @@ func TestConvertStartLogicalBackupWithProfile(t *testing.T) {
 	assert.Equal(t, "my-s3", result.Backup.Profile)
 }
 
+func TestConvertStartLogicalBackupWithNumParallelColls(t *testing.T) {
+	numColls := 8
+	cmd := StartLogicalBackup{
+		NumParallelColls: &numColls,
+		name:             "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Backup.NumParallelColls)
+	assert.Equal(t, int32(8), *result.Backup.NumParallelColls)
+}
+
+func TestConvertStartLogicalBackupWithNilNumParallelColls(t *testing.T) {
+	cmd := StartLogicalBackup{
+		name: "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Nil(t, result.Backup.NumParallelColls)
+}
+
 func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
 	cmd := StartIncrementalBackup{
 		ConfigName:  MainConfig,
@@ -126,6 +151,21 @@ func TestConvertStartIncrementalBackupWithCompressionLevel(t *testing.T) {
 
 	require.NotNil(t, result.Backup.CompressionLevel)
 	assert.Equal(t, 3, *result.Backup.CompressionLevel)
+}
+
+func TestConvertStartIncrementalBackupWithNumParallelColls(t *testing.T) {
+	numColls := 4
+	cmd := StartIncrementalBackup{
+		Base:             true,
+		NumParallelColls: &numColls,
+		name:             "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Backup.NumParallelColls)
+	assert.Equal(t, int32(4), *result.Backup.NumParallelColls)
 }
 
 func TestConvertStartSnapshotRestoreToPBM(t *testing.T) {
@@ -172,6 +212,70 @@ func TestConvertStartPITRRestoreToPBM(t *testing.T) {
 	assert.Equal(t, uint32(1700000000), result.Restore.OplogTS.T)
 	assert.Equal(t, uint32(1), result.Restore.OplogTS.I)
 	assert.Equal(t, []string{"db1.coll1"}, result.Restore.Namespaces)
+}
+
+func TestConvertStartSnapshotRestoreWithPerformanceFields(t *testing.T) {
+	numColls := 4
+	numWorkers := 2
+	partlyDone := true
+	fallback := false
+
+	cmd := StartSnapshotRestore{
+		BackupName:          "2024-01-15T10:30:00Z",
+		NumParallelColls:    &numColls,
+		NumInsertionWorkers: &numWorkers,
+		AllowPartlyDone:     &partlyDone,
+		Fallback:            &fallback,
+		name:                "restore-2024",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Restore.NumParallelColls)
+	assert.Equal(t, int32(4), *result.Restore.NumParallelColls)
+	require.NotNil(t, result.Restore.NumInsertionWorkers)
+	assert.Equal(t, int32(2), *result.Restore.NumInsertionWorkers)
+	require.NotNil(t, result.Restore.AllowPartlyDone)
+	assert.True(t, *result.Restore.AllowPartlyDone)
+	require.NotNil(t, result.Restore.Fallback)
+	assert.False(t, *result.Restore.Fallback)
+}
+
+func TestConvertStartSnapshotRestoreWithNilPerformanceFields(t *testing.T) {
+	cmd := StartSnapshotRestore{
+		BackupName: "2024-01-15T10:30:00Z",
+		name:       "restore-2024",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	assert.Nil(t, result.Restore.NumParallelColls)
+	assert.Nil(t, result.Restore.NumInsertionWorkers)
+	assert.Nil(t, result.Restore.AllowPartlyDone)
+	assert.Nil(t, result.Restore.Fallback)
+}
+
+func TestConvertStartPITRRestoreWithPerformanceFields(t *testing.T) {
+	numColls := 6
+	numWorkers := 3
+
+	cmd := StartPITRRestore{
+		BackupName:          "2024-01-15T10:30:00Z",
+		Target:              Timestamp{T: 1700000000, I: 1},
+		NumParallelColls:    &numColls,
+		NumInsertionWorkers: &numWorkers,
+		name:                "restore-pitr-2024",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Restore.NumParallelColls)
+	assert.Equal(t, int32(6), *result.Restore.NumParallelColls)
+	require.NotNil(t, result.Restore.NumInsertionWorkers)
+	assert.Equal(t, int32(3), *result.Restore.NumInsertionWorkers)
 }
 
 func TestConvertDeleteBackupByNameToPBM(t *testing.T) {
@@ -397,6 +501,15 @@ func TestConvertRemoveProfileCommandToPBM(t *testing.T) {
 	assert.Equal(t, ctrl.CmdRemoveConfigProfile, result.Cmd)
 	require.NotNil(t, result.Profile)
 	assert.Equal(t, "my-fs", result.Profile.Name)
+}
+
+func TestIntToInt32Ptr(t *testing.T) {
+	assert.Nil(t, intToInt32Ptr(nil))
+
+	v := 42
+	result := intToInt32Ptr(&v)
+	require.NotNil(t, result)
+	assert.Equal(t, int32(42), *result)
 }
 
 func TestConfigNameToPBM(t *testing.T) {

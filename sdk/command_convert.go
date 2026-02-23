@@ -61,6 +61,7 @@ func convertStartLogicalBackupToPBM(cmd StartLogicalBackup) ctrl.Cmd {
 			UsersAndRoles:    cmd.UsersAndRoles,
 			Compression:      compress.CompressionType(cmd.Compression.String()),
 			CompressionLevel: cmd.CompressionLevel,
+			NumParallelColls: intToInt32Ptr(cmd.NumParallelColls),
 			Profile:          configNameToPBM(cmd.ConfigName),
 		},
 	}
@@ -75,6 +76,7 @@ func convertStartIncrementalBackupToPBM(cmd StartIncrementalBackup) ctrl.Cmd {
 			Name:             cmd.name,
 			Compression:      compress.CompressionType(cmd.Compression.String()),
 			CompressionLevel: cmd.CompressionLevel,
+			NumParallelColls: intToInt32Ptr(cmd.NumParallelColls),
 			Profile:          configNameToPBM(cmd.ConfigName),
 		},
 	}
@@ -84,13 +86,17 @@ func convertStartSnapshotRestoreToPBM(cmd StartSnapshotRestore) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdRestore,
 		Restore: &ctrl.RestoreCmd{
-			Name:          cmd.name,
-			BackupName:    cmd.BackupName,
-			Namespaces:    cmd.Namespaces,
-			NamespaceFrom: cmd.NamespaceFrom,
-			NamespaceTo:   cmd.NamespaceTo,
-			UsersAndRoles: cmd.UsersAndRoles,
-			RSMap:         cmd.RSMap,
+			Name:                cmd.name,
+			BackupName:          cmd.BackupName,
+			Namespaces:          cmd.Namespaces,
+			NamespaceFrom:       cmd.NamespaceFrom,
+			NamespaceTo:         cmd.NamespaceTo,
+			UsersAndRoles:       cmd.UsersAndRoles,
+			RSMap:               cmd.RSMap,
+			NumParallelColls:    intToInt32Ptr(cmd.NumParallelColls),
+			NumInsertionWorkers: intToInt32Ptr(cmd.NumInsertionWorkers),
+			AllowPartlyDone:     cmd.AllowPartlyDone,
+			Fallback:            cmd.Fallback,
 		},
 	}
 }
@@ -99,14 +105,18 @@ func convertStartPITRRestoreToPBM(cmd StartPITRRestore) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdRestore,
 		Restore: &ctrl.RestoreCmd{
-			Name:          cmd.name,
-			BackupName:    cmd.BackupName,
-			Namespaces:    cmd.Namespaces,
-			NamespaceFrom: cmd.NamespaceFrom,
-			NamespaceTo:   cmd.NamespaceTo,
-			UsersAndRoles: cmd.UsersAndRoles,
-			RSMap:         cmd.RSMap,
-			OplogTS:       convertTimestampToPBM(cmd.Target),
+			Name:                cmd.name,
+			BackupName:          cmd.BackupName,
+			Namespaces:          cmd.Namespaces,
+			NamespaceFrom:       cmd.NamespaceFrom,
+			NamespaceTo:         cmd.NamespaceTo,
+			UsersAndRoles:       cmd.UsersAndRoles,
+			RSMap:               cmd.RSMap,
+			OplogTS:             convertTimestampToPBM(cmd.Target),
+			NumParallelColls:    intToInt32Ptr(cmd.NumParallelColls),
+			NumInsertionWorkers: intToInt32Ptr(cmd.NumInsertionWorkers),
+			AllowPartlyDone:     cmd.AllowPartlyDone,
+			Fallback:            cmd.Fallback,
 		},
 	}
 }
@@ -199,4 +209,14 @@ func configNameToPBM(cn ConfigName) string {
 		return ""
 	}
 	return cn.String()
+}
+
+// intToInt32Ptr converts *int to *int32 for PBM command fields.
+// Returns nil for nil input.
+func intToInt32Ptr(v *int) *int32 {
+	if v == nil {
+		return nil
+	}
+	n := int32(*v)
+	return &n
 }
