@@ -314,6 +314,7 @@ func (m *configModel) mainConfigDetail() string {
 	m.renderStorageSection(&b, &m.config.Storage)
 	m.renderPITRSection(&b, m.config.PITR)
 	m.renderBackupSection(&b, m.config.Backup)
+	m.renderRestoreSection(&b, m.config.Restore)
 
 	if len(m.configYAML) > 0 {
 		b.WriteByte('\n')
@@ -377,8 +378,20 @@ func (m *configModel) renderPITRSection(b *strings.Builder, pitr *sdk.PITRConfig
 		return
 	}
 
-	fmt.Fprintf(b, "  Enabled:     %v\n", pitr.Enabled)
-	fmt.Fprintf(b, "  Oplog Only:  %v\n", pitr.OplogOnly)
+	fmt.Fprintf(b, "  Enabled:      %v\n", pitr.Enabled)
+	fmt.Fprintf(b, "  Oplog Only:   %v\n", pitr.OplogOnly)
+	if pitr.OplogSpanMin > 0 {
+		fmt.Fprintf(b, "  Oplog Span:   %.1f min\n", pitr.OplogSpanMin)
+	}
+	if !pitr.Compression.IsZero() {
+		fmt.Fprintf(b, "  Compression:  %s\n", pitr.Compression)
+	}
+	if pitr.CompressionLevel != nil {
+		fmt.Fprintf(b, "  Compr Level:  %d\n", *pitr.CompressionLevel)
+	}
+	if len(pitr.Priority) > 0 {
+		fmt.Fprintf(b, "  Priority:     %s\n", formatPriorityMap(pitr.Priority))
+	}
 }
 
 func (m *configModel) renderBackupSection(b *strings.Builder, backup *sdk.BackupConfig) {
@@ -391,7 +404,61 @@ func (m *configModel) renderBackupSection(b *strings.Builder, backup *sdk.Backup
 		return
 	}
 
-	fmt.Fprintf(b, "  Compression: %s\n", valueOrMuted(backup.Compression.String(), m.styles))
+	fmt.Fprintf(b, "  Compression:  %s\n", valueOrMuted(backup.Compression.String(), m.styles))
+	if backup.CompressionLevel != nil {
+		fmt.Fprintf(b, "  Compr Level:  %d\n", *backup.CompressionLevel)
+	}
+	if backup.NumParallelCollections > 0 {
+		fmt.Fprintf(b, "  Parallel:     %d collections\n", backup.NumParallelCollections)
+	}
+	if backup.OplogSpanMin > 0 {
+		fmt.Fprintf(b, "  Oplog Span:   %.1f min\n", backup.OplogSpanMin)
+	}
+	if len(backup.Priority) > 0 {
+		fmt.Fprintf(b, "  Priority:     %s\n", formatPriorityMap(backup.Priority))
+	}
+	if backup.Timeouts != nil && backup.Timeouts.StartingStatus != nil {
+		fmt.Fprintf(b, "  Start Timeout: %ds\n", *backup.Timeouts.StartingStatus)
+	}
+}
+
+func (m *configModel) renderRestoreSection(b *strings.Builder, restore *sdk.RestoreConfig) {
+	b.WriteByte('\n')
+	b.WriteString(m.styles.SectionHeader.Render("Restore"))
+	b.WriteByte('\n')
+
+	if restore == nil {
+		fmt.Fprintf(b, "  %s\n", m.styles.StatusMuted.Render("Not configured"))
+		return
+	}
+
+	if restore.NumParallelCollections > 0 {
+		fmt.Fprintf(b, "  Parallel:     %d collections\n", restore.NumParallelCollections)
+	}
+	if restore.NumInsertionWorkers > 0 {
+		fmt.Fprintf(b, "  Workers:      %d per collection\n", restore.NumInsertionWorkers)
+	}
+	if restore.BatchSize > 0 {
+		fmt.Fprintf(b, "  Batch Size:   %d\n", restore.BatchSize)
+	}
+	if restore.NumDownloadWorkers > 0 {
+		fmt.Fprintf(b, "  DL Workers:   %d\n", restore.NumDownloadWorkers)
+	}
+	if restore.MaxDownloadBufferMb > 0 {
+		fmt.Fprintf(b, "  DL Buffer:    %dMB\n", restore.MaxDownloadBufferMb)
+	}
+	if restore.DownloadChunkMb > 0 {
+		fmt.Fprintf(b, "  DL Chunk:     %dMB\n", restore.DownloadChunkMb)
+	}
+	if restore.MongodLocation != "" {
+		fmt.Fprintf(b, "  Mongod:       %s\n", restore.MongodLocation)
+	}
+	if restore.FallbackEnabled != nil {
+		fmt.Fprintf(b, "  Fallback:     %v\n", *restore.FallbackEnabled)
+	}
+	if restore.AllowPartlyDone != nil {
+		fmt.Fprintf(b, "  Partly Done:  %v\n", *restore.AllowPartlyDone)
+	}
 }
 
 // valueOrMuted returns the value if non-empty, or a muted "--" placeholder.
@@ -400,6 +467,19 @@ func valueOrMuted(v string, s *Styles) string {
 		return s.StatusMuted.Render("--")
 	}
 	return v
+}
+
+// formatPriorityMap renders a node priority map as "node:weight, ..." for display.
+func formatPriorityMap(m map[string]float64) string {
+	if len(m) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(m))
+	for k, v := range m {
+		parts = append(parts, fmt.Sprintf("%s:%.0f", k, v))
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ", ")
 }
 
 // --- YAML Syntax Highlighting ---
