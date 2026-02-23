@@ -13,22 +13,51 @@ func convertConfig(cfg *config.Config) Config {
 
 	if cfg.PITR != nil {
 		result.PITR = &PITRConfig{
-			Enabled:   cfg.PITR.Enabled,
-			OplogOnly: cfg.PITR.OplogOnly,
+			Enabled:          cfg.PITR.Enabled,
+			OplogOnly:        cfg.PITR.OplogOnly,
+			OplogSpanMin:     cfg.PITR.OplogSpanMin,
+			Priority:         cfg.PITR.Priority,
+			Compression:      convertCompressionType(cfg.PITR.Compression),
+			CompressionLevel: cfg.PITR.CompressionLevel,
 		}
 	}
 
 	if cfg.Backup != nil {
 		result.Backup = &BackupConfig{
-			Compression: convertCompressionType(cfg.Backup.Compression),
+			Compression:            convertCompressionType(cfg.Backup.Compression),
+			CompressionLevel:       cfg.Backup.CompressionLevel,
+			NumParallelCollections: cfg.Backup.NumParallelCollections,
+			OplogSpanMin:           cfg.Backup.OplogSpanMin,
+			Priority:               cfg.Backup.Priority,
+			Timeouts:               convertBackupTimeouts(cfg.Backup.Timeouts),
 		}
 	}
 
 	if cfg.Restore != nil {
-		result.Restore = &RestoreConfig{}
+		result.Restore = &RestoreConfig{
+			BatchSize:              cfg.Restore.BatchSize,
+			NumInsertionWorkers:    cfg.Restore.NumInsertionWorkers,
+			NumParallelCollections: cfg.Restore.NumParallelCollections,
+			NumDownloadWorkers:     cfg.Restore.NumDownloadWorkers,
+			MaxDownloadBufferMb:    cfg.Restore.MaxDownloadBufferMb,
+			DownloadChunkMb:        cfg.Restore.DownloadChunkMb,
+			MongodLocation:         cfg.Restore.MongodLocation,
+			MongodLocationMap:      cfg.Restore.MongodLocationMap,
+			FallbackEnabled:        cfg.Restore.FallbackEnabled,
+			AllowPartlyDone:        cfg.Restore.AllowPartlyDone,
+		}
 	}
 
 	return result
+}
+
+// convertBackupTimeouts converts PBM BackupTimeouts to SDK BackupTimeouts.
+// Returns nil for nil input.
+func convertBackupTimeouts(t *config.BackupTimeouts) *BackupTimeouts {
+	if t == nil {
+		return nil
+	}
+	return &BackupTimeouts{StartingStatus: t.Starting}
 }
 
 // convertStorageConfig converts a PBM StorageConf to an SDK StorageConfig.

@@ -85,18 +85,43 @@ type StorageConfig struct {
 
 // PITRConfig holds PITR-specific configuration.
 type PITRConfig struct {
-	Enabled   bool // whether PITR is enabled in the PBM config
-	OplogOnly bool // if true, only oplog is captured (no base backups)
+	Enabled          bool               // whether PITR is enabled in the PBM config
+	OplogOnly        bool               // if true, only oplog is captured (no base backups)
+	OplogSpanMin     float64            // oplog slice interval in minutes (0 = PBM default)
+	Priority         map[string]float64 // node priority map for PITR slicing
+	Compression      CompressionType    // PITR-specific compression algorithm
+	CompressionLevel *int               // PITR-specific compression level
+}
+
+// BackupTimeouts holds timeout settings for backup operations.
+type BackupTimeouts struct {
+	// StartingStatus is the timeout in seconds to wait for a backup agent
+	// to pick up the command. Nil means PBM uses its built-in default.
+	StartingStatus *uint32
 }
 
 // BackupConfig holds backup-specific configuration.
 type BackupConfig struct {
-	Compression CompressionType // default compression for new backups
+	Compression            CompressionType    // default compression algorithm
+	CompressionLevel       *int               // default compression level
+	NumParallelCollections int                // default parallelism for collection dump
+	OplogSpanMin           float64            // oplog span for backup slicer (0 = PBM default)
+	Priority               map[string]float64 // node priority map for backup selection
+	Timeouts               *BackupTimeouts    // backup operation timeouts
 }
 
-// RestoreConfig holds restore-specific configuration. Currently empty;
-// reserved for future restore-related settings.
+// RestoreConfig holds restore-specific configuration.
 type RestoreConfig struct {
+	BatchSize              int               // restore batch size
+	NumInsertionWorkers    int               // insertion workers per collection
+	NumParallelCollections int               // parallel collection count
+	NumDownloadWorkers     int               // download parallelism
+	MaxDownloadBufferMb    int               // download buffer size in MB
+	DownloadChunkMb        int               // download chunk size in MB
+	MongodLocation         string            // path to mongod binary (physical restores)
+	MongodLocationMap      map[string]string // per-replset mongod paths (physical restores)
+	FallbackEnabled        *bool             // enable fallback mode
+	AllowPartlyDone        *bool             // allow partial success
 }
 
 // StorageProfile represents a named storage configuration that can be used
