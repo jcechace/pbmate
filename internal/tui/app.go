@@ -166,8 +166,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case backupActionMsg:
 		m.setFlash(msg.action, msg.err)
-		// Trigger immediate re-fetch to pick up the change.
-		return m, tickCmd(0)
+		// Trigger immediate re-fetch only on success so the change is
+		// visible. On error the flash persists until the next poll cycle.
+		if msg.err == nil {
+			return m, tickCmd(0)
+		}
+		return m, nil
 
 	case logFollowMsg:
 		// Discard messages from a stale follow session.
@@ -242,7 +246,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setFlash(msg.action, msg.err)
 		// Clear cached profile YAMLs so they are re-fetched.
 		m.config.profileYAMLs = make(map[string][]byte)
-		return m, tickCmd(0)
+		if msg.err == nil {
+			return m, tickCmd(0)
+		}
+		return m, nil
 
 	case deleteCheckRequest:
 		if m.client != nil {
@@ -270,7 +277,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case restoreActionMsg:
 		m.setFlash(msg.action, msg.err)
-		return m, tickCmd(0)
+		if msg.err == nil {
+			return m, tickCmd(0)
+		}
+		return m, nil
 	}
 
 	// Route to the active overlay if one is open.
