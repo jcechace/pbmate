@@ -154,6 +154,14 @@
 ### Theming fixes (complete)
 - [x] Build per-flavor huh themes instead of using adaptive `ThemeCatppuccin()`
 
+### SDK hardening (complete)
+- [x] Fix CanDelete: reject non-base increments with `ErrNotChainBase`
+- [x] Add `Validate() error` to Command interface; all commands self-validate
+- [x] Move service-level validations into command `Validate()` methods
+- [x] Add `UsersAndRoles` field to `StartLogicalBackup` for selective backups
+- [x] Shared validation helpers: `validateUsersAndRoles`, `validateNamespaceRemap`
+- [x] Comprehensive `Validate()` tests for all command types
+
 ### Phase 5e: Additional TUI features (planned)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views

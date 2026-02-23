@@ -76,9 +76,10 @@ result, err := client.Backups.Start(ctx, sdk.StartIncrementalBackup{})
 ```go
 profile, _ := sdk.NewConfigName("archive")
 result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{
-    ConfigName: profile,
-    Namespaces: []string{"mydb.users", "mydb.orders"},
-    Compression: sdk.CompressionTypeZSTD,
+    ConfigName:    profile,
+    Namespaces:    []string{"mydb.*", "analytics.*"},
+    UsersAndRoles: true, // include users/roles (requires whole-database namespaces)
+    Compression:   sdk.CompressionTypeZSTD,
 })
 ```
 
@@ -183,9 +184,12 @@ _, err := client.Backups.Delete(ctx, sdk.DeleteBackupsBefore{
 ```go
 // Check whether a backup can be safely deleted before dispatching.
 if err := client.Backups.CanDelete(ctx, bk.Name); err != nil {
-    if errors.Is(err, sdk.ErrDeleteProtectedByPITR) {
+    switch {
+    case errors.Is(err, sdk.ErrDeleteProtectedByPITR):
         fmt.Println("backup is the last PITR base snapshot, cannot delete")
-    } else if errors.Is(err, sdk.ErrBackupInProgress) {
+    case errors.Is(err, sdk.ErrNotChainBase):
+        fmt.Println("incremental backup must be deleted from its chain base")
+    case errors.Is(err, sdk.ErrBackupInProgress):
         fmt.Println("backup is still running, wait for completion")
     }
     return
@@ -235,6 +239,20 @@ result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{
 ```
 
 Other sealed hierarchies: `StartRestoreCommand` (snapshot vs PITR), `DeleteBackupCommand` (by name vs before timestamp), `DeletePITRCommand`, `ResyncCommand`.
+
+### Command Validation
+
+Every command type implements `Validate() error`. The `CommandService.Send` method calls `Validate()` before checking locks or dispatching, so invalid commands fail fast with a clear error — no round-trip to MongoDB needed. Commands with no constraints return `nil`.
+
+```go
+cmd := sdk.StartLogicalBackup{
+    UsersAndRoles: true,
+    // Namespaces is empty — UsersAndRoles requires a selective operation.
+}
+if err := cmd.Validate(); err != nil {
+    fmt.Println(err) // "start backup: users-and-roles is only valid for selective operations (namespaces must be set)"
+}
+```
 
 ### Value Objects
 

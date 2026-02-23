@@ -128,7 +128,7 @@ pbmate/
 │   ├── client.go           # Client struct, NewClient, Close
 │   ├── types.go            # Shared types: Timestamp, Status, BackupType, etc.
 │   ├── types_test.go       # MarshalText/UnmarshalText round-trip tests
-│   ├── errors.go           # ErrNotFound, ConcurrentOperationError, ErrDeleteProtectedByPITR
+│   ├── errors.go           # ErrNotFound, ConcurrentOperationError, ErrDeleteProtectedByPITR, ErrNotChainBase
 │   ├── convert.go          # Shared conversion helpers (Timestamp, Status, etc.)
 │   ├── convert_test.go     # Tests for shared conversion helpers
 │   ├── wait.go             # Generic waitForTerminal helper
@@ -145,10 +145,11 @@ pbmate/
 │   ├── restore_convert.go  # PBM RestoreMeta -> SDK Restore conversion
 │   ├── restore_convert_test.go
 │   ├── restore_test.go     # Restore domain method tests
-│   ├── command.go          # CommandService interface, sealed Command types
-│   ├── command_impl.go     # commandServiceImpl (lock check + dispatch)
+│   ├── command.go          # CommandService interface, sealed Command types, Validate()
+│   ├── command_impl.go     # commandServiceImpl (lock check + validate + dispatch)
 │   ├── command_convert.go  # SDK Command -> PBM ctrl.Cmd conversion
 │   ├── command_convert_test.go
+│   ├── command_test.go     # Validate() tests for all command types
 │   ├── config.go           # ConfigService interface + types
 │   ├── config_impl.go      # configServiceImpl
 │   ├── config_convert.go   # PBM Config -> SDK Config conversion
