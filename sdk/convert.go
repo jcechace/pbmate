@@ -1,14 +1,19 @@
 package sdk
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
+	"github.com/percona/percona-backup-mongodb/pbm/lock"
 	"github.com/percona/percona-backup-mongodb/pbm/storage"
+	"github.com/percona/percona-backup-mongodb/pbm/topo"
 )
 
 // convertTimestamp converts a BSON primitive.Timestamp to an SDK Timestamp.
@@ -97,10 +102,43 @@ func convertSlice[In, Out any](items []In, fn func(In) Out) []Out {
 
 // isLockStale reports whether a lock heartbeat is stale relative to clusterTime.
 // A lock is considered stale when its heartbeat is older than PBM's stale frame
-// threshold. Both callers — CheckLock and RunningOperations — must agree on
+// threshold. All callers — checkLock and RunningOperations — must agree on
 // this definition to avoid inconsistencies.
 func isLockStale(heartbeatT, clusterTimeT uint32) bool {
 	return heartbeatT+defs.StaleFrameSec < clusterTimeT
+}
+
+// checkLock verifies no non-stale PBM operation is currently running.
+// Returns a [*ConcurrentOperationError] if one is, nil otherwise.
+// Used by both ClusterService.CheckLock (public query) and
+// commandServiceImpl.checkLock (internal pre-dispatch guard).
+func checkLock(ctx context.Context, conn connect.Client, log *slog.Logger) error {
+	log.DebugContext(ctx, "checking for concurrent operations")
+	locks, err := lock.GetLocks(ctx, conn, &lock.LockHeader{})
+	if err != nil {
+		return fmt.Errorf("check running operations: %w", err)
+	}
+
+	if len(locks) == 0 {
+		return nil
+	}
+
+	clusterTime, err := topo.GetClusterTime(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("get cluster time: %w", err)
+	}
+
+	for _, l := range locks {
+		if !isLockStale(l.Heartbeat.T, clusterTime.T) {
+			cmdType, _ := ParseCommandType(string(l.Type))
+			return &ConcurrentOperationError{
+				Type: cmdType,
+				OPID: l.OPID,
+			}
+		}
+	}
+
+	return nil
 }
 
 // convertConfigName converts a PBM profile/config name to an SDK ConfigName.

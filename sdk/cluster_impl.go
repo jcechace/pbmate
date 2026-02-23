@@ -72,32 +72,7 @@ func (s *clusterServiceImpl) RunningOperations(ctx context.Context) ([]Operation
 }
 
 func (s *clusterServiceImpl) CheckLock(ctx context.Context) error {
-	s.log.DebugContext(ctx, "checking for concurrent operations")
-	locks, err := lock.GetLocks(ctx, s.conn, &lock.LockHeader{})
-	if err != nil {
-		return fmt.Errorf("check running operations: %w", err)
-	}
-
-	if len(locks) == 0 {
-		return nil
-	}
-
-	clusterTime, err := topo.GetClusterTime(ctx, s.conn)
-	if err != nil {
-		return fmt.Errorf("get cluster time: %w", err)
-	}
-
-	for _, l := range locks {
-		if !isLockStale(l.Heartbeat.T, clusterTime.T) {
-			cmdType, _ := ParseCommandType(string(l.Type))
-			return &ConcurrentOperationError{
-				Type: cmdType,
-				OPID: l.OPID,
-			}
-		}
-	}
-
-	return nil
+	return checkLock(ctx, s.conn, s.log)
 }
 
 func (s *clusterServiceImpl) ClusterTime(ctx context.Context) (Timestamp, error) {

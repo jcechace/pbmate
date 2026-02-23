@@ -10,8 +10,6 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
-	"github.com/percona/percona-backup-mongodb/pbm/lock"
-	"github.com/percona/percona-backup-mongodb/pbm/topo"
 )
 
 type commandServiceImpl struct {
@@ -29,35 +27,8 @@ func (s *commandServiceImpl) validateAndCheckLock(ctx context.Context, cmd valid
 	return s.checkLock(ctx)
 }
 
-// checkLock verifies no non-stale PBM operation is currently running.
-// Returns a [*ConcurrentOperationError] if one is, nil otherwise.
 func (s *commandServiceImpl) checkLock(ctx context.Context) error {
-	s.log.DebugContext(ctx, "checking for concurrent operations")
-	locks, err := lock.GetLocks(ctx, s.conn, &lock.LockHeader{})
-	if err != nil {
-		return fmt.Errorf("check running operations: %w", err)
-	}
-
-	if len(locks) == 0 {
-		return nil
-	}
-
-	clusterTime, err := topo.GetClusterTime(ctx, s.conn)
-	if err != nil {
-		return fmt.Errorf("get cluster time: %w", err)
-	}
-
-	for _, l := range locks {
-		if !isLockStale(l.Heartbeat.T, clusterTime.T) {
-			cmdType, _ := ParseCommandType(string(l.Type))
-			return &ConcurrentOperationError{
-				Type: cmdType,
-				OPID: l.OPID,
-			}
-		}
-	}
-
-	return nil
+	return checkLock(ctx, s.conn, s.log)
 }
 
 // TODO(pbm-fix): PBM's internal sendCommand is unexported and only
