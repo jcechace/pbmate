@@ -87,14 +87,6 @@ func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (Co
 }
 
 func (s *pitrServiceImpl) deleteBefore(ctx context.Context, cmd DeletePITRBefore) (CommandResult, error) {
-	if cmd.OlderThan.IsZero() {
-		return CommandResult{}, fmt.Errorf("delete PITR chunks: older-than time must be set")
-	}
-	if cmd.OlderThan.After(time.Now().UTC()) {
-		return CommandResult{}, fmt.Errorf("delete PITR chunks: older-than time %s is in the future",
-			cmd.OlderThan.Format(time.RFC3339))
-	}
-
 	s.log.InfoContext(ctx, "deleting PITR chunks older than",
 		"olderThan", cmd.OlderThan.Format(time.RFC3339),
 	)

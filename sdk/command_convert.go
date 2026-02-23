@@ -58,6 +58,7 @@ func convertStartLogicalBackupToPBM(cmd StartLogicalBackup) ctrl.Cmd {
 			Type:             defs.LogicalBackup,
 			Name:             cmd.name,
 			Namespaces:       cmd.Namespaces,
+			UsersAndRoles:    cmd.UsersAndRoles,
 			Compression:      compress.CompressionType(cmd.Compression.String()),
 			CompressionLevel: cmd.CompressionLevel,
 			Profile:          configNameToPBM(cmd.ConfigName),

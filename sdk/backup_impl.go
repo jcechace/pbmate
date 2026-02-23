@@ -125,10 +125,6 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 }
 
 func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupByName) (CommandResult, error) {
-	if cmd.Name == "" {
-		return CommandResult{}, fmt.Errorf("delete backup: name is required")
-	}
-
 	s.log.InfoContext(ctx, "deleting backup", "name", cmd.Name)
 	result, err := s.cmds.Send(ctx, cmd)
 	if err != nil {
@@ -138,14 +134,6 @@ func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupBy
 }
 
 func (s *backupServiceImpl) deleteBefore(ctx context.Context, cmd DeleteBackupsBefore) (CommandResult, error) {
-	if cmd.OlderThan.IsZero() {
-		return CommandResult{}, fmt.Errorf("delete backups: older-than time must be set")
-	}
-	if cmd.OlderThan.After(time.Now().UTC()) {
-		return CommandResult{}, fmt.Errorf("delete backups: older-than time %s is in the future",
-			cmd.OlderThan.Format(time.RFC3339))
-	}
-
 	s.log.InfoContext(ctx, "deleting backups older than",
 		"olderThan", cmd.OlderThan.Format(time.RFC3339),
 		"type", cmd.Type,

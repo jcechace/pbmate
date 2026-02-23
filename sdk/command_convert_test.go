@@ -35,6 +35,21 @@ func TestConvertStartLogicalBackupToPBM(t *testing.T) {
 	assert.Equal(t, "", result.Backup.Profile, "MainConfig should map to empty string")
 }
 
+func TestConvertStartLogicalBackupWithUsersAndRoles(t *testing.T) {
+	cmd := StartLogicalBackup{
+		Namespaces:    []string{"db1.*"},
+		UsersAndRoles: true,
+		name:          "2024-01-15T10:30:00Z",
+	}
+
+	result, err := convertCommandToPBM(cmd)
+	require.NoError(t, err)
+
+	require.NotNil(t, result.Backup)
+	assert.True(t, result.Backup.UsersAndRoles)
+	assert.Equal(t, []string{"db1.*"}, result.Backup.Namespaces)
+}
+
 func TestConvertStartLogicalBackupWithCompressionLevel(t *testing.T) {
 	level := 5
 	cmd := StartLogicalBackup{

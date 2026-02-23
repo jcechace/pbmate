@@ -23,6 +23,10 @@ type commandServiceImpl struct {
 var _ CommandService = (*commandServiceImpl)(nil)
 
 func (s *commandServiceImpl) Send(ctx context.Context, cmd Command) (CommandResult, error) {
+	if err := cmd.Validate(); err != nil {
+		return CommandResult{}, err
+	}
+
 	if err := s.CheckLock(ctx); err != nil {
 		return CommandResult{}, err
 	}
