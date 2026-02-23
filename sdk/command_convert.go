@@ -2,54 +2,12 @@ package sdk
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
 )
-
-// convertCommandToPBM converts an SDK Command to PBM's ctrl.Cmd.
-func convertCommandToPBM(cmd Command) (ctrl.Cmd, error) {
-	switch c := cmd.(type) {
-	case StartLogicalBackup:
-		return convertStartLogicalBackupToPBM(c), nil
-	case StartIncrementalBackup:
-		return convertStartIncrementalBackupToPBM(c), nil
-	case StartSnapshotRestore:
-		return convertStartSnapshotRestoreToPBM(c), nil
-	case StartPITRRestore:
-		return convertStartPITRRestoreToPBM(c), nil
-	case DeleteBackupByName:
-		return convertDeleteByNameToPBM(c), nil
-	case DeleteBackupsBefore:
-		return convertDeleteBackupsBeforeToPBM(c), nil
-	case AddProfileCommand:
-		return convertAddProfileCommandToPBM(c)
-	case RemoveProfileCommand:
-		return convertRemoveProfileCommandToPBM(c), nil
-	case DeletePITRBefore:
-		return convertDeletePITRBeforeToPBM(c), nil
-	case DeletePITRAll:
-		// DeletePITRAll is resolved to DeletePITRBefore{OlderThan: now}
-		// by pitrServiceImpl.deleteAll before reaching here. If it arrives
-		// at the converter directly, treat it as "now".
-		return convertDeletePITRBeforeToPBM(DeletePITRBefore{
-			OlderThan: time.Now().UTC(),
-		}), nil
-	case ResyncMain:
-		return convertResyncMainToPBM(c), nil
-	case ResyncProfile:
-		return convertResyncProfileToPBM(c), nil
-	case ResyncAllProfiles:
-		return convertResyncAllProfilesToPBM(c), nil
-	case CancelBackupCommand:
-		return ctrl.Cmd{Cmd: ctrl.CmdCancelBackup}, nil
-	default:
-		return ctrl.Cmd{}, fmt.Errorf("unsupported command type: %T", cmd)
-	}
-}
 
 func convertStartLogicalBackupToPBM(cmd StartLogicalBackup) ctrl.Cmd {
 	return ctrl.Cmd{

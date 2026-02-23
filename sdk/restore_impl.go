@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
+	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
 	"github.com/percona/percona-backup-mongodb/pbm/restore"
 )
 
 type restoreServiceImpl struct {
 	conn connect.Client
-	cmds CommandService
+	cmds *commandServiceImpl
 	log  *slog.Logger
 }
 
@@ -62,22 +63,29 @@ func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Resto
 }
 
 func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
+	}
+
 	// PBM uses RFC 3339 Nano (sub-second precision) for restore names,
 	// unlike backup names which use second-precision RFC 3339.
 	name := time.Now().UTC().Format(time.RFC3339Nano)
 
-	// Inject the auto-generated name into the concrete command type.
+	// Inject the auto-generated name and convert to PBM command.
+	var pbmCmd ctrl.Cmd
 	switch c := cmd.(type) {
 	case StartSnapshotRestore:
 		c.name = name
-		cmd = c
+		pbmCmd = convertStartSnapshotRestoreToPBM(c)
 	case StartPITRRestore:
 		c.name = name
-		cmd = c
+		pbmCmd = convertStartPITRRestoreToPBM(c)
+	default:
+		panic(fmt.Sprintf("unreachable: unknown StartRestoreCommand type %T", cmd))
 	}
 
 	s.log.InfoContext(ctx, "starting restore", "name", name, "type", fmt.Sprintf("%T", cmd))
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
 	}

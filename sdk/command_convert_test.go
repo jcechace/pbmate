@@ -23,8 +23,7 @@ func TestConvertStartLogicalBackupToPBM(t *testing.T) {
 		name:        "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdBackup, result.Cmd)
 	require.NotNil(t, result.Backup)
@@ -42,8 +41,7 @@ func TestConvertStartLogicalBackupWithUsersAndRoles(t *testing.T) {
 		name:          "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	require.NotNil(t, result.Backup)
 	assert.True(t, result.Backup.UsersAndRoles)
@@ -58,8 +56,7 @@ func TestConvertStartLogicalBackupWithCompressionLevel(t *testing.T) {
 		name:             "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	require.NotNil(t, result.Backup.CompressionLevel)
 	assert.Equal(t, 5, *result.Backup.CompressionLevel)
@@ -71,8 +68,7 @@ func TestConvertStartLogicalBackupWithNilCompressionLevel(t *testing.T) {
 		name:        "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	assert.Nil(t, result.Backup.CompressionLevel, "nil CompressionLevel should pass through as nil")
 }
@@ -86,8 +82,7 @@ func TestConvertStartLogicalBackupWithProfile(t *testing.T) {
 		name:       "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	assert.Equal(t, "my-s3", result.Backup.Profile)
 }
@@ -99,8 +94,7 @@ func TestConvertStartLogicalBackupWithNumParallelColls(t *testing.T) {
 		name:             "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	require.NotNil(t, result.Backup.NumParallelColls)
 	assert.Equal(t, int32(8), *result.Backup.NumParallelColls)
@@ -111,8 +105,7 @@ func TestConvertStartLogicalBackupWithNilNumParallelColls(t *testing.T) {
 		name: "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartLogicalBackupToPBM(cmd)
 
 	assert.Nil(t, result.Backup.NumParallelColls)
 }
@@ -125,8 +118,7 @@ func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
 		name:        "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartIncrementalBackupToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdBackup, result.Cmd)
 	require.NotNil(t, result.Backup)
@@ -146,8 +138,7 @@ func TestConvertStartIncrementalBackupWithCompressionLevel(t *testing.T) {
 		name:             "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartIncrementalBackupToPBM(cmd)
 
 	require.NotNil(t, result.Backup.CompressionLevel)
 	assert.Equal(t, 3, *result.Backup.CompressionLevel)
@@ -161,8 +152,7 @@ func TestConvertStartIncrementalBackupWithNumParallelColls(t *testing.T) {
 		name:             "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartIncrementalBackupToPBM(cmd)
 
 	require.NotNil(t, result.Backup.NumParallelColls)
 	assert.Equal(t, int32(4), *result.Backup.NumParallelColls)
@@ -179,8 +169,7 @@ func TestConvertStartSnapshotRestoreToPBM(t *testing.T) {
 		name:          "restore-2024",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartSnapshotRestoreToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdRestore, result.Cmd)
 	require.NotNil(t, result.Restore)
@@ -202,8 +191,7 @@ func TestConvertStartPITRRestoreToPBM(t *testing.T) {
 		name:       "restore-pitr-2024",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartPITRRestoreToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdRestore, result.Cmd)
 	require.NotNil(t, result.Restore)
@@ -229,8 +217,7 @@ func TestConvertStartSnapshotRestoreWithPerformanceFields(t *testing.T) {
 		name:                "restore-2024",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartSnapshotRestoreToPBM(cmd)
 
 	require.NotNil(t, result.Restore.NumParallelColls)
 	assert.Equal(t, int32(4), *result.Restore.NumParallelColls)
@@ -248,8 +235,7 @@ func TestConvertStartSnapshotRestoreWithNilPerformanceFields(t *testing.T) {
 		name:       "restore-2024",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartSnapshotRestoreToPBM(cmd)
 
 	assert.Nil(t, result.Restore.NumParallelColls)
 	assert.Nil(t, result.Restore.NumInsertionWorkers)
@@ -269,8 +255,7 @@ func TestConvertStartPITRRestoreWithPerformanceFields(t *testing.T) {
 		name:                "restore-pitr-2024",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertStartPITRRestoreToPBM(cmd)
 
 	require.NotNil(t, result.Restore.NumParallelColls)
 	assert.Equal(t, int32(6), *result.Restore.NumParallelColls)
@@ -283,8 +268,7 @@ func TestConvertDeleteBackupByNameToPBM(t *testing.T) {
 		Name: "2024-01-15T10:30:00Z",
 	}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertDeleteByNameToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
 	require.NotNil(t, result.Delete)
@@ -306,8 +290,7 @@ func TestConvertDeleteBackupsBeforeToPBM(t *testing.T) {
 			ConfigName: cn,
 		}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertDeleteBackupsBeforeToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
 		require.NotNil(t, result.Delete)
@@ -323,8 +306,7 @@ func TestConvertDeleteBackupsBeforeToPBM(t *testing.T) {
 			OlderThan: olderThan,
 		}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertDeleteBackupsBeforeToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdDeleteBackup, result.Cmd)
 		require.NotNil(t, result.Delete)
@@ -339,8 +321,7 @@ func TestConvertDeleteBackupsBeforeToPBM(t *testing.T) {
 			ConfigName: MainConfig,
 		}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertDeleteBackupsBeforeToPBM(cmd)
 
 		assert.Empty(t, result.Delete.Profile)
 	})
@@ -350,34 +331,18 @@ func TestConvertDeletePITRBeforeToPBM(t *testing.T) {
 	olderThan := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
 	cmd := DeletePITRBefore{OlderThan: olderThan}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertDeletePITRBeforeToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdDeletePITR, result.Cmd)
 	require.NotNil(t, result.DeletePITR)
 	assert.Equal(t, olderThan.Unix(), result.DeletePITR.OlderThan)
 }
 
-func TestConvertDeletePITRAllToPBM(t *testing.T) {
-	before := time.Now().UTC()
-	cmd := DeletePITRAll{}
-
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
-
-	assert.Equal(t, ctrl.CmdDeletePITR, result.Cmd)
-	require.NotNil(t, result.DeletePITR)
-	// DeletePITRAll resolves to "now" — the timestamp should be at or after
-	// the time we captured before the call.
-	assert.GreaterOrEqual(t, result.DeletePITR.OlderThan, before.Unix())
-}
-
 func TestConvertResyncMainToPBM(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
 		cmd := ResyncMain{}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncMainToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		assert.Nil(t, result.Resync, "default ResyncMain should have nil Resync opts")
@@ -386,8 +351,7 @@ func TestConvertResyncMainToPBM(t *testing.T) {
 	t.Run("include restores", func(t *testing.T) {
 		cmd := ResyncMain{IncludeRestores: true}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncMainToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		require.NotNil(t, result.Resync)
@@ -401,8 +365,7 @@ func TestConvertResyncProfileToPBM(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		cmd := ResyncProfile{Name: "my-s3"}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncProfileToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		require.NotNil(t, result.Resync)
@@ -414,8 +377,7 @@ func TestConvertResyncProfileToPBM(t *testing.T) {
 	t.Run("clear", func(t *testing.T) {
 		cmd := ResyncProfile{Name: "my-s3", Clear: true}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncProfileToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		require.NotNil(t, result.Resync)
@@ -428,8 +390,7 @@ func TestConvertResyncAllProfilesToPBM(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		cmd := ResyncAllProfiles{}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncAllProfilesToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		require.NotNil(t, result.Resync)
@@ -441,25 +402,13 @@ func TestConvertResyncAllProfilesToPBM(t *testing.T) {
 	t.Run("clear", func(t *testing.T) {
 		cmd := ResyncAllProfiles{Clear: true}
 
-		result, err := convertCommandToPBM(cmd)
-		require.NoError(t, err)
+		result := convertResyncAllProfilesToPBM(cmd)
 
 		assert.Equal(t, ctrl.CmdResync, result.Cmd)
 		require.NotNil(t, result.Resync)
 		assert.True(t, result.Resync.All)
 		assert.True(t, result.Resync.Clear)
 	})
-}
-
-func TestConvertCancelBackupCommandToPBM(t *testing.T) {
-	cmd := CancelBackupCommand{}
-
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
-
-	assert.Equal(t, ctrl.CmdCancelBackup, result.Cmd)
-	assert.Nil(t, result.Backup)
-	assert.Nil(t, result.Restore)
 }
 
 func TestConvertAddProfileCommandToPBM(t *testing.T) {
@@ -474,7 +423,7 @@ func TestConvertAddProfileCommandToPBM(t *testing.T) {
 		storage: stg,
 	}
 
-	result, err := convertCommandToPBM(cmd)
+	result, err := convertAddProfileCommandToPBM(cmd)
 	require.NoError(t, err)
 
 	assert.Equal(t, ctrl.CmdAddConfigProfile, result.Cmd)
@@ -487,7 +436,7 @@ func TestConvertAddProfileCommandToPBM(t *testing.T) {
 func TestConvertAddProfileCommandWithoutStorage(t *testing.T) {
 	cmd := AddProfileCommand{Name: "bad"}
 
-	_, err := convertCommandToPBM(cmd)
+	_, err := convertAddProfileCommandToPBM(cmd)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "storage config not set")
 }
@@ -495,8 +444,7 @@ func TestConvertAddProfileCommandWithoutStorage(t *testing.T) {
 func TestConvertRemoveProfileCommandToPBM(t *testing.T) {
 	cmd := RemoveProfileCommand{Name: "my-fs"}
 
-	result, err := convertCommandToPBM(cmd)
-	require.NoError(t, err)
+	result := convertRemoveProfileCommandToPBM(cmd)
 
 	assert.Equal(t, ctrl.CmdRemoveConfigProfile, result.Cmd)
 	require.NotNil(t, result.Profile)

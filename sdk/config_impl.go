@@ -11,11 +11,12 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
+	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 )
 
 type configServiceImpl struct {
 	conn connect.Client
-	cmds CommandService
+	cmds *commandServiceImpl
 	log  *slog.Logger
 }
 
@@ -35,7 +36,7 @@ func (s *configServiceImpl) Get(ctx context.Context) (*Config, error) {
 }
 
 func (s *configServiceImpl) SetYAML(ctx context.Context, r io.Reader) error {
-	if err := s.cmds.CheckLock(ctx); err != nil {
+	if err := s.cmds.checkLock(ctx); err != nil {
 		return err
 	}
 
@@ -110,14 +111,23 @@ func (s *configServiceImpl) GetProfileYAML(ctx context.Context, name string) ([]
 }
 
 func (s *configServiceImpl) SetProfile(ctx context.Context, name string, r io.Reader) (CommandResult, error) {
+	if err := s.cmds.checkLock(ctx); err != nil {
+		return CommandResult{}, fmt.Errorf("set profile %q: %w", name, err)
+	}
+
 	cfg, err := config.Parse(r)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("parse profile config: %w", err)
 	}
 
-	s.log.InfoContext(ctx, "setting profile", "name", name)
 	cmd := AddProfileCommand{Name: name, storage: cfg.Storage}
-	result, err := s.cmds.Send(ctx, cmd)
+	pbmCmd, err := convertAddProfileCommandToPBM(cmd)
+	if err != nil {
+		return CommandResult{}, fmt.Errorf("set profile %q: %w", name, err)
+	}
+
+	s.log.InfoContext(ctx, "setting profile", "name", name)
+	result, err := s.cmds.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("set profile %q: %w", name, err)
 	}
@@ -125,8 +135,13 @@ func (s *configServiceImpl) SetProfile(ctx context.Context, name string, r io.Re
 }
 
 func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (CommandResult, error) {
+	cmd := RemoveProfileCommand{Name: name}
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return CommandResult{}, fmt.Errorf("remove profile %q: %w", name, err)
+	}
+
 	s.log.InfoContext(ctx, "removing profile", "name", name)
-	result, err := s.cmds.Send(ctx, RemoveProfileCommand{Name: name})
+	result, err := s.cmds.dispatch(ctx, convertRemoveProfileCommandToPBM(cmd))
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("remove profile %q: %w", name, err)
 	}
@@ -134,8 +149,24 @@ func (s *configServiceImpl) RemoveProfile(ctx context.Context, name string) (Com
 }
 
 func (s *configServiceImpl) Resync(ctx context.Context, cmd ResyncCommand) (CommandResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return CommandResult{}, fmt.Errorf("resync: %w", err)
+	}
+
+	var pbmCmd ctrl.Cmd
+	switch c := cmd.(type) {
+	case ResyncMain:
+		pbmCmd = convertResyncMainToPBM(c)
+	case ResyncProfile:
+		pbmCmd = convertResyncProfileToPBM(c)
+	case ResyncAllProfiles:
+		pbmCmd = convertResyncAllProfilesToPBM(c)
+	default:
+		panic(fmt.Sprintf("unreachable: unknown ResyncCommand type %T", cmd))
+	}
+
 	s.log.InfoContext(ctx, "resyncing storage", "command", fmt.Sprintf("%T", cmd))
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("resync: %w", err)
 	}

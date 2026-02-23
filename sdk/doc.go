@@ -22,10 +22,9 @@
 //   - [BackupService]  — list, get, start, wait, delete, and cancel backups
 //   - [RestoreService] — list, get, start, and wait for restores
 //   - [ConfigService]  — read/write configuration, manage storage profiles, resync
-//   - [ClusterService] — cluster topology, agents, and running operations
+//   - [ClusterService] — cluster topology, agents, running operations, and lock checks
 //   - [PITRService]    — PITR status, oplog timelines, and chunk deletion
 //   - [LogService]     — query and follow PBM logs
-//   - [CommandService] — low-level command dispatch (power users)
 //
 // # Sealed Commands
 //

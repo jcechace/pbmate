@@ -9,13 +9,14 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/backup"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
+	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
 	"github.com/percona/percona-backup-mongodb/pbm/defs"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
 )
 
 type backupServiceImpl struct {
 	conn connect.Client
-	cmds CommandService
+	cmds *commandServiceImpl
 	log  *slog.Logger
 }
 
@@ -77,21 +78,28 @@ func (s *backupServiceImpl) GetByOpID(ctx context.Context, opid string) (*Backup
 }
 
 func (s *backupServiceImpl) Start(ctx context.Context, cmd StartBackupCommand) (BackupResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return BackupResult{}, fmt.Errorf("start backup: %w", err)
+	}
+
 	// PBM uses RFC 3339 (second precision) for backup names.
 	name := time.Now().UTC().Format(time.RFC3339)
 
-	// Inject the auto-generated name into the concrete command type.
+	// Inject the auto-generated name and convert to PBM command.
+	var pbmCmd ctrl.Cmd
 	switch c := cmd.(type) {
 	case StartLogicalBackup:
 		c.name = name
-		cmd = c
+		pbmCmd = convertStartLogicalBackupToPBM(c)
 	case StartIncrementalBackup:
 		c.name = name
-		cmd = c
+		pbmCmd = convertStartIncrementalBackupToPBM(c)
+	default:
+		panic(fmt.Sprintf("unreachable: unknown StartBackupCommand type %T", cmd))
 	}
 
 	s.log.InfoContext(ctx, "starting backup", "name", name, "type", fmt.Sprintf("%T", cmd))
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, pbmCmd)
 	if err != nil {
 		return BackupResult{}, fmt.Errorf("start backup: %w", err)
 	}
@@ -125,8 +133,12 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 }
 
 func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupByName) (CommandResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return CommandResult{}, fmt.Errorf("delete backup %q: %w", cmd.Name, err)
+	}
+
 	s.log.InfoContext(ctx, "deleting backup", "name", cmd.Name)
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, convertDeleteByNameToPBM(cmd))
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("delete backup %q: %w", cmd.Name, err)
 	}
@@ -134,12 +146,17 @@ func (s *backupServiceImpl) deleteByName(ctx context.Context, cmd DeleteBackupBy
 }
 
 func (s *backupServiceImpl) deleteBefore(ctx context.Context, cmd DeleteBackupsBefore) (CommandResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return CommandResult{}, fmt.Errorf("delete backups older than %s: %w",
+			cmd.OlderThan.Format(time.RFC3339), err)
+	}
+
 	s.log.InfoContext(ctx, "deleting backups older than",
 		"olderThan", cmd.OlderThan.Format(time.RFC3339),
 		"type", cmd.Type,
 		"configName", cmd.ConfigName,
 	)
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, convertDeleteBackupsBeforeToPBM(cmd))
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("delete backups older than %s: %w",
 			cmd.OlderThan.Format(time.RFC3339), err)
@@ -148,7 +165,8 @@ func (s *backupServiceImpl) deleteBefore(ctx context.Context, cmd DeleteBackupsB
 }
 
 func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {
-	result, err := s.cmds.Send(ctx, CancelBackupCommand{})
+	s.log.InfoContext(ctx, "cancelling backup")
+	result, err := s.cmds.dispatch(ctx, ctrl.Cmd{Cmd: ctrl.CmdCancelBackup})
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("cancel backup: %w", err)
 	}

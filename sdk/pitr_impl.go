@@ -15,7 +15,7 @@ import (
 
 type pitrServiceImpl struct {
 	conn connect.Client
-	cmds CommandService
+	cmds *commandServiceImpl
 	log  *slog.Logger
 }
 
@@ -87,10 +87,15 @@ func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (Co
 }
 
 func (s *pitrServiceImpl) deleteBefore(ctx context.Context, cmd DeletePITRBefore) (CommandResult, error) {
+	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
+		return CommandResult{}, fmt.Errorf("delete PITR chunks older than %s: %w",
+			cmd.OlderThan.Format(time.RFC3339), err)
+	}
+
 	s.log.InfoContext(ctx, "deleting PITR chunks older than",
 		"olderThan", cmd.OlderThan.Format(time.RFC3339),
 	)
-	result, err := s.cmds.Send(ctx, cmd)
+	result, err := s.cmds.dispatch(ctx, convertDeletePITRBeforeToPBM(cmd))
 	if err != nil {
 		return CommandResult{}, fmt.Errorf("delete PITR chunks older than %s: %w",
 			cmd.OlderThan.Format(time.RFC3339), err)

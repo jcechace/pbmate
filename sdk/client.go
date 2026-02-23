@@ -31,7 +31,6 @@ type Client struct {
 	Cluster  ClusterService // cluster topology, agents, running operations
 	PITR     PITRService    // PITR status and oplog timelines
 	Logs     LogService     // PBM log access and streaming
-	Commands CommandService // low-level command dispatch (used internally by other services)
 
 	conn connect.Client
 }
@@ -102,13 +101,14 @@ func newMongoClient(ctx context.Context, o *options) (*Client, error) {
 
 	log.InfoContext(ctx, "connected to PBM")
 
+	cmds := &commandServiceImpl{conn: conn, log: log.With("service", "command")}
+
 	c := &Client{conn: conn}
-	c.Commands = &commandServiceImpl{conn: conn, log: log.With("service", "command")}
-	c.Backups = &backupServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "backup")}
-	c.Restores = &restoreServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "restore")}
-	c.Config = &configServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "config")}
+	c.Backups = &backupServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "backup")}
+	c.Restores = &restoreServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "restore")}
+	c.Config = &configServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "config")}
 	c.Cluster = &clusterServiceImpl{conn: conn, log: log.With("service", "cluster")}
-	c.PITR = &pitrServiceImpl{conn: conn, cmds: c.Commands, log: log.With("service", "pitr")}
+	c.PITR = &pitrServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "pitr")}
 	c.Logs = &logServiceImpl{conn: conn, log: log.With("service", "log")}
 	return c, nil
 }
