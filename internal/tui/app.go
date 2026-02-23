@@ -244,7 +244,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.config.profileYAMLs = make(map[string][]byte)
 		return m, tickCmd(0)
 
-	case deleteConfirmMsg:
+	case deleteCheckRequest:
+		if m.client != nil {
+			return m, canDeleteCmd(m.ctx, m.client, msg.baseName, msg.title, msg.description)
+		}
+		return m, nil
+
+	case canDeleteMsg:
+		if msg.err != nil {
+			m.setFlash("delete", msg.err)
+			return m, nil
+		}
 		overlay, cmd := newConfirmOverlay(m.styles.FormTheme, msg.title, msg.description, "Delete", "Cancel",
 			deleteBackupCmd(m.ctx, m.client, msg.baseName))
 		m.activeOverlay = overlay

@@ -150,7 +150,9 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		if m.mode == listBackups {
 			if sel := m.selectedBackup(); sel != nil {
 				baseName, title, desc := m.resolveDeleteTarget(sel)
-				return requestDeleteConfirm(baseName, title, desc)
+				return func() tea.Msg {
+					return deleteCheckRequest{baseName: baseName, title: title, description: desc}
+				}
 			}
 		}
 	}

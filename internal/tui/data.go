@@ -132,19 +132,35 @@ type backupActionMsg struct {
 	err    error
 }
 
-// deleteConfirmMsg requests a delete confirmation overlay. The baseName is the
-// backup that will actually be deleted (always the chain base for incremental).
-// The title and description are displayed in the overlay.
-type deleteConfirmMsg struct {
+// deleteCheckRequest is emitted by the backups sub-model when the user presses
+// delete. The root model handles it by running a CanDelete pre-check.
+type deleteCheckRequest struct {
 	baseName    string
 	title       string
 	description string
 }
 
-// requestDeleteConfirm returns a tea.Cmd that emits a deleteConfirmMsg.
-func requestDeleteConfirm(baseName, title, description string) tea.Cmd {
+// canDeleteMsg carries the result of a CanDelete pre-check. When err is nil,
+// the confirm dialog should be shown. When err is non-nil, the error is
+// displayed in the flash bar instead.
+type canDeleteMsg struct {
+	baseName    string
+	title       string
+	description string
+	err         error
+}
+
+// canDeleteCmd returns a tea.Cmd that checks whether a backup can be deleted
+// before showing the confirmation dialog.
+func canDeleteCmd(ctx context.Context, client *sdk.Client, baseName, title, description string) tea.Cmd {
 	return func() tea.Msg {
-		return deleteConfirmMsg{baseName: baseName, title: title, description: description}
+		err := client.Backups.CanDelete(ctx, baseName)
+		return canDeleteMsg{
+			baseName:    baseName,
+			title:       title,
+			description: description,
+			err:         err,
+		}
 	}
 }
 
