@@ -422,15 +422,10 @@ func (m *backupsModel) renderProfileHeader(profile string, count int) string {
 }
 
 // renderBackupLine renders a single backup line for the list.
-// Layout: status dot, timestamp, padded type, flag column.
+// Layout: status dot, name, padded type, flag column.
 // Flags: ⌂ = incremental base, ◇ = selective (namespace-filtered).
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
-
-	ts := bk.LastWriteTS.Time().UTC().Format(backupTimeFormat)
-	if bk.LastWriteTS.IsZero() {
-		ts = bk.StartTS.UTC().Format(backupTimeFormat)
-	}
 
 	flag := ""
 	if bk.IsIncrementalBase() {
@@ -444,7 +439,7 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 		size = humanBytes(bk.Size)
 	}
 
-	return fmt.Sprintf("%s %s  %-*s %-*s %s", ind, ts, backupTypeColWidth, bk.Type, backupSizeColWidth, size, flag)
+	return fmt.Sprintf("%s %s  %-*s %-*s %s", ind, bk.Name, backupTypeColWidth, bk.Type, backupSizeColWidth, size, flag)
 }
 
 // renderRestoreLine renders a single restore line for the list.
