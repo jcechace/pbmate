@@ -162,6 +162,15 @@
 - [x] Shared validation helpers: `validateUsersAndRoles`, `validateNamespaceRemap`
 - [x] Comprehensive `Validate()` tests for all command types
 
+### TUI audit fixes (complete)
+- [x] Expand config detail with all SDK fields (RestoreConfig, full PITR/Backup config)
+- [x] Show oplog range and per-replset sizes/errors in backup detail
+- [x] Add parallel collections option to backup wizard
+- [x] Add CanDelete pre-check before delete confirmation
+- [x] Quick wins: backup list size column, PITR error visibility, form rename
+- [x] Restore start action (`r` on completed backups) with form wizard (type,
+      PITR target, namespaces, users-and-roles, performance tuning)
+
 ### Phase 5e: Additional TUI features (planned)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views

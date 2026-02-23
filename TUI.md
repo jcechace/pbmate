@@ -116,8 +116,9 @@ appear at the top of the list.
 Right panel: full backup/restore metadata, timestamps, compression, errors.
 
 Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
-type, compression, profile), `d` delete (overlay confirmation, chain-aware for
-incrementals), `c` cancel running backup.
+type, compression, profile), `r` restore from selected backup (wizard with
+type, PITR target, namespaces, performance tuning), `d` delete (overlay
+confirmation, chain-aware for incrementals), `c` cancel running backup.
 
 Future: detail panel sub-tabs (Info, Replicas, Logs), `/` filter.
 
@@ -152,6 +153,7 @@ storage profile (name form + file picker).
 
 ### Backups-specific
 - `tab` -- toggle between Backups and Restores list
+- `r` -- restore from selected backup (requires completed backup)
 - `d` -- delete backup (overlay confirmation)
 - `space` / `enter` -- expand/collapse profile group
 
@@ -266,11 +268,14 @@ if a fetch errors, we still schedule the next tick.
 | `configDataMsg`     | `fetchConfigCmd`     | Config data arrived               |
 | `profileYAMLMsg`    | `fetchProfileYAMLCmd`| Profile YAML content arrived      |
 | `backupActionMsg`   | action commands      | Backup/delete/cancel completed    |
+| `restoreActionMsg`  | `startRestoreCmd`    | Restore action completed          |
 | `configActionMsg`   | config commands      | Config apply/profile completed    |
 | `logFollowMsg`      | `nextLogCmd`         | New log entries from follow       |
 | `logFollowDoneMsg`  | follow goroutine     | Follow channel closed             |
 | `backupFormReadyMsg`| `fetchProfilesCmd`   | Profiles loaded, form can open    |
-| `deleteConfirmMsg`  | backups sub-model    | Confirm overlay needed            |
+| `deleteCheckRequest`| backups sub-model    | CanDelete pre-check needed        |
+| `canDeleteMsg`      | `canDeleteCmd`       | Pre-check result, show confirm    |
+| `restoreRequest`    | backups sub-model    | Restore form overlay needed       |
 
 ### Message Routing Priority
 
@@ -377,4 +382,8 @@ polling continues in the background.
   the full wizard.
 - **Custom backup** (`S`): multi-step wizard with type, compression, and profile
   selection. Profiles are fetched asynchronously before the form opens.
+- **Restore** (`r`): multi-step wizard with restore type (snapshot/PITR), PITR
+  target (pre-filled from latest timeline, shows available range), namespaces,
+  users-and-roles, parallel collections, and insertion workers. Only available
+  on completed backups.
 - `esc` or `q` dismisses any open overlay.
