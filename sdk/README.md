@@ -101,6 +101,27 @@ result, err := client.Restores.Start(ctx, sdk.StartPITRRestore{
 restore, err := client.Restores.Wait(ctx, result.Name, sdk.RestoreWaitOptions{})
 ```
 
+### Override Performance Tuning
+
+```go
+// Backup with custom parallelism.
+numColls := 8
+result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{
+    NumParallelColls: &numColls,
+})
+
+// Restore with custom parallelism and insertion workers.
+colls, workers := 4, 2
+result, err := client.Restores.Start(ctx, sdk.StartSnapshotRestore{
+    BackupName:          "2026-02-19T20:28:16Z",
+    NumParallelColls:    &colls,
+    NumInsertionWorkers: &workers,
+})
+```
+
+> All performance fields are `*int` or `*bool` — nil means "use the
+> server-configured default". Set them only when you need to override.
+
 ### Check Cluster Health
 
 ```go

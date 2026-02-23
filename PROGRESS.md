@@ -208,14 +208,35 @@ by service methods.
 - [x] Server info — `ClusterService.ServerInfo()` returning MongoDB version
       and PBM library version
 
+### SDK gap closure (complete)
+
+Comprehensive gap analysis vs PBM capabilities. Config types, command fields,
+and data fields filled in.
+
+- [x] Config types — `BackupConfig` (6 fields + `BackupTimeouts`),
+      `RestoreConfig` (10 fields), `PITRConfig` (4 new fields)
+- [x] Backup command tuning — `NumParallelColls *int` on `StartLogicalBackup`
+      and `StartIncrementalBackup`
+- [x] Restore command tuning — `NumParallelColls`, `NumInsertionWorkers` (`*int`),
+      `AllowPartlyDone`, `Fallback` (`*bool`) on `StartSnapshotRestore`
+      and `StartPITRRestore`
+- [x] Backup data fields — `FirstWriteTS` on `Backup`, `Size` and
+      `SizeUncompressed` on `BackupReplset`
+
 ### Deferred
 
 | Feature | Reason |
 |---------|--------|
 | Config SetVar | Deferred pending PITR enable/disable design — needs a cohesive config mutation surface |
-| Cleanup command | Needs analysis: does PBM's cleanup codepath differ materially from delete-backup + delete-pitr? |
-| Oplog replay | Advanced disaster recovery. `CmdTypeReplay` constant ready. Implement when needed. |
+| Cleanup command | Composition viable: both `Backups.Delete` and `PITR.Delete` use `MakeCleanupInfo()` internally. Add only if requested. |
+| Oplog replay | Very low priority. `CmdTypeReplay` constant ready. Implement when needed. |
 | Physical/external backup | Out-of-band file operations. Display types exist. Start/Finish deferred. |
-| Performance knobs | `NumParallelColls`, `NumInsertionWorkers` — server-side tuning with sensible PBM defaults. |
 | Backup collections list | `--with-collections` requires storage I/O (reads archive files). Non-trivial. |
 | Diagnostic reports | CLI-oriented, composable from existing service methods. |
+| Wait for delete/resync | Not feasible — no status query exists in PBM to drive polling. |
+| Per-RS PITR timelines | Diagnostic, not operational. Low priority. |
+| Oplog chunk access | Storage insight, not blocking. Low priority. |
+| Restore progress detail | Nice for PITR progress display, low priority. |
+| Timeline.Size | Storage cost insight, low priority. |
+| Status filter on list | Client-side filtering works fine given small data volumes. |
+| Convenience queries | `GetLastBackup` etc. — just wrappers, low priority. |
