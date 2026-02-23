@@ -36,7 +36,7 @@ func newProfileNameForm(formTheme *huh.Theme) (*huh.Form, *profileNameResult) {
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
-		WithKeyMap(backupFormKeyMap())
+		WithKeyMap(formKeyMap())
 
 	return form, result
 }

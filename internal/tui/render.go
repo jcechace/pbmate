@@ -308,7 +308,11 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 			if node == "" {
 				node = "-"
 			}
-			line := fmt.Sprintf("  %s %s: %s  (%s)", rsInd, rs.Name, rs.Status, node)
+			rsName := rs.Name
+			if rs.IsConfigSvr {
+				rsName += " (configsvr)"
+			}
+			line := fmt.Sprintf("  %s %s: %s  (%s)", rsInd, rsName, rs.Status, node)
 			if rs.Size > 0 {
 				line += fmt.Sprintf("  %s", humanBytes(rs.Size))
 				if rs.SizeUncompressed > 0 {
@@ -317,6 +321,9 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 			}
 			b.WriteString(line)
 			b.WriteByte('\n')
+			if rs.Error != "" {
+				fmt.Fprintf(b, "      %s\n", styles.StatusError.Render(rs.Error))
+			}
 		}
 	}
 }

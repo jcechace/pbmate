@@ -176,7 +176,7 @@ Single merged bar replacing the previous two-bar (status + help) design.
 - Changes per tab and per selection state.
 - Keys in bold/primary color, descriptions in muted color.
 - Hints that exceed available width are dropped (rightmost first).
-- 6-8 most important hints; full reference via `?` overlay (planned).
+- 6-8 most important hints; full reference via `?` overlay.
 
 ## Polling & Data Flow
 

@@ -237,6 +237,9 @@ func (m *overviewModel) statusContent() string {
 		}
 	}
 	fmt.Fprintf(&b, " %s %s\n", label.Render("PITR"), pitrVal)
+	if m.data.pitr != nil && m.data.pitr.Error != "" {
+		fmt.Fprintf(&b, " %s %s\n", label.Render(""), m.styles.StatusError.Render(m.data.pitr.Error))
+	}
 
 	// PITR range (latest timeline).
 	if len(m.data.timelines) > 0 {

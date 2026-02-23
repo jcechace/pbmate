@@ -15,6 +15,7 @@ import (
 
 const backupTimeFormat = "2006-01-02 15:04" // display format for backup timestamps
 const backupTypeColWidth = 11               // pad type to widest value ("incremental")
+const backupSizeColWidth = 8                // pad size to fit "1234.5GB" with trailing space
 
 // listMode selects which list is shown in the Backups tab.
 type listMode int
@@ -409,7 +410,12 @@ func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 		flag = m.styles.StatusWarning.Render("◇")
 	}
 
-	return fmt.Sprintf("%s %s  %-*s %s", ind, ts, backupTypeColWidth, bk.Type, flag)
+	size := ""
+	if bk.Size > 0 {
+		size = humanBytes(bk.Size)
+	}
+
+	return fmt.Sprintf("%s %s  %-*s %-*s %s", ind, ts, backupTypeColWidth, bk.Type, backupSizeColWidth, size, flag)
 }
 
 // renderRestoreLine renders a single restore line for the list.

@@ -135,7 +135,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
-		WithKeyMap(backupFormKeyMap())
+		WithKeyMap(formKeyMap())
 
 	return form, result
 }
@@ -243,7 +243,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
-		WithKeyMap(backupFormKeyMap())
+		WithKeyMap(formKeyMap())
 
 	return form, result
 }
@@ -278,16 +278,17 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 		WithWidth(formOverlayInnerWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
-		WithKeyMap(backupFormKeyMap())
+		WithKeyMap(formKeyMap())
 
 	return form, result
 }
 
 // --- Shared ---
 
-// backupFormKeyMap returns a huh KeyMap with ] and [ added to field
+// formKeyMap returns a huh KeyMap with ] and [ added to field
 // navigation alongside the default tab/shift+tab/enter bindings.
-func backupFormKeyMap() *huh.KeyMap {
+// Shared by all form overlays (backup, restore, confirm, profile name).
+func formKeyMap() *huh.KeyMap {
 	km := huh.NewDefaultKeyMap()
 
 	km.Select.Next = key.NewBinding(key.WithKeys("enter", "tab", "]"))
