@@ -285,6 +285,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case restoreActionMsg:
 		m.setFlash(msg.action, msg.err)
 		if msg.err == nil {
+			m.backups.mode = listRestores
+			m.backups.rebuildListContent()
+			m.backups.rebuildDetailContent()
 			return m, tickCmd(0)
 		}
 		return m, nil
