@@ -168,8 +168,10 @@
 - [x] Add parallel collections option to backup wizard
 - [x] Add CanDelete pre-check before delete confirmation
 - [x] Quick wins: backup list size column, PITR error visibility, form rename
-- [x] Restore start action (`r` on completed backups) with form wizard (type,
-      PITR target, namespaces, users-and-roles, performance tuning)
+- [x] Restore start action with context-sensitive forms:
+      `r` on backup = snapshot restore, `r` on PITR timeline = PITR restore
+      with auto-selected base backup. Users-and-roles conditional on namespaces.
+- [x] Fix action error flash persistence (errors no longer cleared by immediate re-fetch)
 
 ### Phase 5e: Additional TUI features (planned)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)

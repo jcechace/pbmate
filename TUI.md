@@ -116,9 +116,10 @@ appear at the top of the list.
 Right panel: full backup/restore metadata, timestamps, compression, errors.
 
 Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
-type, compression, profile), `r` restore from selected backup (wizard with
-type, PITR target, namespaces, performance tuning), `d` delete (overlay
-confirmation, chain-aware for incrementals), `c` cancel running backup.
+type, compression, profile), `r` context-sensitive restore (on a backup =
+snapshot restore, on a PITR timeline = PITR restore with auto-selected base
+backup), `d` delete (overlay confirmation, chain-aware for incrementals),
+`c` cancel running backup.
 
 Future: detail panel sub-tabs (Info, Replicas, Logs), `/` filter.
 
@@ -153,7 +154,7 @@ storage profile (name form + file picker).
 
 ### Backups-specific
 - `tab` -- toggle between Backups and Restores list
-- `r` -- restore from selected backup (requires completed backup)
+- `r` -- restore (on backup = snapshot, on PITR timeline = point-in-time)
 - `d` -- delete backup (overlay confirmation)
 - `space` / `enter` -- expand/collapse profile group
 
@@ -382,8 +383,13 @@ polling continues in the background.
   the full wizard.
 - **Custom backup** (`S`): multi-step wizard with type, compression, and profile
   selection. Profiles are fetched asynchronously before the form opens.
-- **Restore** (`r`): multi-step wizard with restore type (snapshot/PITR), PITR
-  target (pre-filled from latest timeline, shows available range), namespaces,
-  users-and-roles, parallel collections, and insertion workers. Only available
-  on completed backups.
+- **Restore** (`r`): context-sensitive restore forms:
+  - On a completed backup: snapshot restore form (namespaces, conditional
+    users-and-roles, performance tuning).
+  - On a PITR timeline: PITR restore form (target time pre-filled from
+    timeline end, namespaces, conditional users-and-roles, performance tuning).
+    Base backup is auto-selected from cached data (latest completed backup
+    before target time).
+  - Users-and-roles question is only shown for selective (namespace-filtered)
+    restores, since full restores always include them.
 - `esc` or `q` dismisses any open overlay.
