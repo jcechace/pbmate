@@ -128,7 +128,7 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 	case DeleteBackupsBefore:
 		return s.deleteBefore(ctx, c)
 	default:
-		return CommandResult{}, fmt.Errorf("unsupported delete command type: %T", cmd)
+		panic(fmt.Sprintf("unreachable: unknown DeleteBackupCommand type %T", cmd))
 	}
 }
 

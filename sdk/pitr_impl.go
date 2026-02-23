@@ -82,7 +82,7 @@ func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (Co
 	case DeletePITRAll:
 		return s.deleteAll(ctx)
 	default:
-		return CommandResult{}, fmt.Errorf("unsupported delete PITR command type: %T", cmd)
+		panic(fmt.Sprintf("unreachable: unknown DeletePITRCommand type %T", cmd))
 	}
 }
 
