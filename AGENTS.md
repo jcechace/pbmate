@@ -145,9 +145,9 @@ pbmate/
 │   ├── restore_convert.go  # PBM RestoreMeta -> SDK Restore conversion
 │   ├── restore_convert_test.go
 │   ├── restore_test.go     # Restore domain method tests
-│   ├── command.go          # CommandService interface, sealed Command types, Validate()
-│   ├── command_impl.go     # commandServiceImpl (lock check + validate + dispatch)
-│   ├── command_convert.go  # SDK Command -> PBM ctrl.Cmd conversion
+│   ├── command.go          # Sealed command types, Validate(), validator interface
+│   ├── command_impl.go     # commandServiceImpl (validateAndCheckLock + checkLock + dispatch)
+│   ├── command_convert.go  # SDK command -> PBM ctrl.Cmd conversion
 │   ├── command_convert_test.go
 │   ├── command_test.go     # Validate() tests for all command types
 │   ├── config.go           # ConfigService interface + types
