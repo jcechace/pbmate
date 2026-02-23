@@ -106,6 +106,62 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 }
 
 // =============================================================================
+// Restore form overlay
+// =============================================================================
+
+// restoreFormOverlay wraps the restore wizard form.
+type restoreFormOverlay struct {
+	form       *huh.Form
+	result     *restoreFormResult
+	backupName string
+	ctx        context.Context
+	client     *sdk.Client
+}
+
+func newRestoreFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backupName string, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newRestoreForm(formTheme, backupName, timelines)
+	o := &restoreFormOverlay{form: form, result: result, backupName: backupName, ctx: ctx, client: client}
+	return o, o.form.Init()
+}
+
+func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
+			return nil, nil
+		}
+	}
+
+	formModel, cmd := o.form.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		o.form = f
+	}
+
+	if o.form.State == huh.StateCompleted {
+		if !o.result.confirmed {
+			return nil, nil
+		}
+		restoreCmd, err := o.result.toCommand(o.backupName)
+		if err != nil {
+			// Bad PITR target — return an error flash via restoreActionMsg.
+			return nil, func() tea.Msg {
+				return restoreActionMsg{action: "restore", err: err}
+			}
+		}
+		return nil, startRestoreCmd(o.ctx, o.client, restoreCmd)
+	}
+
+	if o.form.State == huh.StateAborted {
+		return nil, nil
+	}
+
+	return o, cmd
+}
+
+func (o *restoreFormOverlay) View(styles *Styles, contentW, contentH int) string {
+	return renderFormOverlay(o.form, "Restore", styles, contentW, contentH)
+}
+
+// =============================================================================
 // File picker overlay
 // =============================================================================
 

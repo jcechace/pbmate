@@ -259,6 +259,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			deleteBackupCmd(m.ctx, m.client, msg.baseName))
 		m.activeOverlay = overlay
 		return m, cmd
+
+	case restoreRequest:
+		if m.client != nil {
+			overlay, cmd := newRestoreFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backupName, m.backups.timelines)
+			m.activeOverlay = overlay
+			return m, cmd
+		}
+		return m, nil
+
+	case restoreActionMsg:
+		m.setFlash(msg.action, msg.err)
+		return m, tickCmd(0)
 	}
 
 	// Route to the active overlay if one is open.

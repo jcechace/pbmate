@@ -91,6 +91,7 @@ type backupKeyMap struct {
 	Start       key.Binding
 	StartCustom key.Binding
 	Cancel      key.Binding
+	Restore     key.Binding
 	Toggle      key.Binding
 }
 
@@ -123,6 +124,10 @@ var backupKeys = backupKeyMap{
 	Cancel: key.NewBinding(
 		key.WithKeys("c"),
 		key.WithHelp("c", "cancel backup"),
+	),
+	Restore: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "restore"),
 	),
 	Toggle: key.NewBinding(
 		key.WithKeys("tab"),

@@ -147,6 +147,15 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		m.handleVertical(1)
 	case key.Matches(msg, keys.Up):
 		m.handleVertical(-1)
+	case key.Matches(msg, backupKeys.Restore):
+		if m.mode == listBackups {
+			if sel := m.selectedBackup(); sel != nil && sel.Status.Equal(sdk.StatusDone) {
+				name := sel.Name
+				return func() tea.Msg {
+					return restoreRequest{backupName: name}
+				}
+			}
+		}
 	case key.Matches(msg, keys.Delete):
 		if m.mode == listBackups {
 			if sel := m.selectedBackup(); sel != nil {

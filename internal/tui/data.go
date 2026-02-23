@@ -331,6 +331,27 @@ func fetchBackupsCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	}
 }
 
+// restoreActionMsg carries the result of a restore action (start).
+type restoreActionMsg struct {
+	action string // "restore"
+	err    error
+}
+
+// restoreRequest is emitted by the backups sub-model when the user presses
+// restore on a completed backup. The root model handles it by opening the
+// restore form overlay.
+type restoreRequest struct {
+	backupName string
+}
+
+// startRestoreCmd returns a tea.Cmd that starts a restore with the given command.
+func startRestoreCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartRestoreCommand) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Restores.Start(ctx, cmd)
+		return restoreActionMsg{action: "restore", err: err}
+	}
+}
+
 // restoresData holds the result of a single restores poll cycle.
 type restoresData struct {
 	restores []sdk.Restore
