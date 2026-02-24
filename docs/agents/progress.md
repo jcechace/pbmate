@@ -6,12 +6,16 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 ## In Progress
 
-(none)
+Form redesign (Phase 5e). Phases 1-4 done (flat forms, adaptive width,
+PITR presets, advanced toggle). Phase 5 (resync + delete profile operations)
+planned but not started.
 
 ## Backlog
 
 Prioritized next items:
 
+- [ ] Add resync operation (`R` key) with scope selector (Main/Profile/All)
+- [ ] Add delete profile operation (`x` on config tab)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
 - [ ] `--readonly` flag to disable all mutation actions
