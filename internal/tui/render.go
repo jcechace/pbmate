@@ -101,6 +101,7 @@ type helpSection struct {
 
 // helpCombined creates a helpEntry with two bindings shown as "a / b desc",
 // using the lowercase/uppercase convention (e.g. "s / S backup").
+// Pass the lowercase binding first.
 func helpCombined(a, b key.Binding, desc string) helpEntry {
 	return helpEntry{
 		key:  a.Help().Key + " / " + b.Help().Key,
@@ -141,12 +142,12 @@ func helpColumns() (left, right []helpSection) {
 		}},
 		{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
-			helpCombined(backupKeys.Restore, backupKeys.RestoreSelected, "restore"),
+			helpCombined(backupKeys.RestoreSelected, backupKeys.Restore, "restore"),
 			helpFromBinding(globalKeys.Delete),
 		}},
 		{"3:Config", []helpEntry{
-			helpCombined(configKeys.SetConfig, configKeys.SetConfigSelected, "set config"),
-			helpCombined(configKeys.Resync, configKeys.ResyncSelected, "resync"),
+			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),
+			helpCombined(configKeys.ResyncSelected, configKeys.Resync, "resync"),
 			helpFromBinding(configKeys.DeleteProfile),
 		}},
 	}
