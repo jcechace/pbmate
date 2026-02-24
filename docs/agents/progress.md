@@ -6,16 +6,11 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 ## In Progress
 
-Form redesign (Phase 5e). Phases 1-4 done (flat forms, adaptive width,
-PITR presets, advanced toggle). Phase 5 (resync + delete profile operations)
-planned but not started.
+(none)
 
 ## Backlog
 
 Prioritized next items:
-
-- [ ] Add resync operation (`R` key) with scope selector (Main/Profile/All)
-- [ ] Add delete profile operation (`x` on config tab)
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
 - [ ] `--readonly` flag to disable all mutation actions
@@ -74,6 +69,9 @@ formOverlay interface. Chroma style mapped to theme. defaultConfigName constant.
 
 ### Theming Fixes
 Per-flavor huh themes built from catppuccin-go instead of adaptive ThemeCatppuccin().
+
+### Form Redesign
+Flat single-screen forms (no wizard pages). Inline selectors for 2-3 options. Adaptive overlay width (50% terminal, 40-60 clamped). PITR presets (Latest, -5m, -15m, -30m, -1h, -6h, Custom). Backup context headers in restore forms. Collapsible Advanced section (space toggle). Resync form with scope selector (Main/Profile/All), conditional options (include restores, clear metadata). Delete profile with confirm overlay.
 
 ## Deferred Features
 
