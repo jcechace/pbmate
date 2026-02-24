@@ -138,6 +138,12 @@ type configApplyRequest struct {
 // a new storage profile.
 type configNewProfileRequest struct{}
 
+// removeProfileRequest is emitted when the user presses 'x' to delete
+// the selected storage profile.
+type removeProfileRequest struct {
+	name string
+}
+
 // --- Update ---
 
 // update handles key messages for the Config tab.
@@ -150,6 +156,12 @@ func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	case key.Matches(msg, configKeys.NewProfile):
 		return func() tea.Msg {
 			return configNewProfileRequest{}
+		}
+	case key.Matches(msg, configKeys.DeleteProfile):
+		if name := m.selectedProfileName(); name != "" {
+			return func() tea.Msg {
+				return removeProfileRequest{name: name}
+			}
 		}
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)

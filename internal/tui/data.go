@@ -483,6 +483,46 @@ func applyProfileCmd(ctx context.Context, client *sdk.Client, name, filePath, ac
 	}
 }
 
+// --- Resync ---
+
+// resyncActionMsg carries the result of a resync operation.
+type resyncActionMsg struct {
+	action string // "resync"
+	err    error
+}
+
+// resyncFormReadyMsg carries fetched profiles so the resync form can be created.
+type resyncFormReadyMsg struct {
+	profiles []sdk.StorageProfile
+}
+
+// fetchResyncProfilesCmd returns a tea.Cmd that fetches storage profiles for
+// the resync form. Errors are silently ignored — the form will just show Main/All.
+func fetchResyncProfilesCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		profiles, _ := client.Config.ListProfiles(ctx)
+		return resyncFormReadyMsg{profiles: profiles}
+	}
+}
+
+// resyncCmd returns a tea.Cmd that dispatches a resync command to the SDK.
+func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Config.Resync(ctx, cmd)
+		return resyncActionMsg{action: "resync", err: err}
+	}
+}
+
+// --- Remove profile ---
+
+// removeProfileCmd returns a tea.Cmd that removes a named storage profile.
+func removeProfileCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Config.RemoveProfile(ctx, name)
+		return configActionMsg{action: "remove profile", err: err}
+	}
+}
+
 // formatStorageSummary returns a compact string describing the storage config.
 func formatStorageSummary(s sdk.StorageConfig) string {
 	if s.Type.IsZero() {

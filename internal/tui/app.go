@@ -204,6 +204,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = overlay
 		return m, cmd
 
+	case resyncFormReadyMsg:
+		overlay, cmd := newResyncFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles)
+		m.activeOverlay = overlay
+		return m, cmd
+
+	case resyncActionMsg:
+		m.setFlash(msg.action, msg.err)
+		if msg.err == nil {
+			return m, tickCmd(0)
+		}
+		return m, nil
+
 	case configDataMsg:
 		m.config.setData(msg.configData)
 		m.setFlash("fetch", msg.err)
@@ -223,6 +235,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case fetchProfileYAMLRequest:
 		if m.client != nil {
 			return m, fetchProfileYAMLCmd(m.ctx, m.client, msg.name)
+		}
+		return m, nil
+
+	case removeProfileRequest:
+		if m.client != nil {
+			title := fmt.Sprintf("Delete Profile: %s", msg.name)
+			description := fmt.Sprintf("Remove storage profile %q?\nThis will clear associated backup metadata.", msg.name)
+			overlay, cmd := newConfirmOverlay(m.styles.FormTheme, title, description, "Delete", "Cancel",
+				removeProfileCmd(m.ctx, m.client, msg.name))
+			m.activeOverlay = overlay
+			return m, cmd
 		}
 		return m, nil
 
@@ -348,6 +371,8 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
+	case key.Matches(msg, configKeys.Resync) && m.client != nil:
+		return m, fetchResyncProfilesCmd(m.ctx, m.client)
 	default:
 		// Forward to active tab sub-model.
 		switch m.activeTab {

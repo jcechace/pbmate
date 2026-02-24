@@ -218,6 +218,54 @@ func restoreErrorCmd(err error) tea.Cmd {
 }
 
 // =============================================================================
+// Resync form overlay
+// =============================================================================
+
+// resyncFormOverlay wraps the resync scope/options form.
+type resyncFormOverlay struct {
+	form   *huh.Form
+	result *resyncFormResult
+	ctx    context.Context
+	client *sdk.Client
+}
+
+func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile) (*resyncFormOverlay, tea.Cmd) {
+	form, result := newResyncForm(formTheme, profiles)
+	o := &resyncFormOverlay{form: form, result: result, ctx: ctx, client: client}
+	return o, o.form.Init()
+}
+
+func (o *resyncFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
+			return nil, nil
+		}
+	}
+
+	formModel, cmd := o.form.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		o.form = f
+	}
+
+	if o.form.State == huh.StateCompleted {
+		if !o.result.confirmed {
+			return nil, nil
+		}
+		return nil, resyncCmd(o.ctx, o.client, o.result.toCommand())
+	}
+
+	if o.form.State == huh.StateAborted {
+		return nil, nil
+	}
+
+	return o, cmd
+}
+
+func (o *resyncFormOverlay) View(styles *Styles, contentW, contentH int) string {
+	return renderFormOverlay(o.form, "Resync Storage", styles, contentW, contentH)
+}
+
+// =============================================================================
 // File picker overlay
 // =============================================================================
 
