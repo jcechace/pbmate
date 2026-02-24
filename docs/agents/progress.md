@@ -76,6 +76,9 @@ Flat single-screen forms (no wizard pages). Inline selectors for 2-3 options. Ad
 ### Set Config Wizard + Keybinding Rework
 3-step set-config wizard (target form → file picker → optional override confirm). Cancel backup remapped to `X`. Config tab keybindings: `C`/`c` set config, `R`/`r` resync, `x` delete profile (replaces old `e`/`p`). Two-column help overlay with tab-specific sections. Combined help entries (`s / S`, `C / c`, `R / r`).
 
+### Restore Wizard
+Two-step restore wizard: Step 1 (target selection — type, backup/PITR target), Step 2 (options — scope, tuning, confirm). `R` opens generic wizard (Step 1 → Step 2), `r` skips Step 1 and opens from cursor (same as previous behavior). Consistent `R`/`r` pattern matching `C`/`c` and `s`/`S`.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |

@@ -159,7 +159,7 @@ override confirm), `c` set config for selected item (pre-filled from cursor),
 
 ### Backups-specific
 - `tab` — toggle between Backups and Restores list
-- `r` — restore (on backup = snapshot, on PITR timeline = point-in-time)
+- `R` / `r` — restore (generic wizard / from selected item)
 - `d` — delete backup (overlay confirmation)
 - `space` / `enter` — expand/collapse profile group
 
