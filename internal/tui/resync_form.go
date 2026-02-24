@@ -9,21 +9,23 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// resyncScope identifies which storage(s) to resync.
+// resyncScope identifies the resync target category.
 type resyncScope string
 
 const (
 	resyncScopeMain    resyncScope = "main"
 	resyncScopeProfile resyncScope = "profile"
-	resyncScopeAll     resyncScope = "all"
 )
+
+// resyncProfileAll is the sentinel value for "All profiles" in the profile selector.
+const resyncProfileAll = "*"
 
 // resyncFormResult holds the user's selections from the resync form.
 type resyncFormResult struct {
 	scope           resyncScope
-	profileName     string // set when scope == resyncScopeProfile
+	profileName     string // resyncProfileAll or a specific profile name
 	includeRestores bool   // Main scope: also resync restore metadata
-	clear           bool   // Profile/All scope: clear local metadata first
+	clear           bool   // Profile scope: clear local metadata first
 	confirmed       bool
 }
 
@@ -31,114 +33,109 @@ type resyncFormResult struct {
 func (r *resyncFormResult) toCommand() sdk.ResyncCommand {
 	switch r.scope {
 	case resyncScopeProfile:
+		if r.profileName == resyncProfileAll {
+			return sdk.ResyncAllProfiles{Clear: r.clear}
+		}
 		return sdk.ResyncProfile{Name: r.profileName, Clear: r.clear}
-	case resyncScopeAll:
-		return sdk.ResyncAllProfiles{Clear: r.clear}
 	default:
 		return sdk.ResyncMain{IncludeRestores: r.includeRestores}
 	}
 }
 
 // newResyncForm creates a single-screen form for configuring a resync operation.
-// profiles is the list of named storage profiles (may be empty).
-func newResyncForm(formTheme *huh.Theme, profiles []sdk.StorageProfile) (*huh.Form, *resyncFormResult) {
+// Groups are built dynamically based on scope — the form is rebuilt when scope
+// or profile changes (see resyncFormOverlay). initial carries values from a
+// previous form state during rebuild (nil for first open).
+func newResyncForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*huh.Form, *resyncFormResult) {
 	result := &resyncFormResult{
-		scope:     resyncScopeMain,
-		confirmed: true,
+		scope:       resyncScopeMain,
+		profileName: resyncProfileAll,
+		confirmed:   true,
+	}
+	if initial != nil {
+		result.scope = initial.scope
+		result.profileName = initial.profileName
+		result.includeRestores = initial.includeRestores
+		result.clear = initial.clear
 	}
 
-	// Scope options: always Main and All; Profile only when profiles exist.
-	scopeOpts := []huh.Option[resyncScope]{
+	// Target options: always Main; Profile only when profiles exist.
+	targetOpts := []huh.Option[resyncScope]{
 		huh.NewOption("Main", resyncScopeMain),
 	}
 	if len(profiles) > 0 {
-		scopeOpts = append(scopeOpts, huh.NewOption("Profile", resyncScopeProfile))
-	}
-	scopeOpts = append(scopeOpts, huh.NewOption("All", resyncScopeAll))
-
-	// Profile name options for the dropdown.
-	profileOpts := make([]huh.Option[string], 0, len(profiles))
-	for _, p := range profiles {
-		profileOpts = append(profileOpts, huh.NewOption(p.Name.String(), p.Name.String()))
-	}
-	// Set a default so the value is never empty when the group is visible.
-	if len(profiles) > 0 {
-		result.profileName = profiles[0].Name.String()
+		targetOpts = append(targetOpts, huh.NewOption("Profile", resyncScopeProfile))
 	}
 
-	theme := *formTheme
-	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-
-	form := huh.NewForm(
-		// Scope selector.
+	// Build groups dynamically based on scope.
+	groups := []*huh.Group{
 		huh.NewGroup(
 			huh.NewSelect[resyncScope]().
-				Title("Scope").
-				Options(scopeOpts...).
-				Inline(len(scopeOpts) <= 3).
+				Title("Target").
+				Options(targetOpts...).
+				Inline(true).
 				Value(&result.scope),
 		),
+	}
 
-		// Profile dropdown — visible only when scope == profile.
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Profile").
-				Options(profileOpts...).
-				Value(&result.profileName),
-		).WithHideFunc(func() bool {
-			return result.scope != resyncScopeProfile
-		}),
-
-		// Main-specific option: include restores.
-		huh.NewGroup(
+	switch result.scope {
+	case resyncScopeMain:
+		groups = append(groups, huh.NewGroup(
 			huh.NewConfirm().
 				Title("Include restores?").
-				Description("Also resync restore metadata from storage.").
 				Inline(true).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.includeRestores),
-		).WithHideFunc(func() bool {
-			return result.scope != resyncScopeMain
-		}),
+		))
 
-		// Profile/All option: clear local metadata first.
-		huh.NewGroup(
+	case resyncScopeProfile:
+		// Profile options: "All" synthetic first, then individual profiles.
+		profileOpts := []huh.Option[string]{
+			huh.NewOption("All", resyncProfileAll),
+		}
+		for _, p := range profiles {
+			profileOpts = append(profileOpts, huh.NewOption(p.Name.String(), p.Name.String()))
+		}
+
+		groups = append(groups, huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Profile").
+				Options(profileOpts...).
+				Inline(true).
+				Value(&result.profileName),
+
 			huh.NewConfirm().
-				Title("Clear local metadata?").
-				DescriptionFunc(func() string {
-					if result.scope == resyncScopeAll {
-						return "Remove local metadata for all profiles before re-reading from storage."
-					}
-					return fmt.Sprintf("Remove local metadata for %q before re-reading from storage.", result.profileName)
-				}, result).
+				Title("Clear metadata?").
 				Inline(true).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.clear),
-		).WithHideFunc(func() bool {
-			return result.scope == resyncScopeMain
-		}),
+		))
+	}
 
-		// Confirmation.
-		huh.NewGroup(
-			huh.NewConfirm().
-				TitleFunc(func() string {
-					switch result.scope {
-					case resyncScopeProfile:
-						return fmt.Sprintf("Resync profile %q?", result.profileName)
-					case resyncScopeAll:
-						return "Resync all profiles?"
-					default:
-						return "Resync main storage?"
-					}
-				}, result).
-				Affirmative("Resync").
-				Negative("Cancel").
-				Value(&result.confirmed),
-		),
-	).
-		WithTheme(&theme).
+	// Confirm title based on current scope and profile.
+	confirmTitle := "Resync main storage?"
+	if result.scope == resyncScopeProfile {
+		if result.profileName == resyncProfileAll {
+			confirmTitle = "Resync all profiles?"
+		} else {
+			confirmTitle = fmt.Sprintf("Resync profile %q?", result.profileName)
+		}
+	}
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewConfirm().
+			Title(confirmTitle).
+			WithButtonAlignment(lipgloss.Left).
+			Affirmative("Resync").
+			Negative("Cancel").
+			Value(&result.confirmed),
+	))
+
+	form := huh.NewForm(groups...).
+		WithTheme(formTheme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).

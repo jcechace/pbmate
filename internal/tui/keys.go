@@ -97,10 +97,11 @@ type backupKeyMap struct {
 
 // configKeyMap defines keybindings specific to the Config tab.
 type configKeyMap struct {
-	Apply         key.Binding
-	NewProfile    key.Binding
-	DeleteProfile key.Binding
-	Resync        key.Binding
+	Apply          key.Binding
+	NewProfile     key.Binding
+	DeleteProfile  key.Binding
+	Resync         key.Binding
+	ResyncSelected key.Binding
 }
 
 var configKeys = configKeyMap{
@@ -119,6 +120,10 @@ var configKeys = configKeyMap{
 	Resync: key.NewBinding(
 		key.WithKeys("R"),
 		key.WithHelp("R", "resync"),
+	),
+	ResyncSelected: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "resync selected"),
 	),
 }
 

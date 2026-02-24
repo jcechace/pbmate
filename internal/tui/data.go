@@ -491,20 +491,6 @@ type resyncActionMsg struct {
 	err    error
 }
 
-// resyncFormReadyMsg carries fetched profiles so the resync form can be created.
-type resyncFormReadyMsg struct {
-	profiles []sdk.StorageProfile
-}
-
-// fetchResyncProfilesCmd returns a tea.Cmd that fetches storage profiles for
-// the resync form. Errors are silently ignored — the form will just show Main/All.
-func fetchResyncProfilesCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
-	return func() tea.Msg {
-		profiles, _ := client.Config.ListProfiles(ctx)
-		return resyncFormReadyMsg{profiles: profiles}
-	}
-}
-
 // resyncCmd returns a tea.Cmd that dispatches a resync command to the SDK.
 func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) tea.Cmd {
 	return func() tea.Msg {

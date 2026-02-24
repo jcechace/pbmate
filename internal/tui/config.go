@@ -144,6 +144,14 @@ type removeProfileRequest struct {
 	name string
 }
 
+// resyncFormRequest is emitted by the config tab when the user wants to
+// resync storage. Carries the preset target and cached profiles so the
+// overlay can be created without a round-trip fetch.
+type resyncFormRequest struct {
+	initial  *resyncFormResult
+	profiles []sdk.StorageProfile
+}
+
 // --- Update ---
 
 // update handles key messages for the Config tab.
@@ -163,6 +171,10 @@ func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 				return removeProfileRequest{name: name}
 			}
 		}
+	case key.Matches(msg, configKeys.Resync):
+		return m.emitResyncRequest(nil)
+	case key.Matches(msg, configKeys.ResyncSelected):
+		return m.emitResyncRequest(m.resyncPresetFromSelection())
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)
 	case key.Matches(msg, keys.PrevPanel):
@@ -504,6 +516,34 @@ func formatPriorityMap(m map[string]float64) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, ", ")
+}
+
+// --- Resync helpers ---
+
+// resyncPresetFromSelection returns a resyncFormResult preset based on the
+// currently selected config item. Returns nil if no items exist.
+func (m *configModel) resyncPresetFromSelection() *resyncFormResult {
+	if m.itemCount() == 0 {
+		return nil
+	}
+	name := m.selectedProfileName()
+	if name == "" {
+		// Main config selected.
+		return &resyncFormResult{scope: resyncScopeMain}
+	}
+	return &resyncFormResult{
+		scope:       resyncScopeProfile,
+		profileName: name,
+	}
+}
+
+// emitResyncRequest returns a command that emits a resyncFormRequest with the
+// given preset and the cached profile list. If initial is nil, defaults are used.
+func (m *configModel) emitResyncRequest(initial *resyncFormResult) tea.Cmd {
+	profiles := m.profiles
+	return func() tea.Msg {
+		return resyncFormRequest{initial: initial, profiles: profiles}
+	}
 }
 
 // --- YAML Syntax Highlighting ---

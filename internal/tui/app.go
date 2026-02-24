@@ -204,8 +204,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = overlay
 		return m, cmd
 
-	case resyncFormReadyMsg:
-		overlay, cmd := newResyncFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles)
+	case resyncFormRequest:
+		overlay, cmd := newResyncFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.initial)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -371,8 +371,6 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m, nil
-	case key.Matches(msg, configKeys.Resync) && m.client != nil:
-		return m, fetchResyncProfilesCmd(m.ctx, m.client)
 	default:
 		// Forward to active tab sub-model.
 		switch m.activeTab {

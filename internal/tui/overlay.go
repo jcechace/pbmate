@@ -301,15 +301,28 @@ func restoreErrorCmd(err error) tea.Cmd {
 
 // resyncFormOverlay wraps the resync scope/options form.
 type resyncFormOverlay struct {
-	form   *huh.Form
-	result *resyncFormResult
-	ctx    context.Context
-	client *sdk.Client
+	form        *huh.Form
+	result      *resyncFormResult
+	lastTarget  resyncScope // tracks scope for dynamic rebuild
+	lastProfile string      // tracks profile for confirm title rebuild
+	profiles    []sdk.StorageProfile
+	formTheme   *huh.Theme
+	ctx         context.Context
+	client      *sdk.Client
 }
 
-func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile) (*resyncFormOverlay, tea.Cmd) {
-	form, result := newResyncForm(formTheme, profiles)
-	o := &resyncFormOverlay{form: form, result: result, ctx: ctx, client: client}
+func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*resyncFormOverlay, tea.Cmd) {
+	form, result := newResyncForm(formTheme, profiles, initial)
+	o := &resyncFormOverlay{
+		form:        form,
+		result:      result,
+		lastTarget:  result.scope,
+		lastProfile: result.profileName,
+		profiles:    profiles,
+		formTheme:   formTheme,
+		ctx:         ctx,
+		client:      client,
+	}
 	return o, o.form.Init()
 }
 
@@ -336,7 +349,34 @@ func (o *resyncFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 		return nil, nil
 	}
 
+	// Rebuild when target or profile changes so the correct groups and
+	// confirm title are shown.
+	targetChanged := o.result.scope != o.lastTarget
+	profileChanged := o.result.scope == resyncScopeProfile && o.result.profileName != o.lastProfile
+	if targetChanged || profileChanged {
+		return o.rebuildForm(profileChanged && !targetChanged)
+	}
+
 	return o, cmd
+}
+
+// rebuildForm reconstructs the resync form when target or profile changes,
+// preserving current field values. When profileOnly is true, focus is advanced
+// past Target to the Profile selector; otherwise Init focuses Target.
+func (o *resyncFormOverlay) rebuildForm(profileOnly bool) (formOverlay, tea.Cmd) {
+	form, result := newResyncForm(o.formTheme, o.profiles, o.result)
+	o.form = form
+	o.result = result
+	o.lastTarget = result.scope
+	o.lastProfile = result.profileName
+
+	initCmd := o.form.Init()
+	if profileOnly {
+		// Init focuses Target (first field). Advance to Profile selector.
+		advanceCmd := o.form.NextField()
+		return o, tea.Batch(initCmd, advanceCmd)
+	}
+	return o, initCmd
 }
 
 func (o *resyncFormOverlay) View(styles *Styles, contentW, contentH int) string {
