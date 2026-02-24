@@ -55,7 +55,6 @@ type backupFormResult struct {
 	namespaces    string
 	parallelColls string // number of parallel collections; "" = server default
 	incrBase      bool
-	showAdvanced  bool // toggle for advanced tuning section
 	confirmed     bool // true = start, false = customize (quick form only)
 
 	// Profiles are stored for handoff from quick → full form.
@@ -151,6 +150,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 		),
 	).
 		WithTheme(&theme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -177,6 +177,9 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 		result.backupType = initial.backupType
 		result.compression = initial.compression
 		result.configName = initial.configName
+		result.namespaces = initial.namespaces
+		result.parallelColls = initial.parallelColls
+		result.incrBase = initial.incrBase
 	}
 
 	// Profile options: Main is always first.
@@ -187,8 +190,11 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 		profileOpts = append(profileOpts, huh.NewOption(p.Name.String(), p.Name.String()))
 	}
 
-	form := huh.NewForm(
-		// Main group: all essential fields on one screen.
+	// Build groups dynamically based on backup type.
+	// The form is rebuilt when the type changes (see backupFormOverlay.rebuildForm),
+	// so we include only the groups relevant to the current type.
+	groups := []*huh.Group{
+		// Core fields — all inline selectors on one screen.
 		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Type").
@@ -202,6 +208,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 			huh.NewSelect[string]().
 				Title("Profile").
 				Options(profileOpts...).
+				Inline(true).
 				Value(&result.configName),
 
 			huh.NewSelect[string]().
@@ -216,62 +223,52 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 					huh.NewOption("lz4", "lz4"),
 					huh.NewOption("None", "none"),
 				).
+				Inline(true).
 				Value(&result.compression),
 		),
+	}
 
-		// Logical-specific: namespaces.
-		huh.NewGroup(
+	if result.backupType == "logical" {
+		groups = append(groups, huh.NewGroup(
 			huh.NewInput().
 				Title("Namespaces").
 				Placeholder("*.*  (all)").
 				Value(&result.namespaces),
-		).WithHideFunc(func() bool {
-			return result.backupType != "logical"
-		}),
+		))
+	}
 
-		// Incremental-specific: new chain or continue.
-		huh.NewGroup(
+	if result.backupType == "incremental" {
+		groups = append(groups, huh.NewGroup(
 			huh.NewConfirm().
 				Title("Start new chain?").
 				Inline(true).
-				DescriptionFunc(func() string {
-					if result.incrBase {
-						return "Creates a new incremental base backup."
-					}
-					return "Continues the latest incremental chain."
-				}, &result.incrBase).
+				WithButtonAlignment(lipgloss.Right).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.incrBase),
-		).WithHideFunc(func() bool {
-			return result.backupType != "incremental"
-		}),
+		))
+	}
 
-		// Advanced toggle.
-		advancedToggleGroup(&result.showAdvanced),
-
-		// Tuning — hidden by default.
+	groups = append(groups,
+		// Tuning + confirmation.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
 				Placeholder("server default").
 				Value(&result.parallelColls),
-		).WithHideFunc(func() bool {
-			return !result.showAdvanced
-		}),
 
-		// Final confirmation.
-		huh.NewGroup(
 			huh.NewConfirm().
-				TitleFunc(func() string {
-					return fmt.Sprintf("Start %s backup?", result.backupType)
-				}, &result.backupType).
+				Title(fmt.Sprintf("Start %s backup?", result.backupType)).
+				WithButtonAlignment(lipgloss.Left).
 				Affirmative("Start").
 				Negative("Cancel").
 				Value(&result.confirmed),
 		),
-	).
+	)
+
+	form := huh.NewForm(groups...).
 		WithTheme(formTheme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -307,6 +304,7 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 		),
 	).
 		WithTheme(&theme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -316,25 +314,6 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 }
 
 // --- Shared ---
-
-// advancedToggleGroup returns a huh group with a single inline confirm
-// that toggles visibility of advanced/tuning options. The toggle renders
-// as "▸ Advanced" (collapsed) or "▾ Advanced" (expanded).
-func advancedToggleGroup(showAdvanced *bool) *huh.Group {
-	return huh.NewGroup(
-		huh.NewConfirm().
-			TitleFunc(func() string {
-				if *showAdvanced {
-					return "▾ Advanced"
-				}
-				return "▸ Advanced"
-			}, showAdvanced).
-			Inline(true).
-			Affirmative("Show").
-			Negative("Hide").
-			Value(showAdvanced),
-	)
-}
 
 // formKeyMap returns a huh KeyMap with ] and [ added to field
 // navigation alongside the default tab/shift+tab/enter bindings.

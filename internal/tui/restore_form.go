@@ -377,3 +377,22 @@ func findBaseBackup(target sdk.Timestamp, backups []sdk.Backup) (string, error) 
 	}
 	return best.Name, nil
 }
+
+// advancedToggleGroup returns a huh group with a single inline confirm
+// that toggles visibility of advanced/tuning options. The toggle renders
+// as "▸ Advanced" (collapsed) or "▾ Advanced" (expanded).
+func advancedToggleGroup(showAdvanced *bool) *huh.Group {
+	return huh.NewGroup(
+		huh.NewConfirm().
+			TitleFunc(func() string {
+				if *showAdvanced {
+					return "▾ Advanced"
+				}
+				return "▸ Advanced"
+			}, showAdvanced).
+			Inline(true).
+			Affirmative("Show").
+			Negative("Hide").
+			Value(showAdvanced),
+	)
+}
