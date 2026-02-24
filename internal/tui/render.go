@@ -78,9 +78,8 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 	return replaceTitleBorder(rendered, title, outerW, border, borderColor)
 }
 
-// helpOverlayWidth is the content width inside the help overlay panel.
-// Sized to fit the widest help entry ("shift+tab  previous field") with padding.
-const helpOverlayWidth = 38
+// helpColumnGap is the horizontal gap between the two help columns.
+const helpColumnGap = 3
 
 // helpEntry is a single key→description pair in the help overlay.
 type helpEntry struct {
@@ -100,11 +99,21 @@ type helpSection struct {
 	entries []helpEntry
 }
 
-// helpSections returns the help overlay content organized by category.
+// helpCombined creates a helpEntry with two bindings shown as "a / b desc",
+// using the lowercase/uppercase convention (e.g. "s / S backup").
+func helpCombined(a, b key.Binding, desc string) helpEntry {
+	return helpEntry{
+		key:  a.Help().Key + " / " + b.Help().Key,
+		desc: desc,
+	}
+}
+
+// helpColumns returns the help overlay content organized into two columns.
+// Left: Navigation, Global, General. Right: tab-specific sections.
 // Entries are derived from the actual key.Binding definitions in keys.go,
 // so the help overlay stays in sync with keybinding changes.
-func helpSections() []helpSection {
-	return []helpSection{
+func helpColumns() (left, right []helpSection) {
+	left = []helpSection{
 		{"Navigation", []helpEntry{
 			{
 				key:  globalKeys.NextPanel.Help().Key + " / " + globalKeys.PrevPanel.Help().Key,
@@ -114,24 +123,9 @@ func helpSections() []helpSection {
 			helpFromBinding(globalKeys.Down),
 			{"1-3", "jump to tab"},
 		}},
-		{"Actions", []helpEntry{
-			helpFromBinding(backupKeys.Start),
-			helpFromBinding(backupKeys.StartCustom),
+		{"Global", []helpEntry{
+			helpCombined(backupKeys.Start, backupKeys.StartCustom, "backup"),
 			helpFromBinding(backupKeys.Cancel),
-			helpFromBinding(backupKeys.Restore),
-			helpFromBinding(globalKeys.Delete),
-		}},
-		{"Backups", []helpEntry{
-			helpFromBinding(backupKeys.Toggle),
-		}},
-		{"Config", []helpEntry{
-			helpFromBinding(configKeys.Apply),
-			helpFromBinding(configKeys.NewProfile),
-		}},
-		{"Overview", []helpEntry{
-			helpFromBinding(overviewKeys.Toggle),
-			helpFromBinding(overviewKeys.Follow),
-			helpFromBinding(overviewKeys.Wrap),
 		}},
 		{"General", []helpEntry{
 			helpFromBinding(globalKeys.Help),
@@ -139,37 +133,64 @@ func helpSections() []helpSection {
 			helpFromBinding(globalKeys.Quit),
 		}},
 	}
+	right = []helpSection{
+		{"1:Overview", []helpEntry{
+			helpFromBinding(overviewKeys.Toggle),
+			helpFromBinding(overviewKeys.Follow),
+			helpFromBinding(overviewKeys.Wrap),
+		}},
+		{"2:Backups", []helpEntry{
+			helpFromBinding(backupKeys.Toggle),
+			helpFromBinding(backupKeys.Restore),
+			helpFromBinding(globalKeys.Delete),
+		}},
+		{"3:Config", []helpEntry{
+			helpCombined(configKeys.SetConfig, configKeys.SetConfigSelected, "set config"),
+			helpCombined(configKeys.Resync, configKeys.ResyncSelected, "resync"),
+			helpFromBinding(configKeys.DeleteProfile),
+		}},
+	}
+	return
 }
 
-// renderHelpOverlay renders a centered help panel showing all keybindings
-// organized by category. Content is derived from the key.Binding definitions.
-func renderHelpOverlay(styles *Styles, contentW, contentH int) string {
-	keyStyle := styles.HintKey
-	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
-	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
-
-	renderLine := func(e helpEntry) string {
-		return fmt.Sprintf("  %s  %s", keyStyle.Render(e.key), descStyle.Render(e.desc))
-	}
-
+// renderHelpColumn renders a slice of help sections into a single column string.
+func renderHelpColumn(sections []helpSection, keyStyle, descStyle, sectionStyle lipgloss.Style) string {
 	var b strings.Builder
-	for i, section := range helpSections() {
+	for i, section := range sections {
 		if i > 0 {
 			b.WriteByte('\n')
 		}
 		b.WriteString(sectionStyle.Render(section.title))
 		b.WriteByte('\n')
 		for _, entry := range section.entries {
-			b.WriteString(renderLine(entry))
+			b.WriteString(fmt.Sprintf("  %s  %s", keyStyle.Render(entry.key), descStyle.Render(entry.desc)))
 			b.WriteByte('\n')
 		}
 	}
+	return b.String()
+}
 
-	body := b.String()
+// renderHelpOverlay renders a centered two-column help panel showing all
+// keybindings organized by category. Left column has navigation, global, and
+// general bindings. Right column has tab-specific sections.
+func renderHelpOverlay(styles *Styles, contentW, contentH int) string {
+	keyStyle := styles.HintKey
+	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
+	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
+
+	left, right := helpColumns()
+	leftStr := renderHelpColumn(left, keyStyle, descStyle, sectionStyle)
+	rightStr := renderHelpColumn(right, keyStyle, descStyle, sectionStyle)
+
+	gap := strings.Repeat(" ", helpColumnGap)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, leftStr, gap, rightStr)
+
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor
 
-	panelWidth := helpOverlayWidth + panelPaddingH
+	// Let lipgloss measure the body width; add padding.
+	bodyWidth := lipgloss.Width(body)
+	panelWidth := bodyWidth + panelPaddingH
 
 	panel := lipgloss.NewStyle().
 		Border(border).

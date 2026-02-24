@@ -155,30 +155,41 @@ func TestRenderCursorList(t *testing.T) {
 	})
 }
 
-func TestHelpSections(t *testing.T) {
-	sections := helpSections()
+func TestHelpColumns(t *testing.T) {
+	left, right := helpColumns()
 
-	// Verify we have the expected section titles.
-	require.True(t, len(sections) >= 5, "expected at least 5 help sections")
+	// Verify we have the expected number of sections per column.
+	require.Len(t, left, 3, "left column should have 3 sections")
+	require.Len(t, right, 3, "right column should have 3 sections")
 
-	titles := make([]string, len(sections))
-	for i, s := range sections {
-		titles[i] = s.title
-	}
+	// Verify left column section titles.
+	assert.Equal(t, "Navigation", left[0].title)
+	assert.Equal(t, "Global", left[1].title)
+	assert.Equal(t, "General", left[2].title)
 
-	assert.Contains(t, titles, "Navigation")
-	assert.Contains(t, titles, "Actions")
-	assert.Contains(t, titles, "Overview")
-	assert.Contains(t, titles, "General")
+	// Verify right column section titles.
+	assert.Equal(t, "1:Overview", right[0].title)
+	assert.Equal(t, "2:Backups", right[1].title)
+	assert.Equal(t, "3:Config", right[2].title)
 
-	// Every section should have at least one entry.
-	for _, s := range sections {
-		assert.NotEmpty(t, s.entries, "section %q should have entries", s.title)
-		for _, e := range s.entries {
-			assert.NotEmpty(t, e.key, "entry in %q should have a key", s.title)
-			assert.NotEmpty(t, e.desc, "entry in %q should have a desc", s.title)
+	// Every section should have at least one entry with non-empty key/desc.
+	for _, sections := range [][]helpSection{left, right} {
+		for _, s := range sections {
+			assert.NotEmpty(t, s.entries, "section %q should have entries", s.title)
+			for _, e := range s.entries {
+				assert.NotEmpty(t, e.key, "entry in %q should have a key", s.title)
+				assert.NotEmpty(t, e.desc, "entry in %q should have a desc", s.title)
+			}
 		}
 	}
+}
+
+func TestHelpCombined(t *testing.T) {
+	a := key.NewBinding(key.WithKeys("s"), key.WithHelp("s", "backup"))
+	b := key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "custom backup"))
+	entry := helpCombined(a, b, "backup")
+	assert.Equal(t, "s / S", entry.key)
+	assert.Equal(t, "backup", entry.desc)
 }
 
 func TestHelpFromBinding(t *testing.T) {
