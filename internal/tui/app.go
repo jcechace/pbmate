@@ -275,7 +275,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var cmd tea.Cmd
 		switch msg.mode {
 		case restoreModeSnapshot:
-			overlay, cmd = newSnapshotRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backupName)
+			overlay, cmd = newSnapshotRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backup)
 		case restoreModePITR:
 			overlay, cmd = newPITRRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.timeline, msg.backups)
 		}

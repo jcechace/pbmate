@@ -109,9 +109,9 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 // Restore form overlay
 // =============================================================================
 
-// restoreFormOverlay wraps the restore wizard form. The mode determines
-// whether this is a snapshot restore (from a selected backup) or a PITR
-// restore (from a selected timeline, with auto-selected base backup).
+// restoreFormOverlay wraps the restore form. The mode determines whether
+// this is a snapshot restore (from a selected backup) or a PITR restore
+// (from a selected timeline, with auto-selected base backup).
 type restoreFormOverlay struct {
 	form       *huh.Form
 	result     *restoreFormResult
@@ -122,13 +122,13 @@ type restoreFormOverlay struct {
 	client     *sdk.Client
 }
 
-func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backupName string) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newSnapshotRestoreForm(formTheme, backupName)
+func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, bk *sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newSnapshotRestoreForm(formTheme, bk)
 	o := &restoreFormOverlay{
 		form:       form,
 		result:     result,
 		mode:       restoreModeSnapshot,
-		backupName: backupName,
+		backupName: bk.Name,
 		ctx:        ctx,
 		client:     client,
 	}
@@ -183,7 +183,7 @@ func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
 		return startRestoreCmd(o.ctx, o.client, cmd)
 
 	case restoreModePITR:
-		target, err := parsePITRTarget(o.result.pitrTarget)
+		target, err := parsePITRTarget(o.result.effectivePITRTarget())
 		if err != nil {
 			return restoreErrorCmd(err)
 		}

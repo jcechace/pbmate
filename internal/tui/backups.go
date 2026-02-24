@@ -151,9 +151,9 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		if m.mode == listBackups {
 			// Snapshot restore from a completed backup.
 			if sel := m.selectedBackup(); sel != nil && sel.Status.Equal(sdk.StatusDone) {
-				name := sel.Name
+				bk := *sel // copy to avoid data race with polling
 				return func() tea.Msg {
-					return restoreRequest{mode: restoreModeSnapshot, backupName: name}
+					return restoreRequest{mode: restoreModeSnapshot, backup: &bk, backupName: bk.Name}
 				}
 			}
 			// PITR restore from a timeline item.
