@@ -116,9 +116,8 @@ appear at the top of the list.
 Right panel: full backup/restore metadata, timestamps, compression, errors.
 
 Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
-type, compression, profile), `r` context-sensitive restore (on a backup =
-snapshot restore, on a PITR timeline = PITR restore with auto-selected base
-backup), `d` delete (overlay confirmation, chain-aware for incrementals).
+type, compression, profile), `R` restore wizard (2-step: target → options),
+`r` restore from selected item (snapshot or PITR based on cursor).
 After successful restore dispatch, the tab auto-switches to the Restores list.
 
 ### 3. Config
@@ -129,7 +128,7 @@ syntax highlighting).
 
 Actions: `C` set config (3-step wizard: target form → file picker → optional
 override confirm), `c` set config for selected item (pre-filled from cursor),
-`R` resync storage, `r` resync selected, `x` delete profile.
+`R` resync storage, `r` resync selected.
 
 ### Future (not yet implemented)
 
@@ -147,6 +146,7 @@ override confirm), `c` set config for selected item (pre-filled from cursor),
 - `esc` — back / close overlay / clear filter
 - `s` / `S` — start backup (quick confirm / full wizard)
 - `X` — cancel running backup
+- `d` — delete (backup on Backups tab, profile on Config tab)
 
 ### Navigation (within panels)
 - `up`/`down` or `k`/`j` — move selection / scroll in focused panel
@@ -160,13 +160,11 @@ override confirm), `c` set config for selected item (pre-filled from cursor),
 ### Backups-specific
 - `tab` — toggle between Backups and Restores list
 - `R` / `r` — restore (generic wizard / from selected item)
-- `d` — delete backup (overlay confirmation)
 - `space` / `enter` — expand/collapse profile group
 
 ### Config-specific
 - `C` / `c` — set config (generic / for selected item)
 - `R` / `r` — resync storage (generic / for selected item)
-- `x` — delete profile
 
 ## Bottom Bar
 
