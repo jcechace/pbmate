@@ -128,29 +128,31 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 // On completion it transitions to a restoreFormOverlay (Step 2) for the
 // selected backup or PITR target.
 type restoreTargetOverlay struct {
-	form       *huh.Form
-	result     *restoreTargetResult
-	lastType   restoreMode // tracks type for dynamic rebuild
-	lastPreset string      // tracks pitrPreset for dynamic rebuild
-	backups    []sdk.Backup
-	timelines  []sdk.Timeline
-	formTheme  *huh.Theme
-	ctx        context.Context
-	client     *sdk.Client
+	form        *huh.Form
+	result      *restoreTargetResult
+	lastType    restoreMode // tracks type for dynamic rebuild
+	lastProfile string      // tracks profileName for dynamic rebuild (snapshot mode)
+	lastPreset  string      // tracks pitrPreset for dynamic rebuild (pitr mode)
+	backups     []sdk.Backup
+	timelines   []sdk.Timeline
+	formTheme   *huh.Theme
+	ctx         context.Context
+	client      *sdk.Client
 }
 
 func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreTargetOverlay, tea.Cmd) {
 	form, result := newRestoreTargetForm(formTheme, backups, timelines, nil)
 	o := &restoreTargetOverlay{
-		form:       form,
-		result:     result,
-		lastType:   result.restoreType,
-		lastPreset: result.pitrPreset,
-		backups:    backups,
-		timelines:  timelines,
-		formTheme:  formTheme,
-		ctx:        ctx,
-		client:     client,
+		form:        form,
+		result:      result,
+		lastType:    result.restoreType,
+		lastProfile: result.profileName,
+		lastPreset:  result.pitrPreset,
+		backups:     backups,
+		timelines:   timelines,
+		formTheme:   formTheme,
+		ctx:         ctx,
+		client:      client,
 	}
 	return o, o.form.Init()
 }
@@ -173,11 +175,12 @@ func (o *restoreTargetOverlay) Update(msg tea.Msg, back, quit key.Binding) (form
 		return nil, nil
 	}
 
-	// Rebuild when type or PITR preset changes.
+	// Rebuild when type, profile (snapshot), or PITR preset changes.
 	typeChanged := o.result.restoreType != o.lastType
+	profileChanged := o.result.restoreType == restoreModeSnapshot && o.result.profileName != o.lastProfile
 	presetChanged := o.result.restoreType == restoreModePITR && o.result.pitrPreset != o.lastPreset
-	if typeChanged || presetChanged {
-		return o.rebuildForm(presetChanged && !typeChanged)
+	if typeChanged || profileChanged || presetChanged {
+		return o.rebuildForm(!typeChanged && (profileChanged || presetChanged))
 	}
 
 	return o, cmd
@@ -231,6 +234,7 @@ func (o *restoreTargetOverlay) rebuildForm(presetOnly bool) (formOverlay, tea.Cm
 	o.form = form
 	o.result = result
 	o.lastType = result.restoreType
+	o.lastProfile = result.profileName
 	o.lastPreset = result.pitrPreset
 	return o, initFormWithAdvance(o.form, presetOnly)
 }

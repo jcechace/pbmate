@@ -137,6 +137,7 @@ func parsePITRTarget(s string) (sdk.Timestamp, error) {
 // Step 2 (the restore options form) determines how.
 type restoreTargetResult struct {
 	restoreType restoreMode // restoreModeSnapshot or restoreModePITR
+	profileName string      // selected profile filter (snapshot mode)
 	backupName  string      // selected backup name (snapshot mode)
 	pitrPreset  string      // selected PITR preset (pitr mode)
 	pitrTarget  string      // custom target datetime (pitr mode, when preset == "custom")
@@ -150,10 +151,12 @@ type restoreTargetResult struct {
 func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreTargetResult) (*huh.Form, *restoreTargetResult) {
 	result := &restoreTargetResult{
 		restoreType: restoreModeSnapshot,
+		profileName: defaultConfigName,
 		confirmed:   true,
 	}
 	if initial != nil {
 		result.restoreType = initial.restoreType
+		result.profileName = initial.profileName
 		result.backupName = initial.backupName
 		result.pitrPreset = initial.pitrPreset
 		result.pitrTarget = initial.pitrTarget
@@ -179,11 +182,27 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 
 	switch result.restoreType {
 	case restoreModeSnapshot:
-		// Backup selector: completed backups in a scrollable dropdown.
-		backupOpts := completedBackupOptions(backups)
+		// Profile filter: distinct profiles from completed backups.
+		profileOpts := completedBackupProfiles(backups)
+		if len(profileOpts) > 0 {
+			// Ensure selected profile is valid; fall back to first available.
+			if !hasOptionValue(profileOpts, result.profileName) {
+				result.profileName = profileOpts[0].Value
+			}
+			groups = append(groups, huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Profile").
+					Options(profileOpts...).
+					Inline(true).
+					Value(&result.profileName),
+			))
+		}
+
+		// Backup selector: completed backups filtered by selected profile.
+		backupOpts := completedBackupOptions(backups, result.profileName)
 		if len(backupOpts) > 0 {
-			// Default to the first backup if none pre-selected.
-			if result.backupName == "" {
+			// Default to the first backup if none pre-selected or no longer in list.
+			if !hasOptionValue(backupOpts, result.backupName) {
 				result.backupName = backupOpts[0].Value
 			}
 			groups = append(groups, huh.NewGroup(
@@ -257,24 +276,67 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 	return form, result
 }
 
-// completedBackupOptions returns huh.Option entries for completed backups,
-// sorted most recent first. Each option label shows the backup name with
-// type and profile context; the value is the backup name.
-func completedBackupOptions(backups []sdk.Backup) []huh.Option[string] {
+// completedBackupProfiles returns huh.Option entries for the distinct
+// profile names found among completed backups. "Main" is always first.
+func completedBackupProfiles(backups []sdk.Backup) []huh.Option[string] {
+	seen := make(map[string]bool)
+	var named []string
+	for i := range backups {
+		bk := &backups[i]
+		if !bk.Status.Equal(sdk.StatusDone) {
+			continue
+		}
+		cn := bk.ConfigName.String()
+		if cn == "" || cn == defaultConfigName {
+			seen[defaultConfigName] = true
+			continue
+		}
+		if !seen[cn] {
+			seen[cn] = true
+			named = append(named, cn)
+		}
+	}
+
+	var opts []huh.Option[string]
+	if seen[defaultConfigName] {
+		opts = append(opts, huh.NewOption("Main", defaultConfigName))
+	}
+	for _, n := range named {
+		opts = append(opts, huh.NewOption(n, n))
+	}
+	return opts
+}
+
+// completedBackupOptions returns huh.Option entries for completed backups
+// matching the given profile filter. Each option label shows the backup name
+// with type and size; the value is the backup name.
+func completedBackupOptions(backups []sdk.Backup, profile string) []huh.Option[string] {
 	var opts []huh.Option[string]
 	for i := range backups {
 		bk := &backups[i]
 		if !bk.Status.Equal(sdk.StatusDone) {
 			continue
 		}
-		label := fmt.Sprintf("%s  %s  %s",
-			bk.Name, bk.Type, bk.ConfigName)
+		if bk.ConfigName.String() != profile {
+			continue
+		}
+		label := fmt.Sprintf("%s  %s", bk.Name, bk.Type)
 		if bk.Size > 0 {
 			label += "  " + humanize.IBytes(uint64(bk.Size))
 		}
 		opts = append(opts, huh.NewOption(label, bk.Name))
 	}
 	return opts
+}
+
+// hasOptionValue reports whether any option in the slice has the given value.
+func hasOptionValue(opts []huh.Option[string], value string) bool {
+	for _, o := range opts {
+		if o.Value == value {
+			return true
+		}
+	}
+	return false
 }
 
 // latestTimeline returns the timeline with the most recent End timestamp,

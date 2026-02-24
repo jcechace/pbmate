@@ -284,3 +284,115 @@ func TestLatestTimeline(t *testing.T) {
 		assert.Equal(t, uint32(300), got.End.T)
 	})
 }
+
+// --- completedBackupProfiles ---
+
+func TestCompletedBackupProfiles(t *testing.T) {
+	cn := func(name string) sdk.ConfigName {
+		if name == "main" {
+			return sdk.MainConfig
+		}
+		c, _ := sdk.NewConfigName(name)
+		return c
+	}
+
+	mkBackup := func(name string, status sdk.Status, profile sdk.ConfigName) sdk.Backup {
+		return sdk.Backup{Name: name, Status: status, ConfigName: profile}
+	}
+
+	t.Run("empty backups", func(t *testing.T) {
+		opts := completedBackupProfiles(nil)
+		assert.Empty(t, opts)
+	})
+
+	t.Run("only non-done backups", func(t *testing.T) {
+		backups := []sdk.Backup{
+			mkBackup("bk1", sdk.StatusError, cn("main")),
+		}
+		opts := completedBackupProfiles(backups)
+		assert.Empty(t, opts)
+	})
+
+	t.Run("main only", func(t *testing.T) {
+		backups := []sdk.Backup{
+			mkBackup("bk1", sdk.StatusDone, cn("main")),
+			mkBackup("bk2", sdk.StatusDone, cn("main")),
+		}
+		opts := completedBackupProfiles(backups)
+		require.Len(t, opts, 1)
+		assert.Equal(t, "main", opts[0].Value)
+		assert.Equal(t, "Main", opts[0].Key)
+	})
+
+	t.Run("main first then named profiles", func(t *testing.T) {
+		backups := []sdk.Backup{
+			mkBackup("bk1", sdk.StatusDone, cn("s3-west")),
+			mkBackup("bk2", sdk.StatusDone, cn("main")),
+			mkBackup("bk3", sdk.StatusDone, cn("gcs-east")),
+			mkBackup("bk4", sdk.StatusDone, cn("s3-west")), // duplicate
+		}
+		opts := completedBackupProfiles(backups)
+		require.Len(t, opts, 3)
+		assert.Equal(t, "main", opts[0].Value)
+		assert.Equal(t, "s3-west", opts[1].Value)
+		assert.Equal(t, "gcs-east", opts[2].Value)
+	})
+}
+
+// --- completedBackupOptions ---
+
+func TestCompletedBackupOptions(t *testing.T) {
+	cn := func(name string) sdk.ConfigName {
+		if name == "main" {
+			return sdk.MainConfig
+		}
+		c, _ := sdk.NewConfigName(name)
+		return c
+	}
+
+	backups := []sdk.Backup{
+		{Name: "bk-main-1", Status: sdk.StatusDone, ConfigName: cn("main")},
+		{Name: "bk-main-2", Status: sdk.StatusDone, ConfigName: cn("main")},
+		{Name: "bk-s3", Status: sdk.StatusDone, ConfigName: cn("s3")},
+		{Name: "bk-err", Status: sdk.StatusError, ConfigName: cn("main")},
+	}
+
+	t.Run("filters by profile", func(t *testing.T) {
+		opts := completedBackupOptions(backups, "main")
+		require.Len(t, opts, 2)
+		assert.Equal(t, "bk-main-1", opts[0].Value)
+		assert.Equal(t, "bk-main-2", opts[1].Value)
+	})
+
+	t.Run("different profile", func(t *testing.T) {
+		opts := completedBackupOptions(backups, "s3")
+		require.Len(t, opts, 1)
+		assert.Equal(t, "bk-s3", opts[0].Value)
+	})
+
+	t.Run("no matches", func(t *testing.T) {
+		opts := completedBackupOptions(backups, "nonexistent")
+		assert.Empty(t, opts)
+	})
+
+	t.Run("skips non-done", func(t *testing.T) {
+		opts := completedBackupOptions(backups, "main")
+		for _, o := range opts {
+			assert.NotEqual(t, "bk-err", o.Value)
+		}
+	})
+}
+
+// --- hasOptionValue ---
+
+func TestHasOptionValue(t *testing.T) {
+	opts := completedBackupOptions([]sdk.Backup{
+		{Name: "bk1", Status: sdk.StatusDone, ConfigName: sdk.MainConfig},
+		{Name: "bk2", Status: sdk.StatusDone, ConfigName: sdk.MainConfig},
+	}, "main")
+
+	assert.True(t, hasOptionValue(opts, "bk1"))
+	assert.True(t, hasOptionValue(opts, "bk2"))
+	assert.False(t, hasOptionValue(opts, "bk3"))
+	assert.False(t, hasOptionValue(nil, "bk1"))
+}
