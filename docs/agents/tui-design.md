@@ -118,9 +118,8 @@ Right panel: full backup/restore metadata, timestamps, compression, errors.
 Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
 type, compression, profile), `r` context-sensitive restore (on a backup =
 snapshot restore, on a PITR timeline = PITR restore with auto-selected base
-backup), `d` delete (overlay confirmation, chain-aware for incrementals),
-`c` cancel running backup. After successful restore dispatch, the tab
-auto-switches to the Restores list.
+backup), `d` delete (overlay confirmation, chain-aware for incrementals).
+After successful restore dispatch, the tab auto-switches to the Restores list.
 
 ### 3. Config
 
@@ -128,9 +127,9 @@ Left panel: main config + storage profiles list.
 Right panel: detail (storage settings, PITR config, compression, raw YAML with
 syntax highlighting).
 
-Actions: `e` apply YAML configuration (file picker overlay — works even when no
-main config exists yet), `p` create new storage profile (name form + file
-picker).
+Actions: `C` set config (3-step wizard: target form → file picker → optional
+override confirm), `c` set config for selected item (pre-filled from cursor),
+`R` resync storage, `r` resync selected, `x` delete profile.
 
 ### Future (not yet implemented)
 
@@ -146,9 +145,8 @@ picker).
 - `1`-`3` — jump to tab
 - `?` — toggle full help overlay
 - `esc` — back / close overlay / clear filter
-- `s` — start backup (quick confirm)
-- `S` — custom backup (full wizard)
-- `c` — cancel running backup
+- `s` / `S` — start backup (quick confirm / full wizard)
+- `X` — cancel running backup
 
 ### Navigation (within panels)
 - `up`/`down` or `k`/`j` — move selection / scroll in focused panel
@@ -165,12 +163,17 @@ picker).
 - `d` — delete backup (overlay confirmation)
 - `space` / `enter` — expand/collapse profile group
 
+### Config-specific
+- `C` / `c` — set config (generic / for selected item)
+- `R` / `r` — resync storage (generic / for selected item)
+- `x` — delete profile
+
 ## Bottom Bar
 
 Single merged bar replacing the previous two-bar (status + help) design.
 
 ```
-│ PITR:on  Op:backup(●)  15:04 │ s:backup  d:delete  c:cancel  ?:help  q:quit │
+│ PITR:on  Op:backup(●)  15:04 │ s:backup  d:delete  X:cancel  ?:help  q:quit │
 ```
 
 **Left zone**: Persistent operational HUD visible on all tabs.

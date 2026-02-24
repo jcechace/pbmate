@@ -71,7 +71,10 @@ formOverlay interface. Chroma style mapped to theme. defaultConfigName constant.
 Per-flavor huh themes built from catppuccin-go instead of adaptive ThemeCatppuccin().
 
 ### Form Redesign
-Flat single-screen forms (no wizard pages). Inline selectors for 2-3 options. Adaptive overlay width (50% terminal, 40-60 clamped). PITR presets (Latest, -5m, -15m, -30m, -1h, -6h, Custom). Backup context headers in restore forms. Collapsible Advanced section (space toggle). Resync form with scope selector (Main/Profile/All), conditional options (include restores, clear metadata). Delete profile with confirm overlay.
+Flat single-screen forms (no wizard pages). Inline selectors for 2-3 options. Adaptive overlay width (50% terminal, 40-60 clamped). PITR presets (Latest, -5m, -15m, -30m, -1h, -6h, Custom). Backup context headers in restore forms. Dynamic form rebuild on value changes (LayoutStack, no WithHideFunc). Resync form with target selector (Main/Profile), conditional options (include restores, clear metadata). Delete profile with confirm overlay.
+
+### Set Config Wizard + Keybinding Rework
+3-step set-config wizard (target form → file picker → optional override confirm). Cancel backup remapped to `X`. Config tab keybindings: `C`/`c` set config, `R`/`r` resync, `x` delete profile (replaces old `e`/`p`). Two-column help overlay with tab-specific sections. Combined help entries (`s / S`, `C / c`, `R / r`).
 
 ## Deferred Features
 
