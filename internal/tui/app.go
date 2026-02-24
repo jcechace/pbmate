@@ -164,14 +164,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.setFlash("fetch", msg.err)
 		return m, nil
 
-	case backupActionMsg:
+	case actionResultMsg:
 		m.setFlash(msg.action, msg.err)
-		// Trigger immediate re-fetch only on success so the change is
-		// visible. On error the flash persists until the next poll cycle.
-		if msg.err == nil {
-			return m, tickCmd(0)
+		if msg.err != nil {
+			return m, nil
 		}
-		return m, nil
+		// Action-specific side effects on success.
+		switch msg.action {
+		case "restore":
+			m.backups.mode = listRestores
+			m.backups.rebuildListContent()
+			m.backups.rebuildDetailContent()
+		case "apply config", "set profile", "create profile", "remove profile":
+			// Clear cached profile YAMLs so they are re-fetched.
+			m.config.profileYAMLs = make(map[string][]byte)
+		}
+		return m, tickCmd(0)
 
 	case logFollowMsg:
 		// Discard messages from a stale follow session.
@@ -208,13 +216,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		overlay, cmd := newResyncFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.initial)
 		m.activeOverlay = overlay
 		return m, cmd
-
-	case resyncActionMsg:
-		m.setFlash(msg.action, msg.err)
-		if msg.err == nil {
-			return m, tickCmd(0)
-		}
-		return m, nil
 
 	case configDataMsg:
 		m.config.setData(msg.configData)
@@ -257,15 +258,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = overlay
 		return m, cmd
 
-	case configActionMsg:
-		m.setFlash(msg.action, msg.err)
-		// Clear cached profile YAMLs so they are re-fetched.
-		m.config.profileYAMLs = make(map[string][]byte)
-		if msg.err == nil {
-			return m, tickCmd(0)
-		}
-		return m, nil
-
 	case deleteCheckRequest:
 		if m.client != nil {
 			return m, canDeleteCmd(m.ctx, m.client, msg.baseName, msg.title, msg.description)
@@ -305,15 +297,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = overlay
 		return m, cmd
 
-	case restoreActionMsg:
-		m.setFlash(msg.action, msg.err)
-		if msg.err == nil {
-			m.backups.mode = listRestores
-			m.backups.rebuildListContent()
-			m.backups.rebuildDetailContent()
-			return m, tickCmd(0)
-		}
-		return m, nil
 	}
 
 	// Route to the active overlay if one is open.

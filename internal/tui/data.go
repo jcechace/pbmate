@@ -17,6 +17,24 @@ const (
 	recentBackupsLimit = 1  // number of recent backups to fetch for the overview
 )
 
+// firstErrCollector records the first non-nil error from concurrent
+// goroutines. Safe for use from errgroup workers.
+type firstErrCollector struct {
+	mu  sync.Mutex
+	err error
+}
+
+// set records err if it is non-nil and no prior error has been recorded.
+func (c *firstErrCollector) set(err error) {
+	if err != nil {
+		c.mu.Lock()
+		if c.err == nil {
+			c.err = err
+		}
+		c.mu.Unlock()
+	}
+}
+
 // connectMsg carries the result of the background SDK connection attempt.
 type connectMsg struct {
 	client *sdk.Client
@@ -126,9 +144,11 @@ type backupsData struct {
 // backupsDataMsg wraps backupsData as a BubbleTea message.
 type backupsDataMsg struct{ backupsData }
 
-// backupActionMsg carries the result of a backup action (start, cancel, delete).
-type backupActionMsg struct {
-	action string // "start", "cancel", "delete"
+// actionResultMsg carries the result of any user-initiated action (backup,
+// restore, resync, config). The action string identifies the operation for
+// flash messages; err is nil on success.
+type actionResultMsg struct {
+	action string // "start", "cancel", "delete", "restore", "resync", "apply config", etc.
 	err    error
 }
 
@@ -183,7 +203,7 @@ func fetchProfilesCmd(ctx context.Context, client *sdk.Client, kind backupFormKi
 func startBackupCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartBackupCommand) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Backups.Start(ctx, cmd)
-		return backupActionMsg{action: "start", err: err}
+		return actionResultMsg{action: "start", err: err}
 	}
 }
 
@@ -191,7 +211,7 @@ func startBackupCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartBackup
 func cancelBackupCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Backups.Cancel(ctx)
-		return backupActionMsg{action: "cancel", err: err}
+		return actionResultMsg{action: "cancel", err: err}
 	}
 }
 
@@ -199,7 +219,7 @@ func cancelBackupCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 func deleteBackupCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Backups.Delete(ctx, sdk.DeleteBackupByName{Name: name})
-		return backupActionMsg{action: "delete", err: err}
+		return actionResultMsg{action: "delete", err: err}
 	}
 }
 
@@ -211,18 +231,7 @@ func deleteBackupCmd(ctx context.Context, client *sdk.Client, name string) tea.C
 func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) tea.Cmd {
 	return func() tea.Msg {
 		var d overviewData
-
-		// setErr records the first error encountered; goroutine-safe.
-		var mu sync.Mutex
-		setErr := func(err error) {
-			if err != nil {
-				mu.Lock()
-				if d.err == nil {
-					d.err = err
-				}
-				mu.Unlock()
-			}
-		}
+		var errs firstErrCollector
 
 		// All fetches are independent reads — run them concurrently.
 		// Goroutines always return nil so errgroup never cancels early.
@@ -231,48 +240,48 @@ func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) te
 		g.Go(func() error {
 			v, err := client.Cluster.Agents(gctx)
 			d.agents = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Cluster.RunningOperations(gctx)
 			d.operations = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.PITR.Status(gctx)
 			d.pitr = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.PITR.Timelines(gctx)
 			d.timelines = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Backups.List(gctx, sdk.ListBackupsOptions{Limit: recentBackupsLimit})
 			d.recentBackups = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Cluster.ClusterTime(gctx)
 			d.clusterTime = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			cfg, err := client.Config.Get(gctx)
-			setErr(err)
+			errs.set(err)
 			if cfg != nil {
 				d.storageName = formatStorageSummary(cfg.Storage)
 			}
@@ -283,12 +292,13 @@ func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) te
 			g.Go(func() error {
 				v, err := client.Logs.Get(gctx, sdk.GetLogsOptions{Limit: logFetchCount})
 				d.logEntries = v
-				setErr(err)
+				errs.set(err)
 				return nil
 			})
 		}
 
 		_ = g.Wait()
+		d.err = errs.err
 		return overviewDataMsg{d}
 	}
 }
@@ -298,43 +308,28 @@ func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) te
 func fetchBackupsCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
 		var d backupsData
-
-		var mu sync.Mutex
-		setErr := func(err error) {
-			if err != nil {
-				mu.Lock()
-				if d.err == nil {
-					d.err = err
-				}
-				mu.Unlock()
-			}
-		}
+		var errs firstErrCollector
 
 		g, gctx := errgroup.WithContext(ctx)
 
 		g.Go(func() error {
 			v, err := client.Backups.List(gctx, sdk.ListBackupsOptions{})
 			d.backups = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.PITR.Timelines(gctx)
 			d.timelines = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		_ = g.Wait()
+		d.err = errs.err
 		return backupsDataMsg{d}
 	}
-}
-
-// restoreActionMsg carries the result of a restore action (start).
-type restoreActionMsg struct {
-	action string // "restore"
-	err    error
 }
 
 // restoreTargetRequest is emitted by the backups sub-model when the user
@@ -362,7 +357,7 @@ type restoreRequest struct {
 func startRestoreCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartRestoreCommand) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Restores.Start(ctx, cmd)
-		return restoreActionMsg{action: "restore", err: err}
+		return actionResultMsg{action: "restore", err: err}
 	}
 }
 
@@ -407,42 +402,33 @@ type profileYAMLMsg struct {
 func fetchConfigCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 	return func() tea.Msg {
 		var d configData
-
-		var mu sync.Mutex
-		setErr := func(err error) {
-			if err != nil {
-				mu.Lock()
-				if d.err == nil {
-					d.err = err
-				}
-				mu.Unlock()
-			}
-		}
+		var errs firstErrCollector
 
 		g, gctx := errgroup.WithContext(ctx)
 
 		g.Go(func() error {
 			v, err := client.Config.Get(gctx)
 			d.config = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Config.GetYAML(gctx)
 			d.yaml = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Config.ListProfiles(gctx)
 			d.profiles = v
-			setErr(err)
+			errs.set(err)
 			return nil
 		})
 
 		_ = g.Wait()
+		d.err = errs.err
 		return configDataMsg{d}
 	}
 }
@@ -456,24 +442,18 @@ func fetchProfileYAMLCmd(ctx context.Context, client *sdk.Client, name string) t
 	}
 }
 
-// configActionMsg carries the result of a config action (apply config, set/create profile).
-type configActionMsg struct {
-	action string // "apply config", "set profile", "create profile"
-	err    error
-}
-
 // applyConfigCmd returns a tea.Cmd that reads a YAML file and applies it
 // as the main PBM configuration.
 func applyConfigCmd(ctx context.Context, client *sdk.Client, filePath string) tea.Cmd {
 	return func() tea.Msg {
 		f, err := os.Open(filePath)
 		if err != nil {
-			return configActionMsg{action: "apply config", err: fmt.Errorf("open %s: %w", filePath, err)}
+			return actionResultMsg{action: "apply config", err: fmt.Errorf("open %s: %w", filePath, err)}
 		}
 		defer func() { _ = f.Close() }()
 
 		err = client.Config.SetYAML(ctx, f)
-		return configActionMsg{action: "apply config", err: err}
+		return actionResultMsg{action: "apply config", err: err}
 	}
 }
 
@@ -483,28 +463,22 @@ func applyProfileCmd(ctx context.Context, client *sdk.Client, name, filePath, ac
 	return func() tea.Msg {
 		f, err := os.Open(filePath)
 		if err != nil {
-			return configActionMsg{action: action, err: fmt.Errorf("open %s: %w", filePath, err)}
+			return actionResultMsg{action: action, err: fmt.Errorf("open %s: %w", filePath, err)}
 		}
 		defer func() { _ = f.Close() }()
 
 		_, err = client.Config.SetProfile(ctx, name, f)
-		return configActionMsg{action: action, err: err}
+		return actionResultMsg{action: action, err: err}
 	}
 }
 
 // --- Resync ---
 
-// resyncActionMsg carries the result of a resync operation.
-type resyncActionMsg struct {
-	action string // "resync"
-	err    error
-}
-
 // resyncCmd returns a tea.Cmd that dispatches a resync command to the SDK.
 func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Config.Resync(ctx, cmd)
-		return resyncActionMsg{action: "resync", err: err}
+		return actionResultMsg{action: "resync", err: err}
 	}
 }
 
@@ -514,7 +488,7 @@ func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) t
 func removeProfileCmd(ctx context.Context, client *sdk.Client, name string) tea.Cmd {
 	return func() tea.Msg {
 		_, err := client.Config.RemoveProfile(ctx, name)
-		return configActionMsg{action: "remove profile", err: err}
+		return actionResultMsg{action: "remove profile", err: err}
 	}
 }
 
