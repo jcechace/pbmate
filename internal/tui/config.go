@@ -160,7 +160,7 @@ func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		return m.emitSetConfigRequest(nil)
 	case key.Matches(msg, configKeys.SetConfigSelected):
 		return m.emitSetConfigRequest(m.setConfigPresetFromSelection())
-	case key.Matches(msg, configKeys.DeleteProfile):
+	case key.Matches(msg, keys.Delete):
 		if name := m.selectedProfileName(); name != "" {
 			return func() tea.Msg {
 				return removeProfileRequest{name: name}

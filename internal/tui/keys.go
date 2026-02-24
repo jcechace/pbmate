@@ -100,7 +100,6 @@ type backupKeyMap struct {
 type configKeyMap struct {
 	SetConfig         key.Binding
 	SetConfigSelected key.Binding
-	DeleteProfile     key.Binding
 	Resync            key.Binding
 	ResyncSelected    key.Binding
 }
@@ -113,10 +112,6 @@ var configKeys = configKeyMap{
 	SetConfigSelected: key.NewBinding(
 		key.WithKeys("c"),
 		key.WithHelp("c", "set config selected"),
-	),
-	DeleteProfile: key.NewBinding(
-		key.WithKeys("x"),
-		key.WithHelp("x", "delete profile"),
 	),
 	Resync: key.NewBinding(
 		key.WithKeys("R"),

@@ -127,6 +127,7 @@ func helpColumns() (left, right []helpSection) {
 		{"Global", []helpEntry{
 			helpCombined(backupKeys.Start, backupKeys.StartCustom, "backup"),
 			helpFromBinding(backupKeys.Cancel),
+			helpFromBinding(globalKeys.Delete),
 		}},
 		{"General", []helpEntry{
 			helpFromBinding(globalKeys.Help),
@@ -143,12 +144,10 @@ func helpColumns() (left, right []helpSection) {
 		{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
 			helpCombined(backupKeys.RestoreSelected, backupKeys.Restore, "restore"),
-			helpFromBinding(globalKeys.Delete),
 		}},
 		{"3:Config", []helpEntry{
 			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),
 			helpCombined(configKeys.ResyncSelected, configKeys.Resync, "resync"),
-			helpFromBinding(configKeys.DeleteProfile),
 		}},
 	}
 	return
@@ -279,14 +278,16 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	ind := statusIndicator(bk.Status, styles)
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, bk.Status)
 
-	// Oplog range — show as restore window when both timestamps are available.
+	if !bk.LastWriteTS.IsZero() {
+		restoreTime := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
+		fmt.Fprintf(b, "  Restore To:  %s\n", styles.Bold.Render(restoreTime))
+	}
+
+	// Oplog range — show when both timestamps are available.
 	if !bk.FirstWriteTS.IsZero() && !bk.LastWriteTS.IsZero() {
 		first := bk.FirstWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
 		last := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
-		fmt.Fprintf(b, "  Oplog Range: %s → %s\n", first, styles.Bold.Render(last))
-	} else if !bk.LastWriteTS.IsZero() {
-		restoreTime := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
-		fmt.Fprintf(b, "  Restore To:  %s\n", styles.Bold.Render(restoreTime))
+		fmt.Fprintf(b, "  Oplog Range: %s → %s\n", first, last)
 	}
 
 	if bk.Size > 0 {
