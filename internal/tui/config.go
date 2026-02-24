@@ -59,14 +59,22 @@ func (m *configModel) itemCount() int {
 }
 
 // selectedProfileName returns the name of the selected profile, or "" if the
-// main config is selected (cursor == 0) or no data is loaded.
+// main config is selected or no items exist.
 func (m *configModel) selectedProfileName() string {
-	if m.config == nil || m.cursor == 0 {
+	if m.config != nil {
+		// Main config exists: cursor 0 = main, 1..N = profiles.
+		if m.cursor == 0 {
+			return ""
+		}
+		idx := m.cursor - 1
+		if idx >= 0 && idx < len(m.profiles) {
+			return m.profiles[idx].Name.String()
+		}
 		return ""
 	}
-	idx := m.cursor - 1
-	if idx >= 0 && idx < len(m.profiles) {
-		return m.profiles[idx].Name.String()
+	// No main config: cursor maps directly to profiles.
+	if m.cursor >= 0 && m.cursor < len(m.profiles) {
+		return m.profiles[m.cursor].Name.String()
 	}
 	return ""
 }
@@ -136,10 +144,8 @@ type configNewProfileRequest struct{}
 func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	switch {
 	case key.Matches(msg, configKeys.Apply):
-		if m.config != nil {
-			return func() tea.Msg {
-				return configApplyRequest{profileName: m.selectedProfileName()}
-			}
+		return func() tea.Msg {
+			return configApplyRequest{profileName: m.selectedProfileName()}
 		}
 	case key.Matches(msg, configKeys.NewProfile):
 		return func() tea.Msg {
@@ -257,19 +263,21 @@ func (m *configModel) rebuildListContent() {
 }
 
 func (m *configModel) listContent() string {
-	if m.config == nil {
+	if m.config == nil && len(m.profiles) == 0 {
 		return m.styles.StatusMuted.Render("No configuration")
 	}
 
 	var lines []string
 
-	// Main config entry.
-	storageSummary := formatStorageSummary(m.config.Storage)
-	if storageSummary == "" {
-		storageSummary = m.styles.StatusMuted.Render("--")
+	// Main config entry (only when it exists).
+	if m.config != nil {
+		storageSummary := formatStorageSummary(m.config.Storage)
+		if storageSummary == "" {
+			storageSummary = m.styles.StatusMuted.Render("--")
+		}
+		mainIcon := m.styles.SectionHeader.Render("★")
+		lines = append(lines, fmt.Sprintf("%s Main  %s", mainIcon, m.styles.StatusMuted.Render(storageSummary)))
 	}
-	mainIcon := m.styles.SectionHeader.Render("★")
-	lines = append(lines, fmt.Sprintf("%s Main  %s", mainIcon, m.styles.StatusMuted.Render(storageSummary)))
 
 	// Profile entries.
 	for _, p := range m.profiles {
@@ -291,15 +299,19 @@ func (m *configModel) rebuildDetailContent() {
 }
 
 func (m *configModel) detailContent() string {
-	if m.config == nil {
+	if m.config == nil && len(m.profiles) == 0 {
 		return m.styles.StatusMuted.Render("No selection")
 	}
 
-	if m.cursor == 0 {
+	if m.config != nil && m.cursor == 0 {
 		return m.mainConfigDetail()
 	}
 
-	idx := m.cursor - 1
+	// Profile index: offset by 1 when main config exists (cursor 0 = main).
+	idx := m.cursor
+	if m.config != nil {
+		idx = m.cursor - 1
+	}
 	if idx >= 0 && idx < len(m.profiles) {
 		return m.profileDetail(&m.profiles[idx])
 	}
