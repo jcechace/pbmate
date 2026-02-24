@@ -337,8 +337,17 @@ type restoreActionMsg struct {
 	err    error
 }
 
+// restoreTargetRequest is emitted by the backups sub-model when the user
+// presses R (generic restore). Opens Step 1 of the restore wizard with all
+// available backups and timelines.
+type restoreTargetRequest struct {
+	backups   []sdk.Backup
+	timelines []sdk.Timeline
+}
+
 // restoreRequest is emitted by the backups sub-model when the user presses
-// restore. The mode determines the form variant:
+// r (restore selected). Skips Step 1 and goes directly to Step 2.
+// The mode determines the form variant:
 //   - snapshot: restore from the selected backup (backupName is set)
 //   - pitr: restore to a point in time (timeline and backups are set)
 type restoreRequest struct {

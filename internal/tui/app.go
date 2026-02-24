@@ -282,6 +282,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.activeOverlay = overlay
 		return m, cmd
 
+	case restoreTargetRequest:
+		if m.client == nil {
+			return m, nil
+		}
+		overlay, cmd := newRestoreTargetOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backups, msg.timelines)
+		m.activeOverlay = overlay
+		return m, cmd
+
 	case restoreRequest:
 		if m.client == nil {
 			return m, nil

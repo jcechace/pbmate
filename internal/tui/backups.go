@@ -148,6 +148,16 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	case key.Matches(msg, keys.Up):
 		m.handleVertical(-1)
 	case key.Matches(msg, backupKeys.Restore):
+		// Generic restore: open Step 1 (target selection) with all data.
+		if m.mode == listBackups {
+			backups := m.allBackups()
+			timelines := m.timelines
+			return func() tea.Msg {
+				return restoreTargetRequest{backups: backups, timelines: timelines}
+			}
+		}
+	case key.Matches(msg, backupKeys.RestoreSelected):
+		// Selected restore: skip Step 1, go straight to Step 2.
 		if m.mode == listBackups {
 			// Snapshot restore from a completed backup.
 			if sel := m.selectedBackup(); sel != nil && sel.Status.Equal(sdk.StatusDone) {

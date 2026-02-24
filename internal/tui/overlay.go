@@ -126,7 +126,139 @@ func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string 
 }
 
 // =============================================================================
-// Restore form overlay
+// Restore target overlay (Step 1 — what to restore)
+// =============================================================================
+
+// restoreTargetOverlay wraps the restore target form (Step 1 of the wizard).
+// On completion it transitions to a restoreFormOverlay (Step 2) for the
+// selected backup or PITR target.
+type restoreTargetOverlay struct {
+	form       *huh.Form
+	result     *restoreTargetResult
+	lastType   restoreMode // tracks type for dynamic rebuild
+	lastPreset string      // tracks pitrPreset for dynamic rebuild
+	backups    []sdk.Backup
+	timelines  []sdk.Timeline
+	formTheme  *huh.Theme
+	ctx        context.Context
+	client     *sdk.Client
+}
+
+func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreTargetOverlay, tea.Cmd) {
+	form, result := newRestoreTargetForm(formTheme, backups, timelines, nil)
+	o := &restoreTargetOverlay{
+		form:       form,
+		result:     result,
+		lastType:   result.restoreType,
+		lastPreset: result.pitrPreset,
+		backups:    backups,
+		timelines:  timelines,
+		formTheme:  formTheme,
+		ctx:        ctx,
+		client:     client,
+	}
+	return o, o.form.Init()
+}
+
+func (o *restoreTargetOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
+			return nil, nil
+		}
+	}
+
+	formModel, cmd := o.form.Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		o.form = f
+	}
+
+	if o.form.State == huh.StateCompleted {
+		if !o.result.confirmed {
+			return nil, nil
+		}
+		return o.transitionToOptions()
+	}
+
+	if o.form.State == huh.StateAborted {
+		return nil, nil
+	}
+
+	// Rebuild when type or PITR preset changes.
+	typeChanged := o.result.restoreType != o.lastType
+	presetChanged := o.result.restoreType == restoreModePITR && o.result.pitrPreset != o.lastPreset
+	if typeChanged || presetChanged {
+		return o.rebuildForm(presetChanged && !typeChanged)
+	}
+
+	return o, cmd
+}
+
+// transitionToOptions creates the appropriate Step 2 overlay based on
+// the selected restore type and target.
+func (o *restoreTargetOverlay) transitionToOptions() (formOverlay, tea.Cmd) {
+	switch o.result.restoreType {
+	case restoreModeSnapshot:
+		bk := o.findBackup(o.result.backupName)
+		if bk == nil {
+			return nil, nil // should not happen
+		}
+		return newSnapshotRestoreOverlay(o.ctx, o.client, o.formTheme, bk)
+
+	case restoreModePITR:
+		timeline := latestTimeline(o.timelines)
+		if timeline == nil {
+			return nil, nil // should not happen
+		}
+		// Pre-populate the PITR target from Step 1 selections.
+		initial := &restoreFormResult{
+			scope:      restoreScopeFull,
+			pitrPreset: o.result.pitrPreset,
+			pitrTarget: o.result.pitrTarget,
+			confirmed:  true,
+		}
+		return newPITRRestoreOverlayWithInitial(o.ctx, o.client, o.formTheme, timeline, o.backups, initial)
+
+	default:
+		return nil, nil
+	}
+}
+
+// findBackup looks up a backup by name from the cached backup list.
+func (o *restoreTargetOverlay) findBackup(name string) *sdk.Backup {
+	for i := range o.backups {
+		if o.backups[i].Name == name {
+			return &o.backups[i]
+		}
+	}
+	return nil
+}
+
+// rebuildForm reconstructs the restore target form when type or PITR preset
+// changes, preserving current field values. When presetOnly is true, focus
+// is advanced past Type to the preset selector.
+func (o *restoreTargetOverlay) rebuildForm(presetOnly bool) (formOverlay, tea.Cmd) {
+	form, result := newRestoreTargetForm(o.formTheme, o.backups, o.timelines, o.result)
+	o.form = form
+	o.result = result
+	o.lastType = result.restoreType
+	o.lastPreset = result.pitrPreset
+
+	initCmd := o.form.Init()
+	if presetOnly {
+		// Init focuses Type (first field). Advance past it to the preset.
+		// Need to advance past the Note (auto-skipped) + to "Restore to".
+		advanceCmd := o.form.NextField()
+		return o, tea.Batch(initCmd, advanceCmd)
+	}
+	return o, initCmd
+}
+
+func (o *restoreTargetOverlay) View(styles *Styles, contentW, contentH int) string {
+	return renderFormOverlay(o.form, "Restore", styles, contentW, contentH)
+}
+
+// =============================================================================
+// Restore options overlay (Step 2 — how to restore)
 // =============================================================================
 
 // restoreFormOverlay wraps the restore form. The mode determines whether
@@ -164,7 +296,11 @@ func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formThem
 }
 
 func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newPITRRestoreForm(formTheme, timeline, nil)
+	return newPITRRestoreOverlayWithInitial(ctx, client, formTheme, timeline, backups, nil)
+}
+
+func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, initial *restoreFormResult) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newPITRRestoreForm(formTheme, timeline, initial)
 	o := &restoreFormOverlay{
 		form:       form,
 		result:     result,

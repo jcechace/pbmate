@@ -130,7 +130,169 @@ func parsePITRTarget(s string) (sdk.Timestamp, error) {
 	return sdk.Timestamp{}, fmt.Errorf("invalid PITR target %q: expected format %s", s, pitrTargetFormat)
 }
 
-// --- Snapshot restore form ---
+// --- Restore target form (Step 1) ---
+
+// restoreTargetResult holds the user's selections from the restore target form.
+// This is Step 1 of the restore wizard — it determines what to restore.
+// Step 2 (the restore options form) determines how.
+type restoreTargetResult struct {
+	restoreType restoreMode // restoreModeSnapshot or restoreModePITR
+	backupName  string      // selected backup name (snapshot mode)
+	pitrPreset  string      // selected PITR preset (pitr mode)
+	pitrTarget  string      // custom target datetime (pitr mode, when preset == "custom")
+	confirmed   bool
+}
+
+// newRestoreTargetForm creates the restore target form (Step 1 of the wizard).
+// The user picks the restore type (Snapshot/PITR) and the specific target.
+// Groups are built dynamically based on type — the form is rebuilt when type
+// or PITR preset changes (see restoreTargetOverlay).
+func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreTargetResult) (*huh.Form, *restoreTargetResult) {
+	result := &restoreTargetResult{
+		restoreType: restoreModeSnapshot,
+		confirmed:   true,
+	}
+	if initial != nil {
+		result.restoreType = initial.restoreType
+		result.backupName = initial.backupName
+		result.pitrPreset = initial.pitrPreset
+		result.pitrTarget = initial.pitrTarget
+	}
+
+	// Type options: PITR only available when timelines exist.
+	typeOpts := []huh.Option[restoreMode]{
+		huh.NewOption("Snapshot", restoreModeSnapshot),
+	}
+	if len(timelines) > 0 {
+		typeOpts = append(typeOpts, huh.NewOption("PITR", restoreModePITR))
+	}
+
+	groups := []*huh.Group{
+		huh.NewGroup(
+			huh.NewSelect[restoreMode]().
+				Title("Type").
+				Options(typeOpts...).
+				Inline(true).
+				Value(&result.restoreType),
+		),
+	}
+
+	switch result.restoreType {
+	case restoreModeSnapshot:
+		// Backup selector: completed backups in a scrollable dropdown.
+		backupOpts := completedBackupOptions(backups)
+		if len(backupOpts) > 0 {
+			// Default to the first backup if none pre-selected.
+			if result.backupName == "" {
+				result.backupName = backupOpts[0].Value
+			}
+			groups = append(groups, huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Backup").
+					Options(backupOpts...).
+					Value(&result.backupName),
+			))
+		}
+
+	case restoreModePITR:
+		// Auto-select latest timeline.
+		timeline := latestTimeline(timelines)
+		if timeline != nil {
+			// Default pitrPreset to latest.
+			if result.pitrPreset == "" {
+				result.pitrPreset = timeline.End.Time().UTC().Format(pitrTargetFormat)
+				result.pitrTarget = result.pitrPreset
+			}
+
+			start := timeline.Start.Time().UTC()
+			end := timeline.End.Time().UTC()
+			duration := end.Sub(start).Truncate(time.Second)
+			rangeNote := fmt.Sprintf("%s  →  %s\n(%s)",
+				start.Format("Jan 02 15:04:05"), end.Format("Jan 02 15:04:05"), duration)
+
+			groups = append(groups, huh.NewGroup(
+				huh.NewNote().
+					Title("Timeline").
+					Description(rangeNote),
+
+				huh.NewSelect[string]().
+					Title("Restore to").
+					Options(pitrPresetOptions(timeline)...).
+					Inline(true).
+					Value(&result.pitrPreset),
+			))
+
+			if result.pitrPreset == pitrPresetCustom {
+				groups = append(groups, huh.NewGroup(
+					huh.NewInput().
+						Title("Custom target").
+						Placeholder(pitrTargetFormat).
+						Value(&result.pitrTarget).
+						Validate(func(s string) error {
+							_, err := parsePITRTarget(s)
+							return err
+						}),
+				))
+			}
+		}
+	}
+
+	groups = append(groups, huh.NewGroup(
+		huh.NewConfirm().
+			Title("Configure restore options?").
+			WithButtonAlignment(lipgloss.Left).
+			Affirmative("Next").
+			Negative("Cancel").
+			Value(&result.confirmed),
+	))
+
+	form := huh.NewForm(groups...).
+		WithTheme(formTheme).
+		WithLayout(huh.LayoutStack).
+		WithWidth(formOverlayDefaultWidth).
+		WithShowHelp(false).
+		WithShowErrors(false).
+		WithKeyMap(formKeyMap())
+
+	return form, result
+}
+
+// completedBackupOptions returns huh.Option entries for completed backups,
+// sorted most recent first. Each option label shows the backup name with
+// type and profile context; the value is the backup name.
+func completedBackupOptions(backups []sdk.Backup) []huh.Option[string] {
+	var opts []huh.Option[string]
+	for i := range backups {
+		bk := &backups[i]
+		if !bk.Status.Equal(sdk.StatusDone) {
+			continue
+		}
+		label := fmt.Sprintf("%s  %s  %s",
+			bk.Name, bk.Type, bk.ConfigName)
+		if bk.Size > 0 {
+			label += "  " + humanize.IBytes(uint64(bk.Size))
+		}
+		opts = append(opts, huh.NewOption(label, bk.Name))
+	}
+	return opts
+}
+
+// latestTimeline returns the timeline with the most recent End timestamp,
+// or nil if the slice is empty.
+func latestTimeline(timelines []sdk.Timeline) *sdk.Timeline {
+	if len(timelines) == 0 {
+		return nil
+	}
+	best := &timelines[0]
+	for i := 1; i < len(timelines); i++ {
+		if timelines[i].End.T > best.End.T {
+			best = &timelines[i]
+		}
+	}
+	return best
+}
+
+// --- Snapshot restore form (Step 2) ---
 
 // backupContextDescription builds a short description of a backup for display
 // in the restore form header.

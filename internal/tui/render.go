@@ -141,7 +141,7 @@ func helpColumns() (left, right []helpSection) {
 		}},
 		{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
-			helpFromBinding(backupKeys.Restore),
+			helpCombined(backupKeys.Restore, backupKeys.RestoreSelected, "restore"),
 			helpFromBinding(globalKeys.Delete),
 		}},
 		{"3:Config", []helpEntry{
