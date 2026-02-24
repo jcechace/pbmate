@@ -13,13 +13,31 @@ import (
 )
 
 const (
-	// formOverlayInnerWidth is the content width inside form overlay panels,
-	// excluding border and padding. Shared by all form overlays.
-	formOverlayInnerWidth = 40
+	// formOverlayMinWidth is the minimum content width for form overlays.
+	formOverlayMinWidth = 40
+
+	// formOverlayMaxWidth is the maximum content width for form overlays.
+	formOverlayMaxWidth = 60
+
+	// formOverlayWidthPct is the percentage of terminal width used for overlays.
+	formOverlayWidthPct = 50
+
+	// formOverlayDefaultWidth is the form construction-time width.
+	// renderFormOverlay may adapt the actual panel width at render time.
+	formOverlayDefaultWidth = formOverlayMaxWidth
 
 	// defaultConfigName is the name of the default (main) storage profile.
 	defaultConfigName = "main"
 )
+
+// formOverlayInnerWidth computes an adaptive content width for form overlays
+// based on the available terminal width. The result is clamped between
+// formOverlayMinWidth and formOverlayMaxWidth.
+func formOverlayInnerWidth(terminalW int) int {
+	w := terminalW * formOverlayWidthPct / 100
+	w -= panelBorderH + panelPaddingH // account for overlay chrome
+	return max(min(w, formOverlayMaxWidth), formOverlayMinWidth)
+}
 
 // backupFormKind distinguishes between the quick confirm and the full wizard.
 type backupFormKind int
@@ -132,7 +150,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 		),
 	).
 		WithTheme(&theme).
-		WithWidth(formOverlayInnerWidth).
+		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())
@@ -140,9 +158,10 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 	return form, result
 }
 
-// --- Full backup wizard ---
+// --- Full backup form ---
 
-// newFullBackupForm creates a multi-group wizard form for configuring a backup.
+// newFullBackupForm creates a single-screen form for configuring a backup.
+// All essential fields are visible at once — no multi-step wizard.
 // initialResult carries values from the quick form (or defaults if opened
 // directly via S). profiles is the list of named storage profiles.
 func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *backupFormResult) (*huh.Form, *backupFormResult) {
@@ -168,24 +187,22 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 	}
 
 	form := huh.NewForm(
-		// Group 1: Type & Profile.
+		// Main group: all essential fields on one screen.
 		huh.NewGroup(
 			huh.NewSelect[string]().
-				Title("Backup Type").
+				Title("Type").
 				Options(
 					huh.NewOption("Logical", "logical"),
 					huh.NewOption("Incremental", "incremental"),
 				).
+				Inline(true).
 				Value(&result.backupType),
 
 			huh.NewSelect[string]().
 				Title("Profile").
 				Options(profileOpts...).
 				Value(&result.configName),
-		),
 
-		// Group 2: Compression & performance tuning.
-		huh.NewGroup(
 			huh.NewSelect[string]().
 				Title("Compression").
 				Options(
@@ -199,14 +216,9 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 					huh.NewOption("None", "none"),
 				).
 				Value(&result.compression),
-
-			huh.NewInput().
-				Title("Parallel Collections").
-				Placeholder("server default").
-				Value(&result.parallelColls),
 		),
 
-		// Group 3: Advanced — logical-specific options.
+		// Logical-specific: namespaces.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Namespaces").
@@ -216,11 +228,17 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 			return result.backupType != "logical"
 		}),
 
-		// Group 4: Advanced — incremental-specific options.
+		// Incremental-specific: new chain or continue.
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Use as incremental base?").
-				Description("Starts a new incremental backup chain.").
+				Title("Start new chain?").
+				Inline(true).
+				DescriptionFunc(func() string {
+					if result.incrBase {
+						return "Creates a new incremental base backup."
+					}
+					return "Continues the latest incremental chain."
+				}, &result.incrBase).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.incrBase),
@@ -228,7 +246,15 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 			return result.backupType != "incremental"
 		}),
 
-		// Group 5: Final confirmation.
+		// Tuning (always visible but minimal).
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Parallel Collections").
+				Placeholder("server default").
+				Value(&result.parallelColls),
+		),
+
+		// Final confirmation.
 		huh.NewGroup(
 			huh.NewConfirm().
 				TitleFunc(func() string {
@@ -240,7 +266,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 		),
 	).
 		WithTheme(formTheme).
-		WithWidth(formOverlayInnerWidth).
+		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())
@@ -275,7 +301,7 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 		),
 	).
 		WithTheme(&theme).
-		WithWidth(formOverlayInnerWidth).
+		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())
@@ -305,14 +331,15 @@ func formKeyMap() *huh.KeyMap {
 
 // renderFormOverlay renders the form centered over the content area inside
 // a bordered panel with a title in the top border, using the same approach
-// as renderTitledPanel.
+// as renderTitledPanel. Panel width adapts to terminal width.
 func renderFormOverlay(form *huh.Form, title string, styles *Styles, contentW, contentH int) string {
+	innerW := formOverlayInnerWidth(contentW)
 	formView := form.View()
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor
 
 	// panelWidth is the lipgloss Width value (content + padding, inside border).
-	panelWidth := formOverlayInnerWidth + panelPaddingH
+	panelWidth := innerW + panelPaddingH
 
 	// Render the panel body (border + padding + content).
 	panel := lipgloss.NewStyle().

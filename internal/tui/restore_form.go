@@ -118,7 +118,7 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, backupName string) (*huh.Form,
 		),
 	).
 		WithTheme(formTheme).
-		WithWidth(formOverlayInnerWidth).
+		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())
@@ -167,7 +167,7 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 		),
 	).
 		WithTheme(formTheme).
-		WithWidth(formOverlayInnerWidth).
+		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())

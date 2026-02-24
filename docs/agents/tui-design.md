@@ -261,17 +261,62 @@ polling continues in the background.
 - **Destructive actions** (delete, cancel): confirm overlay with
   affirmative/negative buttons. Chain-aware delete shows the base backup name
   and total chain count for incremental backups.
-- **Quick backup** (`s`): single-step confirm overlay. Press `c` to switch to
-  the full wizard.
-- **Custom backup** (`S`): multi-step wizard with type, compression, and profile
-  selection. Profiles are fetched asynchronously before the form opens.
-- **Restore** (`r`): context-sensitive restore forms:
-  - On a completed backup: snapshot restore form (namespaces, conditional
-    users-and-roles, performance tuning).
-  - On a PITR timeline: PITR restore form (target time pre-filled from
-    timeline end, namespaces, conditional users-and-roles, performance tuning).
-    Base backup is auto-selected from cached data (latest completed backup
-    before target time).
-  - Users-and-roles question is only shown for selective (namespace-filtered)
-    restores, since full restores always include them.
 - `esc` or `q` dismisses any open overlay.
+
+### Form Redesign (planned)
+
+Design principles:
+- **Single-screen over multi-step.** All fields visible at once. No wizard pages.
+- **Smart defaults eliminate fields.** Hide expert options behind a collapsible
+  "Advanced" section toggled with `space`.
+- **Inline selectors for 2-3 options.** Use `Select.Inline(true)` instead of
+  full scrollable lists.
+- **Validate inline.** Show errors on the field, not at submit time.
+- **Context from selection.** Show what the user selected (backup metadata,
+  timeline range) in the form header.
+- **Adaptive width.** Form overlay width scales with terminal width instead of
+  a fixed 40-char constant.
+
+#### Quick Backup (`s`)
+
+Single-screen confirm. Shows target profile name dynamically. If an active
+incremental chain exists, mentions "Continues existing chain."
+
+#### Custom Backup (`S`)
+
+Flat single-screen form:
+- **Type**: Inline select (`Logical` / `Incremental`)
+- **Profile**: Select with filtering for many profiles
+- **Compression**: Select with "Server default" pre-selected
+- **Namespaces**: Input, only shown for logical (`WithHideFunc`)
+- **Incremental options** (when type=incremental): Inline confirm "Start new
+  chain?" with description. Shows which chain will be continued if "No."
+- **Advanced section**: Collapsed by default (`space` to expand).
+  Contains Parallel Collections.
+- **Submit**: Clear "Start Backup" button via `Note.NextLabel`.
+
+#### Snapshot Restore (`r` on backup)
+
+Single-screen with backup context header (name, type, status, size).
+For incremental backups, shows chain position.
+- **Namespaces**: Input
+- **Users & Roles**: Inline confirm, only shown when selective
+- **Advanced**: Collapsed. Contains Parallel Collections, Insertion Workers.
+- **Submit**: "Restore" button.
+
+#### PITR Restore (`r` on timeline)
+
+Single-screen with timeline range displayed.
+- **Restore to**: Select with computed presets:
+  `Latest (15:30:00)`, `-5 min`, `-30 min`, `-1 hour`, `Custom...`.
+  "Custom" reveals a text input for manual timestamp.
+- **Namespaces**: Input
+- **Users & Roles**: Inline confirm, only shown when selective
+- **Advanced**: Collapsed.
+- **Submit**: "Restore" button.
+
+#### New Operations (planned)
+
+- **Resync** (`R`): Inline scope selector (Main / Profile / All). Profile
+  select shown conditionally.
+- **Delete Profile** (`x` on config tab): Simple confirm overlay.
