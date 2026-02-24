@@ -73,11 +73,11 @@ func TestInnerHeight(t *testing.T) {
 		panelH   int
 		expected int
 	}{
-		{10, 8}, // 10 - panelBorderV(2) = 8
-		{2, 0},  // 2 - 2 = 0 (minimum)
-		{1, 0},  // clamped to 0
+		{10, 6}, // 10 - panelBorderV(2) - panelPaddingV(2) = 6
+		{4, 0},  // 4 - 4 = 0 (minimum)
+		{3, 0},  // clamped to 0
 		{0, 0},  // clamped to 0
-		{100, 98},
+		{100, 96},
 	}
 
 	for _, tt := range tests {

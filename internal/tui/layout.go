@@ -9,8 +9,9 @@ const (
 	topPanelPct   = 60 // top row height as percentage of content area
 
 	panelBorderH  = 2 // horizontal border: left + right
-	panelPaddingH = 2 // horizontal padding: left + right (from Padding(0,1))
+	panelPaddingH = 2 // horizontal padding: left + right (from Padding(1,1))
 	panelBorderV  = 2 // vertical border: top + bottom
+	panelPaddingV = 2 // vertical padding: top + bottom (from Padding(1,1))
 )
 
 // panel identifies which panel has focus in a two-panel layout.
@@ -36,9 +37,9 @@ func horizontalSplit(totalW int) (panelLeftW, panelRightW, contentLeftW, content
 	return
 }
 
-// innerHeight computes the usable height inside a panel's vertical border.
+// innerHeight computes the usable height inside a panel's border and padding.
 func innerHeight(panelH int) int {
-	return max(panelH-panelBorderV, 0)
+	return max(panelH-panelBorderV-panelPaddingV, 0)
 }
 
 // panelBorderColor returns the focused or unfocused border color depending on

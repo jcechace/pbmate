@@ -61,11 +61,11 @@ func NewStyles(t Theme) Styles {
 		LeftPanel: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(t.Subtle).
-			Padding(0, 1),
+			Padding(1, 1),
 		RightPanel: lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
 			BorderForeground(t.Subtle).
-			Padding(0, 1),
+			Padding(1, 1),
 		FocusedBorderColor:   t.Primary,
 		UnfocusedBorderColor: t.Subtle,
 
