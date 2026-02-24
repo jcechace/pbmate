@@ -296,10 +296,7 @@ func (m *overviewModel) rebuildStatusContent() {
 // borderColor returns the border color for the given quadrant, highlighting
 // the focused panel.
 func (m *overviewModel) borderColor(f overviewFocus) lipgloss.TerminalColor {
-	if m.focus == f {
-		return m.styles.FocusedBorderColor
-	}
-	return m.styles.UnfocusedBorderColor
+	return panelBorderColor(m.focus == f, m.styles)
 }
 
 // view renders the Overview tab with 4-quadrant layout:

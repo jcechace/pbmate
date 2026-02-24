@@ -1,5 +1,7 @@
 package tui
 
+import "github.com/charmbracelet/lipgloss"
+
 // Layout constants controlling panel geometry.
 const (
 	leftPanelPct  = 30 // left panel width as percentage of terminal width
@@ -37,4 +39,13 @@ func horizontalSplit(totalW int) (panelLeftW, panelRightW, contentLeftW, content
 // innerHeight computes the usable height inside a panel's vertical border.
 func innerHeight(panelH int) int {
 	return max(panelH-panelBorderV, 0)
+}
+
+// panelBorderColor returns the focused or unfocused border color depending on
+// whether the panel is focused. Used by all sub-models for consistent styling.
+func panelBorderColor(focused bool, styles *Styles) lipgloss.TerminalColor {
+	if focused {
+		return styles.FocusedBorderColor
+	}
+	return styles.UnfocusedBorderColor
 }

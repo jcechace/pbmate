@@ -521,10 +521,7 @@ func (m *backupsModel) renderProfileDetail(b *strings.Builder, profile string) {
 // borderColor returns the border color for the given panel, highlighting
 // the focused panel.
 func (m *backupsModel) borderColor(p panel) lipgloss.TerminalColor {
-	if m.focus == p {
-		return m.styles.FocusedBorderColor
-	}
-	return m.styles.UnfocusedBorderColor
+	return panelBorderColor(m.focus == p, m.styles)
 }
 
 // segmentedTitle renders the toggle title: [Backups] Restores or Backups [Restores].

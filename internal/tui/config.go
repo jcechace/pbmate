@@ -238,10 +238,7 @@ func (m *configModel) moveCursor(delta int) {
 
 // borderColor returns the border color for the given panel.
 func (m *configModel) borderColor(p panel) lipgloss.TerminalColor {
-	if m.focus == p {
-		return m.styles.FocusedBorderColor
-	}
-	return m.styles.UnfocusedBorderColor
+	return panelBorderColor(m.focus == p, m.styles)
 }
 
 // view renders the Config tab with left list + right detail panels.
