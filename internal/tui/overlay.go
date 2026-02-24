@@ -53,20 +53,15 @@ func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme *hu
 }
 
 func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
-		// 'c' on the quick form transitions to the full wizard.
-		if o.kind == backupFormQuick && keyMsg.String() == "c" {
-			return o.transitionToFull()
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
+	}
+	// 'c' on the quick form transitions to the full wizard.
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && o.kind == backupFormQuick && keyMsg.String() == "c" {
+		return o.transitionToFull()
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		// Quick form: "Customize" was selected (confirmed == false).
@@ -161,16 +156,11 @@ func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme 
 }
 
 func (o *restoreTargetOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		if !o.result.confirmed {
@@ -242,15 +232,7 @@ func (o *restoreTargetOverlay) rebuildForm(presetOnly bool) (formOverlay, tea.Cm
 	o.result = result
 	o.lastType = result.restoreType
 	o.lastPreset = result.pitrPreset
-
-	initCmd := o.form.Init()
-	if presetOnly {
-		// Init focuses Type (first field). Advance past it to the preset.
-		// Need to advance past the Note (auto-skipped) + to "Restore to".
-		advanceCmd := o.form.NextField()
-		return o, tea.Batch(initCmd, advanceCmd)
-	}
-	return o, initCmd
+	return o, initFormWithAdvance(o.form, presetOnly)
 }
 
 func (o *restoreTargetOverlay) View(styles *Styles, contentW, contentH int) string {
@@ -317,16 +299,11 @@ func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, f
 }
 
 func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		if !o.result.confirmed {
@@ -379,14 +356,7 @@ func (o *restoreFormOverlay) rebuildPITRForm(scopeChanged bool) (formOverlay, te
 	o.result = result
 	o.lastScope = result.scope
 	o.lastPreset = result.pitrPreset
-
-	initCmd := o.form.Init()
-	if scopeChanged {
-		// Init focuses "Restore to" (first non-skip field). Advance to Scope.
-		advanceCmd := o.form.NextField()
-		return o, tea.Batch(initCmd, advanceCmd)
-	}
-	return o, initCmd
+	return o, initFormWithAdvance(o.form, scopeChanged)
 }
 
 // dispatchRestore builds the SDK command and dispatches it. For PITR mode
@@ -425,10 +395,10 @@ func (o *restoreFormOverlay) View(styles *Styles, contentW, contentH int) string
 	return renderFormOverlay(o.form, title, styles, contentW, contentH)
 }
 
-// restoreErrorCmd wraps an error as a restoreActionMsg command.
+// restoreErrorCmd wraps an error as an actionResultMsg command.
 func restoreErrorCmd(err error) tea.Cmd {
 	return func() tea.Msg {
-		return restoreActionMsg{action: "restore", err: err}
+		return actionResultMsg{action: "restore", err: err}
 	}
 }
 
@@ -464,16 +434,11 @@ func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme *hu
 }
 
 func (o *resyncFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		if !o.result.confirmed {
@@ -506,14 +471,7 @@ func (o *resyncFormOverlay) rebuildForm(profileOnly bool) (formOverlay, tea.Cmd)
 	o.result = result
 	o.lastTarget = result.scope
 	o.lastProfile = result.profileName
-
-	initCmd := o.form.Init()
-	if profileOnly {
-		// Init focuses Target (first field). Advance to Profile selector.
-		advanceCmd := o.form.NextField()
-		return o, tea.Batch(initCmd, advanceCmd)
-	}
-	return o, initCmd
+	return o, initFormWithAdvance(o.form, profileOnly)
 }
 
 func (o *resyncFormOverlay) View(styles *Styles, contentW, contentH int) string {
@@ -584,10 +542,8 @@ func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile strin
 }
 
 func (o *filePickerOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
 	fp, cmd := o.picker.Update(msg)
@@ -663,16 +619,11 @@ func newSetConfigOverlay(ctx context.Context, client *sdk.Client, formTheme *huh
 }
 
 func (o *setConfigOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		if !o.result.confirmed {
@@ -729,13 +680,7 @@ func (o *setConfigOverlay) rebuildForm(profileOnly bool) (formOverlay, tea.Cmd) 
 	o.result = result
 	o.lastTarget = result.target
 	o.lastProfile = result.profile
-
-	initCmd := o.form.Init()
-	if profileOnly {
-		advanceCmd := o.form.NextField()
-		return o, tea.Batch(initCmd, advanceCmd)
-	}
-	return o, initCmd
+	return o, initFormWithAdvance(o.form, profileOnly)
 }
 
 func (o *setConfigOverlay) View(styles *Styles, contentW, contentH int) string {
@@ -762,16 +707,11 @@ func newConfirmOverlay(formTheme *huh.Theme, title, description, affirmative, ne
 }
 
 func (o *confirmOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
-			return nil, nil
-		}
+	if dismissOverlay(msg, back, quit) {
+		return nil, nil
 	}
 
-	formModel, cmd := o.form.Update(msg)
-	if f, ok := formModel.(*huh.Form); ok {
-		o.form = f
-	}
+	cmd := updateFormModel(&o.form, msg)
 
 	if o.form.State == huh.StateCompleted {
 		if o.result.confirmed {

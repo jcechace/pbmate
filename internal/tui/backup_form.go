@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 
@@ -311,6 +312,39 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 		WithKeyMap(formKeyMap())
 
 	return form, result
+}
+
+// --- Shared overlay helpers ---
+
+// dismissOverlay returns true if the message is a key press matching back or
+// quit. Overlay Update methods use this to dismiss on Esc/q.
+func dismissOverlay(msg tea.Msg, back, quit key.Binding) bool {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		return key.Matches(keyMsg, back) || key.Matches(keyMsg, quit)
+	}
+	return false
+}
+
+// updateFormModel forwards a tea.Msg to a huh.Form, writing the (possibly new)
+// *huh.Form pointer back through form. Returns the tea.Cmd from the update.
+func updateFormModel(form **huh.Form, msg tea.Msg) tea.Cmd {
+	formModel, cmd := (*form).Update(msg)
+	if f, ok := formModel.(*huh.Form); ok {
+		*form = f
+	}
+	return cmd
+}
+
+// initFormWithAdvance calls form.Init() and optionally advances one field
+// (form.NextField). Used after dynamic form rebuilds where the focus should
+// land on a field other than the first interactive one.
+func initFormWithAdvance(form *huh.Form, advance bool) tea.Cmd {
+	initCmd := form.Init()
+	if advance {
+		advanceCmd := form.NextField()
+		return tea.Batch(initCmd, advanceCmd)
+	}
+	return initCmd
 }
 
 // --- Shared ---
