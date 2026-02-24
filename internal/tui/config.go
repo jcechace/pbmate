@@ -283,25 +283,41 @@ func (m *configModel) listContent() string {
 		return m.styles.StatusMuted.Render("No configuration")
 	}
 
-	var lines []string
+	// Collect names and types for two-column alignment.
+	type entry struct {
+		name     string
+		typeName string
+	}
+	var entries []entry
 
-	// Main config entry (only when it exists).
 	if m.config != nil {
-		storageSummary := formatStorageSummary(m.config.Storage)
-		if storageSummary == "" {
-			storageSummary = m.styles.StatusMuted.Render("--")
-		}
-		mainIcon := m.styles.SectionHeader.Render("★")
-		lines = append(lines, fmt.Sprintf("%s Main  %s", mainIcon, m.styles.StatusMuted.Render(storageSummary)))
+		entries = append(entries, entry{name: "Main", typeName: m.config.Storage.Type.String()})
+	}
+	for _, p := range m.profiles {
+		entries = append(entries, entry{name: p.Name.String(), typeName: p.Storage.Type.String()})
 	}
 
-	// Profile entries.
-	for _, p := range m.profiles {
-		summary := formatStorageSummary(p.Storage)
-		if summary == "" {
-			summary = m.styles.StatusMuted.Render("--")
+	// Compute column width from the longest name.
+	nameW := 0
+	for _, e := range entries {
+		if len(e.name) > nameW {
+			nameW = len(e.name)
 		}
-		lines = append(lines, fmt.Sprintf("  %s  %s", p.Name, m.styles.StatusMuted.Render(summary)))
+	}
+
+	// Build lines for renderCursorList. The Main entry includes a trailing
+	// divider so it visually separates from profiles without being a
+	// separate selectable item.
+	hasMain := m.config != nil
+	hasProfiles := len(m.profiles) > 0
+	var lines []string
+	for i, e := range entries {
+		line := fmt.Sprintf("%-*s  %s", nameW, e.name, m.styles.StatusMuted.Render(e.typeName))
+		if hasMain && hasProfiles && i == 0 {
+			label := m.styles.StatusMuted.Render("── Profiles ──")
+			line += fmt.Sprintf("\n\n  %s\n", label)
+		}
+		lines = append(lines, line)
 	}
 
 	return renderCursorList(lines, m.cursor, m.focus == panelLeft, m.styles)
