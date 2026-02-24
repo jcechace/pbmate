@@ -33,6 +33,7 @@ func newProfileNameForm(formTheme *huh.Theme) (*huh.Form, *profileNameResult) {
 		),
 	).
 		WithTheme(&theme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).

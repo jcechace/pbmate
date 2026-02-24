@@ -135,19 +135,27 @@ type restoreFormOverlay struct {
 	form       *huh.Form
 	result     *restoreFormResult
 	mode       restoreMode
-	backupName string       // set for snapshot mode
-	backups    []sdk.Backup // set for PITR mode (for base backup auto-selection)
+	backupName string        // set for snapshot mode
+	backup     *sdk.Backup   // set for snapshot mode (for rebuild + incremental check)
+	backups    []sdk.Backup  // set for PITR mode (for base backup auto-selection)
+	timeline   *sdk.Timeline // set for PITR mode (for rebuild)
+	lastScope  string        // tracks scope for dynamic rebuild
+	lastPreset string        // tracks pitrPreset for dynamic rebuild (PITR mode)
+	formTheme  *huh.Theme
 	ctx        context.Context
 	client     *sdk.Client
 }
 
 func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, bk *sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newSnapshotRestoreForm(formTheme, bk)
+	form, result := newSnapshotRestoreForm(formTheme, bk, nil)
 	o := &restoreFormOverlay{
 		form:       form,
 		result:     result,
 		mode:       restoreModeSnapshot,
 		backupName: bk.Name,
+		backup:     bk,
+		lastScope:  result.scope,
+		formTheme:  formTheme,
 		ctx:        ctx,
 		client:     client,
 	}
@@ -155,14 +163,18 @@ func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formThem
 }
 
 func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newPITRRestoreForm(formTheme, timeline)
+	form, result := newPITRRestoreForm(formTheme, timeline, nil)
 	o := &restoreFormOverlay{
-		form:    form,
-		result:  result,
-		mode:    restoreModePITR,
-		backups: backups,
-		ctx:     ctx,
-		client:  client,
+		form:       form,
+		result:     result,
+		mode:       restoreModePITR,
+		backups:    backups,
+		timeline:   timeline,
+		lastScope:  result.scope,
+		lastPreset: result.pitrPreset,
+		formTheme:  formTheme,
+		ctx:        ctx,
+		client:     client,
 	}
 	return o, o.form.Init()
 }
@@ -190,7 +202,54 @@ func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 		return nil, nil
 	}
 
+	// Rebuild form when tracked values change so only relevant fields are shown.
+	switch o.mode {
+	case restoreModeSnapshot:
+		if o.result.scope != o.lastScope {
+			return o.rebuildSnapshotForm()
+		}
+	case restoreModePITR:
+		scopeChanged := o.result.scope != o.lastScope
+		presetChanged := o.result.pitrPreset != o.lastPreset
+		if scopeChanged || presetChanged {
+			return o.rebuildPITRForm(scopeChanged)
+		}
+	}
+
 	return o, cmd
+}
+
+// rebuildSnapshotForm reconstructs the snapshot restore form when scope
+// changes, preserving current field values. This swaps conditional groups
+// (namespaces + users/roles for selective vs nothing for full).
+func (o *restoreFormOverlay) rebuildSnapshotForm() (formOverlay, tea.Cmd) {
+	form, result := newSnapshotRestoreForm(o.formTheme, o.backup, o.result)
+	o.form = form
+	o.result = result
+	o.lastScope = result.scope
+	return o, o.form.Init()
+}
+
+// rebuildPITRForm reconstructs the PITR restore form when scope or preset
+// changes, preserving current field values. This swaps conditional groups
+// (custom target for "Custom..." preset, namespaces + users/roles for selective).
+// When scopeChanged is true, focus is advanced past "Restore to" to the Scope
+// field; otherwise Init naturally focuses "Restore to" (the first interactive
+// field after the skipped Note).
+func (o *restoreFormOverlay) rebuildPITRForm(scopeChanged bool) (formOverlay, tea.Cmd) {
+	form, result := newPITRRestoreForm(o.formTheme, o.timeline, o.result)
+	o.form = form
+	o.result = result
+	o.lastScope = result.scope
+	o.lastPreset = result.pitrPreset
+
+	initCmd := o.form.Init()
+	if scopeChanged {
+		// Init focuses "Restore to" (first non-skip field). Advance to Scope.
+		advanceCmd := o.form.NextField()
+		return o, tea.Batch(initCmd, advanceCmd)
+	}
+	return o, initCmd
 }
 
 // dispatchRestore builds the SDK command and dispatches it. For PITR mode

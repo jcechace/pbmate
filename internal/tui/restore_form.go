@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/dustin/go-humanize"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -28,22 +29,27 @@ const (
 	restoreModePITR
 )
 
+// restoreScope constants for the restore scope selector.
+const (
+	restoreScopeFull      = "full"
+	restoreScopeSelective = "selective"
+)
+
 // restoreFormResult holds the user's selections from the restore form.
 type restoreFormResult struct {
+	scope            string // "full" or "selective" (snapshot mode)
 	pitrPreset       string // selected PITR preset value (timestamp or "custom")
 	pitrTarget       string // human-readable datetime (PITR mode only)
 	namespaces       string // comma-separated, optional
 	usersAndRoles    bool
-	showAdvanced     bool   // toggle for tuning section
 	parallelColls    string // "" = server default
 	insertionWorkers string // "" = server default
 	confirmed        bool
 }
 
-// isSelective returns true when the user specified namespace filters.
+// isSelective returns true when the user selected selective restore scope.
 func (r *restoreFormResult) isSelective() bool {
-	ns := strings.TrimSpace(r.namespaces)
-	return ns != "" && ns != "*.*"
+	return r.scope == restoreScopeSelective
 }
 
 // effectivePITRTarget returns the PITR target to use. If the user selected
@@ -57,13 +63,18 @@ func (r *restoreFormResult) effectivePITRTarget() string {
 
 // toSnapshotCommand converts the form result into a StartSnapshotRestore.
 func (r restoreFormResult) toSnapshotCommand(backupName string) sdk.StartSnapshotRestore {
-	return sdk.StartSnapshotRestore{
+	cmd := sdk.StartSnapshotRestore{
 		BackupName:          backupName,
-		Namespaces:          r.parseNamespaces(),
-		UsersAndRoles:       r.usersAndRoles,
 		NumParallelColls:    parseOptionalInt(r.parallelColls),
 		NumInsertionWorkers: parseOptionalInt(r.insertionWorkers),
 	}
+	// Only include selective fields when scope is selective.
+	// Prevents stale values leaking after switching back to full.
+	if r.isSelective() {
+		cmd.Namespaces = r.parseNamespaces()
+		cmd.UsersAndRoles = r.usersAndRoles
+	}
+	return cmd
 }
 
 // toPITRCommand converts the form result into a StartPITRRestore.
@@ -73,14 +84,19 @@ func (r restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRRestor
 	if err != nil {
 		return sdk.StartPITRRestore{}, err
 	}
-	return sdk.StartPITRRestore{
+	cmd := sdk.StartPITRRestore{
 		BackupName:          backupName,
 		Target:              target,
-		Namespaces:          r.parseNamespaces(),
-		UsersAndRoles:       r.usersAndRoles,
 		NumParallelColls:    parseOptionalInt(r.parallelColls),
 		NumInsertionWorkers: parseOptionalInt(r.insertionWorkers),
-	}, nil
+	}
+	// Only include selective fields when scope is selective.
+	// Prevents stale values leaking after switching back to full.
+	if r.isSelective() {
+		cmd.Namespaces = r.parseNamespaces()
+		cmd.UsersAndRoles = r.usersAndRoles
+	}
+	return cmd, nil
 }
 
 // parseNamespaces splits the comma-separated namespace string into a slice.
@@ -142,39 +158,64 @@ func backupContextDescription(bk *sdk.Backup) string {
 }
 
 // newSnapshotRestoreForm creates a single-screen form for restoring from
-// a specific backup. Shows backup context in the header.
-func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup) (*huh.Form, *restoreFormResult) {
-	result := &restoreFormResult{confirmed: true}
+// a specific backup. Groups are built dynamically based on scope — the form
+// is rebuilt when scope changes (see restoreFormOverlay). initial carries
+// values from a previous form state during rebuild (nil for first open).
+func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
+	result := &restoreFormResult{
+		scope:     restoreScopeFull,
+		confirmed: true,
+	}
+	if initial != nil {
+		result.scope = initial.scope
+		result.namespaces = initial.namespaces
+		result.usersAndRoles = initial.usersAndRoles
+		result.parallelColls = initial.parallelColls
+		result.insertionWorkers = initial.insertionWorkers
+	}
 
-	form := huh.NewForm(
-		// Context header.
+	// Scope options: incremental backups only support full restore.
+	scopeOpts := []huh.Option[string]{
+		huh.NewOption("Full", restoreScopeFull),
+	}
+	if !bk.IsIncremental() {
+		scopeOpts = append(scopeOpts, huh.NewOption("Selective", restoreScopeSelective))
+	}
+
+	// Build groups dynamically based on scope.
+	groups := []*huh.Group{
+		// Context header + scope selector.
 		huh.NewGroup(
 			huh.NewNote().
 				Title(bk.Name).
 				Description(backupContextDescription(bk)),
 
+			huh.NewSelect[string]().
+				Title("Scope").
+				Options(scopeOpts...).
+				Inline(true).
+				Value(&result.scope),
+		),
+	}
+
+	if result.scope == restoreScopeSelective {
+		groups = append(groups, huh.NewGroup(
 			huh.NewInput().
 				Title("Namespaces").
 				Placeholder("*.*  (all)").
 				Value(&result.namespaces),
-		),
 
-		// Users and roles — only for selective restores.
-		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Include users and roles?").
 				Inline(true).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.usersAndRoles),
-		).WithHideFunc(func() bool {
-			return !result.isSelective()
-		}),
+		))
+	}
 
-		// Advanced toggle.
-		advancedToggleGroup(&result.showAdvanced),
-
-		// Tuning — hidden by default.
+	groups = append(groups,
+		// Tuning + confirmation.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
@@ -185,20 +226,19 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup) (*huh.Form, *r
 				Title("Insertion Workers").
 				Placeholder("server default").
 				Value(&result.insertionWorkers),
-		).WithHideFunc(func() bool {
-			return !result.showAdvanced
-		}),
 
-		// Confirmation.
-		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Restore snapshot?").
+				WithButtonAlignment(lipgloss.Left).
 				Affirmative("Restore").
 				Negative("Cancel").
 				Value(&result.confirmed),
 		),
-	).
+	)
+
+	form := huh.NewForm(groups...).
 		WithTheme(formTheme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -248,23 +288,39 @@ func pitrPresetOptions(timeline *sdk.Timeline) []huh.Option[string] {
 }
 
 // newPITRRestoreForm creates a single-screen form for point-in-time restore.
-// Offers preset time selections with a "Custom" fallback for manual entry.
-func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form, *restoreFormResult) {
-	result := &restoreFormResult{confirmed: true}
+// Groups are built dynamically based on pitrPreset and scope — the form is
+// rebuilt when either changes (see restoreFormOverlay). initial carries values
+// from a previous form state during rebuild (nil for first open).
+func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
+	result := &restoreFormResult{
+		scope:     restoreScopeFull,
+		confirmed: true,
+	}
 
 	// Default to latest.
 	result.pitrPreset = timeline.End.Time().UTC().Format(pitrTargetFormat)
 	result.pitrTarget = result.pitrPreset
 
-	// Build range description.
+	if initial != nil {
+		result.scope = initial.scope
+		result.pitrPreset = initial.pitrPreset
+		result.pitrTarget = initial.pitrTarget
+		result.namespaces = initial.namespaces
+		result.usersAndRoles = initial.usersAndRoles
+		result.parallelColls = initial.parallelColls
+		result.insertionWorkers = initial.insertionWorkers
+	}
+
+	// Build range description with dates.
 	start := timeline.Start.Time().UTC()
 	end := timeline.End.Time().UTC()
 	duration := end.Sub(start).Truncate(time.Second)
-	rangeNote := fmt.Sprintf("%s  →  %s  (%s)",
-		start.Format("15:04:05"), end.Format("15:04:05"), duration)
+	rangeNote := fmt.Sprintf("%s  →  %s\n(%s)",
+		start.Format("Jan 02 15:04:05"), end.Format("Jan 02 15:04:05"), duration)
 
-	form := huh.NewForm(
-		// PITR target with presets.
+	// Build groups dynamically based on preset and scope.
+	groups := []*huh.Group{
+		// Timeline context + target preset + scope.
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Timeline").
@@ -273,11 +329,22 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 			huh.NewSelect[string]().
 				Title("Restore to").
 				Options(pitrPresetOptions(timeline)...).
+				Inline(true).
 				Value(&result.pitrPreset),
-		),
 
-		// Custom timestamp input — only shown when "Custom..." is selected.
-		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Scope").
+				Options(
+					huh.NewOption("Full", restoreScopeFull),
+					huh.NewOption("Selective", restoreScopeSelective),
+				).
+				Inline(true).
+				Value(&result.scope),
+		),
+	}
+
+	if result.pitrPreset == pitrPresetCustom {
+		groups = append(groups, huh.NewGroup(
 			huh.NewInput().
 				Title("Custom target").
 				Placeholder(pitrTargetFormat).
@@ -286,34 +353,27 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 					_, err := parsePITRTarget(s)
 					return err
 				}),
-		).WithHideFunc(func() bool {
-			return result.pitrPreset != pitrPresetCustom
-		}),
+		))
+	}
 
-		// Namespaces.
-		huh.NewGroup(
+	if result.scope == restoreScopeSelective {
+		groups = append(groups, huh.NewGroup(
 			huh.NewInput().
 				Title("Namespaces").
 				Placeholder("*.*  (all)").
 				Value(&result.namespaces),
-		),
 
-		// Users and roles — only for selective restores.
-		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Include users and roles?").
 				Inline(true).
 				Affirmative("Yes").
 				Negative("No").
 				Value(&result.usersAndRoles),
-		).WithHideFunc(func() bool {
-			return !result.isSelective()
-		}),
+		))
+	}
 
-		// Advanced toggle.
-		advancedToggleGroup(&result.showAdvanced),
-
-		// Tuning — hidden by default.
+	groups = append(groups,
+		// Tuning + confirmation.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
@@ -324,23 +384,19 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 				Title("Insertion Workers").
 				Placeholder("server default").
 				Value(&result.insertionWorkers),
-		).WithHideFunc(func() bool {
-			return !result.showAdvanced
-		}),
 
-		// Confirmation.
-		huh.NewGroup(
 			huh.NewConfirm().
-				TitleFunc(func() string {
-					target := result.effectivePITRTarget()
-					return fmt.Sprintf("Restore PITR to %s?", target)
-				}, &result.pitrPreset).
+				Title("Restore PITR?").
+				WithButtonAlignment(lipgloss.Left).
 				Affirmative("Restore").
 				Negative("Cancel").
 				Value(&result.confirmed),
 		),
-	).
+	)
+
+	form := huh.NewForm(groups...).
 		WithTheme(formTheme).
+		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
@@ -376,23 +432,4 @@ func findBaseBackup(target sdk.Timestamp, backups []sdk.Backup) (string, error) 
 			target.Time().UTC().Format(pitrTargetFormat))
 	}
 	return best.Name, nil
-}
-
-// advancedToggleGroup returns a huh group with a single inline confirm
-// that toggles visibility of advanced/tuning options. The toggle renders
-// as "▸ Advanced" (collapsed) or "▾ Advanced" (expanded).
-func advancedToggleGroup(showAdvanced *bool) *huh.Group {
-	return huh.NewGroup(
-		huh.NewConfirm().
-			TitleFunc(func() string {
-				if *showAdvanced {
-					return "▾ Advanced"
-				}
-				return "▸ Advanced"
-			}, showAdvanced).
-			Inline(true).
-			Affirmative("Show").
-			Negative("Hide").
-			Value(showAdvanced),
-	)
 }
