@@ -55,6 +55,7 @@ type backupFormResult struct {
 	namespaces    string
 	parallelColls string // number of parallel collections; "" = server default
 	incrBase      bool
+	showAdvanced  bool // toggle for advanced tuning section
 	confirmed     bool // true = start, false = customize (quick form only)
 
 	// Profiles are stored for handoff from quick → full form.
@@ -246,13 +247,18 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 			return result.backupType != "incremental"
 		}),
 
-		// Tuning (always visible but minimal).
+		// Advanced toggle.
+		advancedToggleGroup(&result.showAdvanced),
+
+		// Tuning — hidden by default.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
 				Placeholder("server default").
 				Value(&result.parallelColls),
-		),
+		).WithHideFunc(func() bool {
+			return !result.showAdvanced
+		}),
 
 		// Final confirmation.
 		huh.NewGroup(
@@ -310,6 +316,25 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 }
 
 // --- Shared ---
+
+// advancedToggleGroup returns a huh group with a single inline confirm
+// that toggles visibility of advanced/tuning options. The toggle renders
+// as "▸ Advanced" (collapsed) or "▾ Advanced" (expanded).
+func advancedToggleGroup(showAdvanced *bool) *huh.Group {
+	return huh.NewGroup(
+		huh.NewConfirm().
+			TitleFunc(func() string {
+				if *showAdvanced {
+					return "▾ Advanced"
+				}
+				return "▸ Advanced"
+			}, showAdvanced).
+			Inline(true).
+			Affirmative("Show").
+			Negative("Hide").
+			Value(showAdvanced),
+	)
+}
 
 // formKeyMap returns a huh KeyMap with ] and [ added to field
 // navigation alongside the default tab/shift+tab/enter bindings.

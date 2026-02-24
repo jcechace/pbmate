@@ -34,6 +34,7 @@ type restoreFormResult struct {
 	pitrTarget       string // human-readable datetime (PITR mode only)
 	namespaces       string // comma-separated, optional
 	usersAndRoles    bool
+	showAdvanced     bool   // toggle for tuning section
 	parallelColls    string // "" = server default
 	insertionWorkers string // "" = server default
 	confirmed        bool
@@ -170,7 +171,10 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup) (*huh.Form, *r
 			return !result.isSelective()
 		}),
 
-		// Tuning.
+		// Advanced toggle.
+		advancedToggleGroup(&result.showAdvanced),
+
+		// Tuning — hidden by default.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
@@ -181,7 +185,9 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup) (*huh.Form, *r
 				Title("Insertion Workers").
 				Placeholder("server default").
 				Value(&result.insertionWorkers),
-		),
+		).WithHideFunc(func() bool {
+			return !result.showAdvanced
+		}),
 
 		// Confirmation.
 		huh.NewGroup(
@@ -304,7 +310,10 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 			return !result.isSelective()
 		}),
 
-		// Tuning.
+		// Advanced toggle.
+		advancedToggleGroup(&result.showAdvanced),
+
+		// Tuning — hidden by default.
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Parallel Collections").
@@ -315,7 +324,9 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline) (*huh.Form
 				Title("Insertion Workers").
 				Placeholder("server default").
 				Value(&result.insertionWorkers),
-		),
+		).WithHideFunc(func() bool {
+			return !result.showAdvanced
+		}),
 
 		// Confirmation.
 		huh.NewGroup(
