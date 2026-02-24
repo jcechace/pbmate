@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -395,16 +396,20 @@ var filePickerAllowedTypes = []string{".yaml", ".yml"}
 const filePickerHeight = 18
 
 // filePickerOverlay wraps a file picker for selecting YAML config files.
+// When needsConfirm is true, selecting a file transitions to a confirmation
+// overlay before applying (used when overriding existing config/profiles).
 type filePickerOverlay struct {
-	picker  filepicker.Model
-	title   string
-	profile string // target profile ("" = main config)
-	isNew   bool   // creating new vs overwriting existing
-	ctx     context.Context
-	client  *sdk.Client
+	picker       filepicker.Model
+	title        string
+	profile      string // target profile ("" = main config)
+	isNew        bool   // creating new vs overwriting existing
+	needsConfirm bool   // show confirm overlay before applying
+	formTheme    *huh.Theme
+	ctx          context.Context
+	client       *sdk.Client
 }
 
-func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile string, isNew bool, title string) (*filePickerOverlay, tea.Cmd) {
+func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile string, isNew bool, needsConfirm bool, formTheme *huh.Theme, title string) (*filePickerOverlay, tea.Cmd) {
 	fp := filepicker.New()
 	fp.AllowedTypes = filePickerAllowedTypes
 	fp.AutoHeight = false
@@ -430,12 +435,14 @@ func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile strin
 	fp.KeyMap = km
 
 	o := &filePickerOverlay{
-		picker:  fp,
-		title:   title,
-		profile: profile,
-		isNew:   isNew,
-		ctx:     ctx,
-		client:  client,
+		picker:       fp,
+		title:        title,
+		profile:      profile,
+		isNew:        isNew,
+		needsConfirm: needsConfirm,
+		formTheme:    formTheme,
+		ctx:          ctx,
+		client:       client,
 	}
 	return o, o.picker.Init()
 }
@@ -451,16 +458,33 @@ func (o *filePickerOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 	o.picker = fp
 
 	if didSelect, path := o.picker.DidSelectFile(msg); didSelect {
-		if o.isNew {
-			return nil, applyProfileCmd(o.ctx, o.client, o.profile, path, "create profile")
+		applyCmd := o.buildApplyCmd(path)
+		if o.needsConfirm {
+			title := "Override Config"
+			desc := "Override existing main config?"
+			if o.profile != "" {
+				title = "Override Profile"
+				desc = fmt.Sprintf("Override profile %q config?", o.profile)
+			}
+			overlay, cmd := newConfirmOverlay(o.formTheme, title, desc, "Override", "Cancel", applyCmd)
+			return overlay, cmd
 		}
-		if o.profile == "" {
-			return nil, applyConfigCmd(o.ctx, o.client, path)
-		}
-		return nil, applyProfileCmd(o.ctx, o.client, o.profile, path, "set profile")
+		return nil, applyCmd
 	}
 
 	return o, cmd
+}
+
+// buildApplyCmd returns the tea.Cmd that applies the selected YAML file
+// to the appropriate target (main config, existing profile, or new profile).
+func (o *filePickerOverlay) buildApplyCmd(path string) tea.Cmd {
+	if o.isNew {
+		return applyProfileCmd(o.ctx, o.client, o.profile, path, "create profile")
+	}
+	if o.profile == "" {
+		return applyConfigCmd(o.ctx, o.client, path)
+	}
+	return applyProfileCmd(o.ctx, o.client, o.profile, path, "set profile")
 }
 
 func (o *filePickerOverlay) View(styles *Styles, contentW, contentH int) string {
@@ -468,25 +492,41 @@ func (o *filePickerOverlay) View(styles *Styles, contentW, contentH int) string 
 }
 
 // =============================================================================
-// Profile name overlay (transitions to file picker)
+// Set config overlay (transitions to file picker, optionally to confirm)
 // =============================================================================
 
-// profileNameOverlay wraps the profile name form. On completion it transitions
-// to a filePickerOverlay for the newly named profile.
-type profileNameOverlay struct {
-	form   *huh.Form
-	result *profileNameResult
-	ctx    context.Context
-	client *sdk.Client
+// setConfigOverlay wraps the set-config form. On completion it transitions
+// to a filePickerOverlay for the selected target. When overriding an existing
+// config/profile the file picker will additionally transition to a confirm.
+type setConfigOverlay struct {
+	form        *huh.Form
+	result      *setConfigFormResult
+	lastTarget  setConfigTarget // tracks target for dynamic rebuild
+	lastProfile string          // tracks profile for dynamic rebuild
+	profiles    []sdk.StorageProfile
+	mainExists  bool
+	formTheme   *huh.Theme
+	ctx         context.Context
+	client      *sdk.Client
 }
 
-func newProfileNameOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme) (*profileNameOverlay, tea.Cmd) {
-	form, result := newProfileNameForm(formTheme)
-	o := &profileNameOverlay{form: form, result: result, ctx: ctx, client: client}
+func newSetConfigOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, mainExists bool, initial *setConfigFormResult) (*setConfigOverlay, tea.Cmd) {
+	form, result := newSetConfigForm(formTheme, profiles, initial)
+	o := &setConfigOverlay{
+		form:        form,
+		result:      result,
+		lastTarget:  result.target,
+		lastProfile: result.profile,
+		profiles:    profiles,
+		mainExists:  mainExists,
+		formTheme:   formTheme,
+		ctx:         ctx,
+		client:      client,
+	}
 	return o, o.form.Init()
 }
 
-func (o *profileNameOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
+func (o *setConfigOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		if key.Matches(keyMsg, back) || key.Matches(keyMsg, quit) {
 			return nil, nil
@@ -499,23 +539,71 @@ func (o *profileNameOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 	}
 
 	if o.form.State == huh.StateCompleted {
-		if !o.result.confirmed || o.result.name == "" {
+		if !o.result.confirmed {
 			return nil, nil
 		}
-		// Transition to file picker for the new profile.
-		fp, fpCmd := newFilePickerOverlay(o.ctx, o.client, o.result.name, true, "Select YAML \u2500 "+o.result.name)
-		return fp, fpCmd
+		return o.transitionToFilePicker()
 	}
 
 	if o.form.State == huh.StateAborted {
 		return nil, nil
 	}
 
+	// Rebuild when target or profile selection changes.
+	targetChanged := o.result.target != o.lastTarget
+	profileChanged := o.result.target == setConfigTargetProfile && o.result.profile != o.lastProfile
+	if targetChanged || profileChanged {
+		return o.rebuildForm(profileChanged && !targetChanged)
+	}
+
 	return o, cmd
 }
 
-func (o *profileNameOverlay) View(styles *Styles, contentW, contentH int) string {
-	return renderFormOverlay(o.form, "New Profile", styles, contentW, contentH)
+// transitionToFilePicker creates a filePickerOverlay for the selected target.
+// Sets needsConfirm when overriding an existing config or profile.
+func (o *setConfigOverlay) transitionToFilePicker() (formOverlay, tea.Cmd) {
+	profile := o.result.effectiveProfile()
+	isNew := o.result.isNew()
+
+	var title string
+	if profile == "" {
+		title = "Select YAML \u2500 Main"
+	} else {
+		title = "Select YAML \u2500 " + profile
+	}
+
+	// Confirm when overriding: main config exists, or profile exists (not new).
+	needsConfirm := false
+	if o.result.target == setConfigTargetMain && o.mainExists {
+		needsConfirm = true
+	} else if o.result.target == setConfigTargetProfile && !isNew {
+		needsConfirm = true
+	}
+
+	fp, fpCmd := newFilePickerOverlay(o.ctx, o.client, profile, isNew, needsConfirm, o.formTheme, title)
+	return fp, fpCmd
+}
+
+// rebuildForm reconstructs the set-config form when target or profile changes,
+// preserving current field values. When profileOnly is true, focus is advanced
+// past Target to the Profile selector.
+func (o *setConfigOverlay) rebuildForm(profileOnly bool) (formOverlay, tea.Cmd) {
+	form, result := newSetConfigForm(o.formTheme, o.profiles, o.result)
+	o.form = form
+	o.result = result
+	o.lastTarget = result.target
+	o.lastProfile = result.profile
+
+	initCmd := o.form.Init()
+	if profileOnly {
+		advanceCmd := o.form.NextField()
+		return o, tea.Batch(initCmd, advanceCmd)
+	}
+	return o, initCmd
+}
+
+func (o *setConfigOverlay) View(styles *Styles, contentW, contentH int) string {
+	return renderFormOverlay(o.form, "Set Config", styles, contentW, contentH)
 }
 
 // =============================================================================

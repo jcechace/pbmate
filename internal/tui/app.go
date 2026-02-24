@@ -249,19 +249,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
-	case configApplyRequest:
-		var title string
-		if msg.profileName == "" {
-			title = "Select YAML \u2500 Main"
-		} else {
-			title = "Select YAML \u2500 " + msg.profileName
+	case setConfigRequest:
+		if m.client == nil {
+			return m, nil
 		}
-		overlay, cmd := newFilePickerOverlay(m.ctx, m.client, msg.profileName, false, title)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case configNewProfileRequest:
-		overlay, cmd := newProfileNameOverlay(m.ctx, m.client, m.styles.FormTheme)
+		overlay, cmd := newSetConfigOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.mainExists, msg.initial)
 		m.activeOverlay = overlay
 		return m, cmd
 

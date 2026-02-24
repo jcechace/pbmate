@@ -97,21 +97,21 @@ type backupKeyMap struct {
 
 // configKeyMap defines keybindings specific to the Config tab.
 type configKeyMap struct {
-	Apply          key.Binding
-	NewProfile     key.Binding
-	DeleteProfile  key.Binding
-	Resync         key.Binding
-	ResyncSelected key.Binding
+	SetConfig         key.Binding
+	SetConfigSelected key.Binding
+	DeleteProfile     key.Binding
+	Resync            key.Binding
+	ResyncSelected    key.Binding
 }
 
 var configKeys = configKeyMap{
-	Apply: key.NewBinding(
-		key.WithKeys("e"),
-		key.WithHelp("e", "apply YAML"),
+	SetConfig: key.NewBinding(
+		key.WithKeys("C"),
+		key.WithHelp("C", "set config"),
 	),
-	NewProfile: key.NewBinding(
-		key.WithKeys("p"),
-		key.WithHelp("p", "new profile"),
+	SetConfigSelected: key.NewBinding(
+		key.WithKeys("c"),
+		key.WithHelp("c", "set config selected"),
 	),
 	DeleteProfile: key.NewBinding(
 		key.WithKeys("x"),
@@ -137,8 +137,8 @@ var backupKeys = backupKeyMap{
 		key.WithHelp("S", "custom backup"),
 	),
 	Cancel: key.NewBinding(
-		key.WithKeys("c"),
-		key.WithHelp("c", "cancel backup"),
+		key.WithKeys("X"),
+		key.WithHelp("X", "cancel backup"),
 	),
 	Restore: key.NewBinding(
 		key.WithKeys("r"),

@@ -128,15 +128,14 @@ type fetchProfileYAMLRequest struct {
 	name string
 }
 
-// configApplyRequest is emitted when the user presses 'e' to apply a YAML
-// file to the main config or an existing profile.
-type configApplyRequest struct {
-	profileName string // "" for main config
+// setConfigRequest is emitted by the config tab when the user wants to
+// set configuration. Carries the preset target and cached state so the
+// overlay can be created without a round-trip fetch.
+type setConfigRequest struct {
+	initial    *setConfigFormResult
+	profiles   []sdk.StorageProfile
+	mainExists bool
 }
-
-// configNewProfileRequest is emitted when the user presses 'p' to create
-// a new storage profile.
-type configNewProfileRequest struct{}
 
 // removeProfileRequest is emitted when the user presses 'x' to delete
 // the selected storage profile.
@@ -157,14 +156,10 @@ type resyncFormRequest struct {
 // update handles key messages for the Config tab.
 func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 	switch {
-	case key.Matches(msg, configKeys.Apply):
-		return func() tea.Msg {
-			return configApplyRequest{profileName: m.selectedProfileName()}
-		}
-	case key.Matches(msg, configKeys.NewProfile):
-		return func() tea.Msg {
-			return configNewProfileRequest{}
-		}
+	case key.Matches(msg, configKeys.SetConfig):
+		return m.emitSetConfigRequest(nil)
+	case key.Matches(msg, configKeys.SetConfigSelected):
+		return m.emitSetConfigRequest(m.setConfigPresetFromSelection())
 	case key.Matches(msg, configKeys.DeleteProfile):
 		if name := m.selectedProfileName(); name != "" {
 			return func() tea.Msg {
@@ -516,6 +511,34 @@ func formatPriorityMap(m map[string]float64) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, ", ")
+}
+
+// --- Set config helpers ---
+
+// setConfigPresetFromSelection returns a setConfigFormResult preset based on
+// the currently selected config item. Returns nil if no items exist.
+func (m *configModel) setConfigPresetFromSelection() *setConfigFormResult {
+	if m.itemCount() == 0 {
+		return nil
+	}
+	name := m.selectedProfileName()
+	if name == "" {
+		return &setConfigFormResult{target: setConfigTargetMain}
+	}
+	return &setConfigFormResult{
+		target:  setConfigTargetProfile,
+		profile: name,
+	}
+}
+
+// emitSetConfigRequest returns a command that emits a setConfigRequest with the
+// given preset, cached profile list, and whether the main config exists.
+func (m *configModel) emitSetConfigRequest(initial *setConfigFormResult) tea.Cmd {
+	profiles := m.profiles
+	mainExists := m.config != nil
+	return func() tea.Msg {
+		return setConfigRequest{initial: initial, profiles: profiles, mainExists: mainExists}
+	}
 }
 
 // --- Resync helpers ---
