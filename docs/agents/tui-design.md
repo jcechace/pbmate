@@ -1,4 +1,4 @@
-# PBMate TUI Design
+# TUI Design
 
 ## Vision
 
@@ -62,7 +62,7 @@ Four-quadrant layout:
 
 - RS headers are collapsible: `▾` expanded, `▸` collapsed.
 - Collapsed RS shows inline status dots (one per agent) + count:
-  `▸ rs2 ●●● (3)` -- all healthy; `▸ rs3 ●●○ (3)` -- one stale.
+  `▸ rs2 ●●● (3)` — all healthy; `▸ rs3 ●●○ (3)` — one stale.
 - Space or Enter toggles expand/collapse on RS headers.
 - Scales to 100+ shard clusters via collapse + scrolling.
 - Status dots: `●` green = OK, `●` red = error, `○` dim = stale.
@@ -108,8 +108,8 @@ Master-detail layout with sub-tabs in the detail panel.
 ```
 
 Left panel: scrollable backup tree with `tab` toggle between Backups and
-Restores. Compact timestamps (drop seconds). Backups are grouped by storage
-profile with collapsible headers. Incremental backups are grouped into chains
+Restores. Each backup shows its name (RFC 3339 timestamp). Backups are grouped
+by storage profile with collapsible headers. Incremental backups are grouped into chains
 under their base (base shows `⌂` icon, children indented). PITR timelines
 appear at the top of the list.
 
@@ -119,9 +119,8 @@ Actions: `s` start backup (quick confirm), `S` custom backup (full wizard with
 type, compression, profile), `r` context-sensitive restore (on a backup =
 snapshot restore, on a PITR timeline = PITR restore with auto-selected base
 backup), `d` delete (overlay confirmation, chain-aware for incrementals),
-`c` cancel running backup.
-
-Future: detail panel sub-tabs (Info, Replicas, Logs), `/` filter.
+`c` cancel running backup. After successful restore dispatch, the tab
+auto-switches to the Restores list.
 
 ### 3. Config
 
@@ -129,38 +128,42 @@ Left panel: main config + storage profiles list.
 Right panel: detail (storage settings, PITR config, compression, raw YAML with
 syntax highlighting).
 
-Actions: `e` apply YAML configuration (file picker overlay), `p` create new
-storage profile (name form + file picker).
+Actions: `e` apply YAML configuration (file picker overlay — works even when no
+main config exists yet), `p` create new storage profile (name form + file
+picker).
+
+### Future (not yet implemented)
+
+- Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
+- `/` filter in list views
+- `--readonly` flag to disable all mutation actions
+- Connection reconnect on failure
 
 ## Keybindings
 
 ### Global
-- `q` / `ctrl+c` -- quit
-- `1`-`3` -- jump to tab
-- `?` -- toggle full help overlay
-- `esc` -- back / close overlay / clear filter
-- `s` -- start backup (quick confirm)
-- `S` -- custom backup (full wizard)
-- `c` -- cancel running backup
+- `q` / `ctrl+c` — quit
+- `1`-`3` — jump to tab
+- `?` — toggle full help overlay
+- `esc` — back / close overlay / clear filter
+- `s` — start backup (quick confirm)
+- `S` — custom backup (full wizard)
+- `c` — cancel running backup
 
 ### Navigation (within panels)
-- `up`/`down` or `k`/`j` -- move selection / scroll in focused panel
-- `]` / `[` -- cycle focus to next/previous panel
+- `up`/`down` or `k`/`j` — move selection / scroll in focused panel
+- `]` / `[` — cycle focus to next/previous panel
 
 ### Overview-specific
-- `space` / `enter` -- expand/collapse RS group (when cluster panel focused)
-- `f` -- toggle log follow mode
-- `w` -- toggle log word-wrap
+- `space` / `enter` — expand/collapse RS group (when cluster panel focused)
+- `f` — toggle log follow mode
+- `w` — toggle log word-wrap
 
 ### Backups-specific
-- `tab` -- toggle between Backups and Restores list
-- `r` -- restore (on backup = snapshot, on PITR timeline = point-in-time)
-- `d` -- delete backup (overlay confirmation)
-- `space` / `enter` -- expand/collapse profile group
-
-### Future
-- `/` -- filter/search in list views
-- `--readonly` flag to disable all mutation actions
+- `tab` — toggle between Backups and Restores list
+- `r` — restore (on backup = snapshot, on PITR timeline = point-in-time)
+- `d` — delete backup (overlay confirmation)
+- `space` / `enter` — expand/collapse profile group
 
 ## Bottom Bar
 
@@ -188,46 +191,16 @@ Single merged bar replacing the previous two-bar (status + help) design.
   - Active operation detected: 2s
 - Overview always fetches cluster + status data (needed for bottom bar HUD).
 - Tab-specific data fetched only for the active tab.
-- **Data ownership**: Sub-models own their data. Root Model has no data fields;
-  it reads `m.overview.data` directly for the status bar HUD and adaptive
-  polling. This avoids fragile sync-back patterns between root and sub-models.
 - **Log panel**: auto-refreshes every poll cycle in normal mode; streams via
   `Logs.Follow()` goroutine in follow mode. Follow-mode log entries are
   preserved across poll cycles by `overview.setData()`.
-- **Stable cursor**: selection tracked by item identity (agent node name,
-  backup name), not by list index. Prevents cursor jumping on data refresh.
 
 ## Message Flow Architecture
-
-PBMate's TUI follows the Elm Architecture enforced by BubbleTea: a
-unidirectional data flow where `Update` is the only place state changes.
-
-### The Core Loop
-
-```
-   ┌─────────────────────────────────────────┐
-   │                                         │
-   ▼                                         │
- View(Model) ──render──▶ Terminal            │
-                                             │
- User input / timer / async result           │
-   │                                         │
-   ▼                                         │
- Update(Model, Msg) ──▶ (new Model, Cmd) ────┘
-```
-
-1. **View** -- pure function: reads Model, returns a string. No side effects.
-2. **Msg** arrives -- a user keypress, window resize, timer tick, or the result
-   of an async command.
-3. **Update** -- takes current Model + Msg, returns a new Model and optionally
-   a Cmd.
-4. **Cmd** -- a `func() Msg`. BubbleTea runs it in a goroutine and feeds the
-   resulting Msg back into Update. This is how side effects happen.
 
 ### Startup Sequence
 
 ```
-Init() → tea.Batch(tea.WindowSize(), connectCmd(mongoURI))
+Init() -> tea.Batch(tea.WindowSize(), connectCmd(mongoURI))
 ```
 
 Two commands fire in parallel: `tea.WindowSize()` triggers a `WindowSizeMsg` so
@@ -237,23 +210,8 @@ with "Connecting..." while the SDK connects in the background.
 
 ### Polling Chain
 
-PBMate doesn't use a persistent ticker goroutine. Instead it chains single-shot
-timers, with each data response scheduling the next tick:
-
-```
-connectMsg (client ready)
-  └─▶ tickCmd(0)                           immediate tick
-        └─▶ fetchOverviewCmd + fetchBackupsCmd
-              └─▶ overviewDataMsg
-                    └─▶ tickCmd(pollInterval)   schedule next tick
-                          └─▶ (waits 2s or 10s)
-                                └─▶ tickMsg
-                                      └─▶ fetch...    (cycle repeats)
-```
-
-The `overviewDataMsg` handler decides the next interval: 2s if operations are
-running (activeInterval), 10s if idle (idleInterval). The chain is self-healing:
-if a fetch errors, we still schedule the next tick.
+See `docs/agents/tui-conventions.md` Polling Pattern section for the chained
+single-shot timer design and adaptive intervals (2s active, 10s idle).
 
 ### Message Types
 
@@ -278,82 +236,6 @@ if a fetch errors, we still schedule the next tick.
 | `canDeleteMsg`      | `canDeleteCmd`       | Pre-check result, show confirm    |
 | `restoreRequest`    | backups sub-model    | Restore form overlay needed       |
 
-### Message Routing Priority
-
-`Update` has a strict priority order:
-
-1. **Data/system messages first** -- WindowSizeMsg, connectMsg, tickMsg, all
-   data messages, action messages, log follow messages, form ready messages.
-   These are handled regardless of overlay state, so polling continues while
-   forms are open.
-
-2. **Overlay routing** -- if `activeOverlay != nil`, all remaining messages
-   (key and non-key) are forwarded to the overlay via the `formOverlay`
-   interface. The overlay handles its own key dispatch and huh internals
-   (cursor blink timers, etc.). `esc`/`q` dismisses the overlay.
-
-3. **Key messages without overlay** -- routed through `updateKeys`:
-   - `showHelp == true` → only `?`/`esc` to dismiss
-   - otherwise → global bindings, then forward to active tab's sub-model
-
-### Sub-Model Pattern
-
-Each tab has its own sub-model (overviewModel, backupsModel). They are plain
-structs with methods, not tea.Model implementations:
-
-- `update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd` -- handles keypresses
-- `view(w, h int) string` -- renders the tab content
-- `resize(w, h int)` -- precomputes viewport dimensions
-- `setData(...)` -- receives fresh data from fetch commands
-
-The root Model.Update calls sub-model methods directly. Sub-models never see
-non-key messages -- the root handles all data routing.
-
-### Value Receiver and Pointer Semantics
-
-BubbleTea requires value receivers (`func (m Model) Update`). Mutations inside
-Update only affect the local copy; the modified `m` is returned.
-
-Sub-models are embedded by value in Model. Pointers inside the model (like
-`m.client`, `m.overview.client`) are shared -- mutations through them affect
-the real state.
-
-The `*Styles` pattern: Model owns `styles Styles` by value, sub-models hold
-`*Styles` pointing into it. Since sub-models are embedded in Model, the pointer
-remains valid across Update cycles.
-
-### The Cmd Contract
-
-A Cmd is `func() Msg`. Key rules:
-
-- BubbleTea runs it in a separate goroutine.
-- It must return exactly one Msg.
-- It must not access or mutate the Model (no closures over `m`).
-- It can close over immutable values (client pointer, channel, string).
-- `tea.Batch(cmds...)` runs multiple commands concurrently.
-- Returning nil from Update means "no command."
-
-### Log Follow: Channel Bridge
-
-The log follow mode bridges the SDK's channel-based API into BubbleTea's
-message model:
-
-```go
-nextLogCmd = func() tea.Msg {
-    entries, ok := <-followCh
-    if !ok { return logFollowDoneMsg{} }
-    return logFollowMsg{entries}
-}
-```
-
-Each logFollowMsg handler calls nextLogCmd() again, creating a chain that
-drains the channel one batch at a time. This is the standard BubbleTea pattern
-for bridging blocking I/O.
-
-Follow sessions use a monotonic session ID so that stale messages from a
-previous follow session are discarded. The `nextLogCmd` closure selects on
-both the entries channel and a cancellation context to avoid goroutine leaks.
-
 ## Styling
 
 - **Status colors**: green = done/ok, red = error, yellow = running/in-progress,
@@ -363,7 +245,7 @@ both the entries channel and a cancellation context to avoid goroutine leaks.
 - Bordered panels with lipgloss `RoundedBorder` and **titled top borders**:
   `╭─ Cluster ─────╮`. Title color matches the border color (primary when
   focused, subtle when unfocused).
-- Compact, information-dense -- no wasted space.
+- Compact, information-dense — no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
 - The default theme uses `lipgloss.AdaptiveColor` for light/dark terminals.
   Named flavors use hardcoded `lipgloss.Color` for exact color matching.

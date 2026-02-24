@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "docs/agents/agent-rules.md",
+    "docs/agents/sdk-conventions.md",
+    "docs/agents/tui-conventions.md",
+    "docs/agents/pitfalls.md"
+  ],
+  "permission": {
+    "bash": {
+      "*": "allow",
+      "git push *": "deny",
+      "git push": "deny",
+      "rm -rf *": "deny"
+    },
+    "external_directory": {
+      "~/go/pkg/mod/**": "allow"
+    },
+    "edit": {
+      "~/go/pkg/mod/**": "deny"
+    }
+  }
+}

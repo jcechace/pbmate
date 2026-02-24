@@ -1,0 +1,107 @@
+# Progress
+
+## Current Status
+
+SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs) with gaps remaining (see Deferred Features). TUI has 3 tabs (Overview, Backups, Config) with form overlays, incremental chain support, and context-sensitive restores. See Backlog for planned features. MCP module is a placeholder.
+
+## In Progress
+
+(none)
+
+## Backlog
+
+Prioritized next items:
+
+- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
+- [ ] `/` filter in list views
+- [ ] `--readonly` flag to disable all mutation actions
+- [ ] Connection reconnect on failure (currently dead-end after connect error)
+- [ ] MCP server implementation (Phase 4 — scope TBD)
+
+## Completed Milestones
+
+### Phase 1: Project Setup
+Go 1.26 modules, .gitignore, AGENTS.md, PROGRESS.md, MCP module bootstrap.
+
+### Phase 2: SDK Scaffolding
+Client struct with functional options. All 6 service interfaces (Backup, Restore, Config, Cluster, PITR, Log) with stubs. PBM dependency via replace directive. Enum types refactored to DDD-style value objects. ConfigName normalization. CommandService with sealed command interface. Write operations wired through services.
+
+### Phase 3: SDK Implementation
+Foundation (errors, shared conversions, CommandType enum). All 6 services fully implemented: BackupService with custom MongoDB queries, RestoreService via PBM functions, PITRService with status aggregation, ClusterService with topology and agent status, ConfigService with profiles, LogService with tailable cursor follow. Command dispatch via lock checking + MongoDB insert.
+
+### Phase 4: MCP Server
+TBD — placeholder module exists.
+
+### Phase 5a: TUI Initial Scaffold
+TUI.md design doc. App skeleton with tab navigation. Catppuccin theming. Adaptive polling (10s/2s). Overview tab with agent tree. Backups tab with list/detail. Backup actions (start, cancel, delete). Shared rendering helpers.
+
+### Phase 5b: TUI Redesign
+Research of lazydocker, k9s, gh-dash, etc. 4-quadrant Overview layout. Dropped Logs tab (4→3 tabs). Merged bottom bars into single status HUD + hints bar. Collapsible RS groups with status indicators. Status panel (PITR, op, latest backup, storage). Log panel with follow mode. Stable cursor by identity. Context-sensitive action hints. All panels migrated to viewport components. Fixed panel overflow. 4-quadrant focus cycling.
+
+### Phase 5b+: Architecture Refactoring
+Layout helpers extracted. Sub-models made self-contained (backupsModel, overviewModel). logPanel extracted as reusable component. clusterPanel extracted. Data duplication eliminated between root and sub-models. Panel titles in borders.
+
+### Phase 5c: Interactions
+huh form overlays (quick/full backup, confirm dialogs). Help overlay (`?`). Incremental backup chain grouping with base/children display. Chain-aware delete. Restore list with tab toggle. SDK documentation enrichment.
+
+### Phase 5c+: Code Quality
+Bug fixes (PITR truncation, stale cursor, error clearing). Chain logic extracted with tests. Cursor rendering deduplicated. Help overlay derived from keybinding definitions. Consistent `*Styles` passing.
+
+### SDK Domain Enrichment
+Domain methods on Backup/Restore (IsIncremental, Duration, etc.). Severity filtering for logs. BackupChain type with SDK utilities. Package-level documentation. Goroutine leak fix in LogService.Follow.
+
+### Code Quality Polish
+SDK domain methods used at all TUI call sites. waitForTerminal generic helper. Standardized error message prefixes. Profile name in delete dialog.
+
+### Phase 5d: Config Tab
+Config tab with main config + profiles + YAML syntax highlighting (Chroma). File picker overlay for config apply. Profile name form. formOverlay interface extracted.
+
+### SDK Hardening
+CanDelete with ErrNotChainBase. Validate() on all command types. Shared validation helpers. UsersAndRoles field. Comprehensive Validate() tests.
+
+### TUI Audit Fixes
+Expanded config detail. Oplog range/sizes in backup detail. Parallel collections in backup wizard. CanDelete pre-check. Context-sensitive restore forms (snapshot + PITR). Flash error persistence fix. Backup name display. Auto-switch to Restores list. Config apply nil handling.
+
+### SDK Code Quality
+slog.Warn for unknown enums. Generic convertSlice. Unified Limit type. Removed duplicate conversion. Client.Close error wrapping. TODO(pbm-fix) markers. MarshalText/UnmarshalText round-trip tests.
+
+### TUI Code Quality
+formOverlay interface. Chroma style mapped to theme. defaultConfigName constant. Form overlay width rename. Magic number documentation. Root context threading. Render helper unit tests.
+
+### Theming Fixes
+Per-flavor huh themes built from catppuccin-go instead of adaptive ThemeCatppuccin().
+
+## Deferred Features
+
+| Feature | Reason | Priority |
+|---------|--------|----------|
+| Config SetVar | Pending PITR enable/disable design — needs cohesive config mutation surface | Medium |
+| Cleanup command | Composable from Backups.Delete + PITR.Delete. Add only if requested. | Low |
+| Oplog replay | Very low priority. `CmdTypeReplay` constant ready. | Low |
+| Physical/external backup start | Out-of-band file operations. Display types exist. | Low |
+| Backup collections list | `--with-collections` requires storage I/O. Non-trivial. | Low |
+| Diagnostic reports | CLI-oriented, composable from existing services. | Low |
+| Wait for delete/resync | No status query exists in PBM to drive polling. | Blocked |
+| Per-RS PITR timelines | Diagnostic, not operational. | Low |
+| Oplog chunk access | Storage insight, not blocking. | Low |
+| Restore progress detail | Nice for PITR progress display. | Low |
+| Timeline.Size | Storage cost insight. | Low |
+| Status filter on list | Client-side filtering works given small data volumes. | Low |
+| Convenience queries | `GetLastBackup` etc. — trivial wrappers. | Low |
+
+## SDK Architecture Notes
+
+### Sealed Command Architecture
+
+User-facing command types use sealed interfaces to make invalid states unrepresentable. Each operation with variants gets a sealed interface with concrete types per variant. Name fields are unexported and auto-generated by service methods.
+
+Completed sealed hierarchies:
+- `StartBackupCommand` — `StartLogicalBackup`, `StartIncrementalBackup`
+- `StartRestoreCommand` — `StartSnapshotRestore`, `StartPITRRestore`
+- `DeleteBackupCommand` — `DeleteBackupByName`, `DeleteBackupsBefore`
+- `DeletePITRCommand` — `DeletePITRBefore`, `DeletePITRAll`
+- `ResyncCommand` — `ResyncMain`, `ResyncProfile`, `ResyncAllProfiles`
+
+### Command Architecture Simplification
+
+Removed dead `Command` interface and `CommandService` from public API. Services now call specific converters directly via internal `*commandServiceImpl` helpers (`validateAndCheckLock` + `checkLock` + `dispatch`).
