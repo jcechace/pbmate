@@ -377,9 +377,25 @@ func (m *backupsModel) backupTreeContent() string {
 		return m.styles.StatusMuted.Render("No backups")
 	}
 
+	// Find the last PITR item index to insert a section separator after it.
+	lastPITR := -1
+	hasNonPITR := false
+	for i, item := range m.items {
+		if item.kind == itemPITR {
+			lastPITR = i
+		} else {
+			hasNonPITR = true
+		}
+	}
+
 	lines := make([]string, len(m.items))
 	for i, item := range m.items {
 		lines[i] = m.renderBackupItem(item)
+		// Append muted section label after the last PITR entry.
+		if i == lastPITR && hasNonPITR {
+			label := m.styles.StatusMuted.Render("── Backups ──")
+			lines[i] += fmt.Sprintf("\n\n  %s\n", label)
+		}
 	}
 	return renderCursorList(lines, m.backupCursor, m.focus == panelLeft, m.styles)
 }
