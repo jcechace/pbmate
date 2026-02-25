@@ -77,7 +77,13 @@ Flat single-screen forms (no wizard pages). Inline selectors for 2-3 options. Ad
 3-step set-config wizard (target form → file picker → optional override confirm). Cancel backup remapped to `X`. Config tab keybindings: `C`/`c` set config, `R`/`r` resync, `x` delete profile (replaces old `e`/`p`). Two-column help overlay with tab-specific sections. Combined help entries (`s / S`, `C / c`, `R / r`).
 
 ### Restore Wizard
-Two-step restore wizard: Step 1 (target selection — type, backup/PITR target), Step 2 (options — scope, tuning, confirm). `R` opens generic wizard (Step 1 → Step 2), `r` skips Step 1 and opens from cursor (same as previous behavior). Consistent `R`/`r` pattern matching `C`/`c` and `s`/`S`.
+Two-step restore wizard: Step 1 (target selection — type, profile filter, backup/PITR target), Step 2 (options — scope, tuning, confirm). `R` opens generic wizard (Step 1 → Step 2), `r` skips Step 1 and opens from cursor (same as previous behavior). Consistent `R`/`r` pattern matching `C`/`c` and `s`/`S`. Profile inline selector in Snapshot mode filters backup list by storage profile.
+
+### Code Quality Refactoring
+Overlay helpers extracted (`dismissOverlay`, `updateFormModel`, `initFormWithAdvance` in `backup_form.go`) — all 7 overlay types use them. Four action message types unified into single `actionResultMsg`. Shared layout helper `panelBorderColor` in `layout.go`. `firstErrCollector` type for concurrent fetch error coalescing. Form-to-command test coverage (4 new test files: `backup_form_test.go`, `restore_form_test.go`, `resync_form_test.go`, `config_form_test.go`).
+
+### TUI Visual Polish
+Config tab list redesigned: two-column layout (name + type), path dropped, bold-on-select for Main (star removed), muted "── Profiles ──" section label. Backup list separator "── Backups ──" between PITR timelines and backup profiles. Vertical padding added to all panels (`Padding(1,1)`). Global `d` delete key (unified across Backups and Config tabs).
 
 ## Deferred Features
 

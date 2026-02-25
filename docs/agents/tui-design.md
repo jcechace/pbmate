@@ -111,7 +111,8 @@ Left panel: scrollable backup tree with `tab` toggle between Backups and
 Restores. Each backup shows its name (RFC 3339 timestamp). Backups are grouped
 by storage profile with collapsible headers. Incremental backups are grouped into chains
 under their base (base shows `⌂` icon, children indented). PITR timelines
-appear at the top of the list.
+appear at the top of the list, separated from backups by a muted "── Backups ──"
+section label.
 
 Right panel: full backup/restore metadata, timestamps, compression, errors.
 
@@ -122,7 +123,9 @@ After successful restore dispatch, the tab auto-switches to the Restores list.
 
 ### 3. Config
 
-Left panel: main config + storage profiles list.
+Left panel: two-column list (name + storage type). Main config entry uses
+bold-on-select styling (no icon). A muted "── Profiles ──" section label
+separates Main from storage profiles.
 Right panel: detail (storage settings, PITR config, compression, raw YAML with
 syntax highlighting).
 
@@ -227,9 +230,7 @@ single-shot timer design and adaptive intervals (2s active, 10s idle).
 | `restoresDataMsg`   | `fetchRestoresCmd`   | Restore list arrived              |
 | `configDataMsg`     | `fetchConfigCmd`     | Config data arrived               |
 | `profileYAMLMsg`    | `fetchProfileYAMLCmd`| Profile YAML content arrived      |
-| `backupActionMsg`   | action commands      | Backup/delete/cancel completed    |
-| `restoreActionMsg`  | `startRestoreCmd`    | Restore action completed          |
-| `configActionMsg`   | config commands      | Config apply/profile completed    |
+| `actionResultMsg`   | action commands      | Any action completed (backup, restore, resync, config) |
 | `logFollowMsg`      | `nextLogCmd`         | New log entries from follow       |
 | `logFollowDoneMsg`  | follow goroutine     | Follow channel closed             |
 | `backupFormReadyMsg`| `fetchProfilesCmd`   | Profiles loaded, form can open    |
@@ -264,7 +265,7 @@ polling continues in the background.
   and total chain count for incremental backups.
 - `esc` or `q` dismisses any open overlay.
 
-### Form Redesign (planned)
+### Form Redesign
 
 Design principles:
 - **Single-screen over multi-step.** All fields visible at once. No wizard pages.
@@ -296,6 +297,18 @@ Flat single-screen form:
   Contains Parallel Collections.
 - **Submit**: Clear "Start Backup" button via `Note.NextLabel`.
 
+#### Restore Wizard (`R` — generic)
+
+Two-step wizard. Step 1 selects the restore target:
+- **Type**: Inline selector (Snapshot / PITR). PITR only available when timelines exist.
+- **Profile** (Snapshot mode): Inline selector filtering the backup list by storage profile.
+  Options built from distinct profiles among completed backups. Defaults to Main.
+- **Backup** (Snapshot mode): Dropdown of completed backups matching the selected profile.
+- **Restore to** (PITR mode): Preset selector with computed offsets + Custom input.
+- **Confirm**: "Next" proceeds to Step 2 (options form).
+
+Step 2 is the same options form as `r` (scope, tuning, confirm).
+
 #### Snapshot Restore (`r` on backup)
 
 Single-screen with backup context header (name, type, status, size).
@@ -316,8 +329,8 @@ Single-screen with timeline range displayed.
 - **Advanced**: Collapsed.
 - **Submit**: "Restore" button.
 
-#### New Operations (planned)
+#### New Operations
 
 - **Resync** (`R`): Inline scope selector (Main / Profile / All). Profile
   select shown conditionally.
-- **Delete Profile** (`x` on config tab): Simple confirm overlay.
+- **Delete** (`d`): Global key — deletes backup on Backups tab, profile on Config tab. Confirm overlay.

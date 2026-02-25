@@ -96,8 +96,15 @@ Actions that need user input render centered `huh` form overlays. All key input 
 All overlays implement the `formOverlay` interface (overlay.go):
 - Confirm overlays for destructive actions (delete, cancel)
 - Quick/full backup wizard
-- Context-sensitive restore forms (snapshot vs PITR)
+- Two-step restore wizard (target selection → options) and context-sensitive restore forms
+- Resync form with target selector (Main / Profile / All)
+- Set config wizard (target form → file picker → optional override confirm)
 - Profile name form, file picker for config
+
+Shared overlay helpers in `backup_form.go` reduce boilerplate across all overlay types:
+- `dismissOverlay` — check for esc/quit key
+- `updateFormModel` — forward message to huh.Form and write back pointer
+- `initFormWithAdvance` — Init + optional NextField for dynamic rebuilds
 
 `esc` or `q` dismisses any open overlay.
 
@@ -127,15 +134,16 @@ internal/tui/
 ├── cluster_panel.go    # Cluster tree + detail viewports
 ├── backups.go          # Backups tab (list + detail, tab toggles backups/restores)
 ├── backup_chain.go     # Chain grouping for display (separate from sdk/backup_chain.go which is domain logic)
-├── backup_form.go      # Quick/full backup forms
-├── restore_form.go     # Context-sensitive restore forms
+├── backup_form.go      # Backup forms + shared overlay helpers (dismissOverlay, updateFormModel, initFormWithAdvance)
+├── restore_form.go     # Restore forms (snapshot, PITR, target wizard with profile filter)
+├── resync_form.go      # Resync form (Main / Profile / All)
 ├── config.go           # Config tab
-├── config_form.go      # Profile name form
-├── overlay.go          # formOverlay interface + overlays
+├── config_form.go      # Set config form (target → file picker → confirm)
+├── overlay.go          # formOverlay interface + all overlay types
 ├── log_panel.go        # Reusable log viewer component
-├── data.go             # Data fetching commands + message types (config request types are in config.go)
+├── data.go             # Data fetching commands, message types, actionResultMsg, firstErrCollector
 ├── render.go           # Shared rendering helpers
-├── layout.go           # Layout helpers + dimension math
+├── layout.go           # Layout helpers, dimension math, panelBorderColor
 ├── keys.go             # Key bindings (global + per-tab)
 ├── styles.go           # Lipgloss styles
 ├── theme.go            # Theme definitions (Catppuccin + adaptive)
