@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -135,7 +136,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.connectAttempt++
 			delay := connectBackoff(m.connectAttempt)
-			m.flashErr = fmt.Sprintf("connect: %v (retry in %s)", msg.err, delay.Truncate(time.Second))
+			m.flashErr = fmt.Sprintf("Connection failed (retry in %s)", delay.Truncate(time.Second))
 			return m, reconnectCmd(delay)
 		}
 		m.connecting = false
@@ -187,10 +188,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case actionResultMsg:
-		m.setFlash(msg.action, msg.err)
 		if msg.err != nil {
+			m.flashErr = msg.err.Error()
 			return m, nil
 		}
+		m.flashErr = ""
 		// Action-specific side effects on success.
 		switch msg.action {
 		case "restore":
@@ -208,7 +210,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.session != m.overview.logFollowSession {
 			return m, nil
 		}
-		if msg.err != nil {
+		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
 			// Follow channel errored; stop following.
 			m.overview.stopFollow()
 			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
@@ -224,7 +226,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.overview.stopFollow()
-		if msg.err != nil {
+		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
 			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
 		}
 		return m, nil

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -292,7 +293,9 @@ func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) te
 
 		g.Go(func() error {
 			cfg, err := client.Config.Get(gctx)
-			errs.set(err)
+			if err != nil && !errors.Is(err, sdk.ErrNotFound) {
+				errs.set(err)
+			}
 			if cfg != nil {
 				d.storageName = formatStorageSummary(cfg.Storage)
 			}
@@ -420,14 +423,18 @@ func fetchConfigCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
 		g.Go(func() error {
 			v, err := client.Config.Get(gctx)
 			d.config = v
-			errs.set(err)
+			if err != nil && !errors.Is(err, sdk.ErrNotFound) {
+				errs.set(err)
+			}
 			return nil
 		})
 
 		g.Go(func() error {
 			v, err := client.Config.GetYAML(gctx)
 			d.yaml = v
-			errs.set(err)
+			if err != nil && !errors.Is(err, sdk.ErrNotFound) {
+				errs.set(err)
+			}
 			return nil
 		})
 

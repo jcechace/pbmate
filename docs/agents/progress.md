@@ -12,7 +12,7 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 Prioritized next items:
 - [x] Connection reconnect on failure (auto-retry with exponential backoff)
-- [ ] Refine error messages (e.g. "follow: context canceled" on double-f toggle)
+- [x] Refine error messages (follow context canceled, double prefixes, config ErrNotFound, connect verbosity)
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 
@@ -95,6 +95,9 @@ Kong-based CLI with `pbmate tui` as default command. XDG-compliant config file (
 
 ### Connection Reconnect
 Auto-retry with exponential backoff (2s, 4s, 8s, 16s, 30s cap) on initial connection failure. Retry chain via `reconnectMsg` message. Bottom bar shows attempt count during retries. User can quit at any time. Mid-session disconnects handled by MongoDB driver.
+
+### Error Message Refinement
+Minimal connection error (`"Connection failed (retry in Ns)"`). Suppress `context.Canceled` in follow handlers (normal on double-`f` toggle). Show SDK error directly for action results — removes redundant TUI prefix (`"start: start backup:"` → `"start backup:"`). Suppress `ErrNotFound` from config fetch goroutines (no-main-config is valid state, not an error).
 
 ### TUI Code Quality (Review Items)
 Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form construction blocks replaced with one-liners. Unified byte formatting: removed `humanize.IBytes` in restore forms, use `humanBytes` consistently everywhere. Split domain-specific detail renderers (`statusIndicator`, `agentIndicator`, `renderBackupDetail`, `renderRestoreDetail`) from `render.go` into `detail_render.go`. Added tests for `rebuildItems` cursor stability (4 scenarios), `selectedItem`, `setRestoreData` cursor clamping, and `appendLogEntries` buffer trimming (4 scenarios).

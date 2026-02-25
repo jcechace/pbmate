@@ -23,6 +23,9 @@
 | Cursor jump on refresh | Selection tracked by list index. When data refreshed and list order changed, cursor pointed to wrong item. | Track selection by item identity (backup name, agent node), not index. |
 | Epoch dates in backup list | Derived timestamps (`LastWriteTS` -> `StartTS` fallback) show 1970 dates for freshly started backups where both are zero. | Display backup `Name` (always an RFC 3339 timestamp, always set) instead of derived timestamps. |
 | huh theme mismatch | Used `huh.ThemeCatppuccin()` which is adaptive and ignores the chosen flavor. Forms looked wrong on named Catppuccin flavors. | Build per-flavor huh themes from catppuccin-go color values. Note: `ThemeCatppuccin()` is still correct for the adaptive/default theme — the pitfall only applies to named flavors (Mocha, Latte, etc.). |
+| Follow context canceled flash | Pressing `f` twice quickly (start then stop follow) showed `"follow: context canceled"` because `waitForLogEntry` returns `ctx.Err()` when cancelled. | Suppress `context.Canceled` in both `logFollowMsg` and `logFollowDoneMsg` handlers — it's a normal shutdown, not an error. |
+| Double action error prefixes | `setFlash("start", err)` produced `"start: start backup: ..."` because SDK already wraps errors with the operation name. | Show `msg.err.Error()` directly for action results instead of prepending a TUI prefix. |
+| Config ErrNotFound as flash error | `Config.Get` returns `ErrNotFound` when no main config exists (valid state). If it raced first in `firstErrCollector`, user saw `"fetch: not found"`. | Skip `errs.set()` when the error is `ErrNotFound` for config fetch goroutines. |
 
 ## General Pitfalls
 
