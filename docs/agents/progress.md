@@ -11,11 +11,13 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 ## Backlog
 
 Prioritized next items:
-- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
-- [ ] `/` filter in list views
-- [x] `--readonly` flag to disable all mutation actions
 - [ ] Connection reconnect on failure (currently dead-end after connect error)
+- [ ] Refine error messages (e.g. "follow: context canceled" on double-f toggle)
+- [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
+
+Deferred (add when needed):
+- [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 
 ## Completed Milestones
 

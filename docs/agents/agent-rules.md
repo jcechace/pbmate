@@ -19,6 +19,7 @@ Non-negotiable. Violating any of these is a bug in agent behavior.
 8. **Ask before modifying agent docs.** Always consult the user before changing CLAUDE.md, AGENTS.md, or any docs/ file that is auto-loaded.
 9. **No underscores in test function names.** Use `TestFunctionName` for package-level functions and `TestTypeMethod` (concatenated) for type methods. Never use `TestType_Method` — that pattern is not a Go stdlib convention despite common misconceptions.
 10. **Prefer table-driven tests.** Use `[]struct{ ... }` with `t.Run` subtests wherever multiple inputs/expected outputs are being tested against the same logic.
+11. **Commit before new work.** Never start a new task if there is uncommitted work in the tree. Commit (or ask the user) first.
 
 ## Workflow
 
