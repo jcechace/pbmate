@@ -14,7 +14,7 @@ styling.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  PBMate   [1:Overview]  2:Backups  3:Config                      │
+│  PBMate  production  [1:Overview]  2:Backups  3:Config            │
 ├──────────────────────────┬───────────────────────────────────────┤
 │                          │                                       │
 │    Left panel            │         Right panel (detail)          │
@@ -25,8 +25,10 @@ styling.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-Three zones: **header** (tab bar), **content** (tab-specific layout),
-**bottom bar** (status HUD left, context-sensitive hints right).
+Three zones: **header** (tab bar with optional context name), **content**
+(tab-specific layout), **bottom bar** (status HUD left, context-sensitive hints
+right). The context name appears in muted style after the title when a named
+context is used; hidden for direct `--uri` connections.
 
 ## Tabs
 
@@ -334,3 +336,100 @@ Single-screen with timeline range displayed.
 - **Resync** (`R`): Inline scope selector (Main / Profile / All). Profile
   select shown conditionally.
 - **Delete** (`d`): Global key — deletes backup on Backups tab, profile on Config tab. Confirm overlay.
+
+## CLI
+
+PBMate uses [kong](https://github.com/alecthomas/kong) for CLI parsing.
+The CLI struct is defined in `main.go` using struct tags.
+
+### Commands
+
+```
+pbmate                                  # default: starts TUI with current context
+pbmate tui                              # explicit: same as above
+pbmate tui --uri <uri>                  # explicit URI, bypasses context
+pbmate tui --context <name>             # one-time context override
+pbmate tui --theme <name>               # one-time theme override
+pbmate tui --readonly                   # one-time readonly override
+pbmate --config <path>                  # global: custom config file path
+
+pbmate context list                     # list contexts (* = current)
+pbmate context current                  # print current context name + URI
+pbmate context use <name>               # switch active context (writes config)
+pbmate context add <name> --uri=<uri>   # add context (optional: --theme, --readonly)
+pbmate context remove <name>            # remove context
+```
+
+`pbmate` with no subcommand runs `pbmate tui` via kong's `default:"withargs"`.
+
+### Flag Precedence
+
+```
+CLI flag  >  context setting  >  global config  >  built-in default
+```
+
+For theme: `--theme mocha` > `contexts.staging.theme` > top-level `theme` > `"default"`.
+For readonly: `--readonly` > `contexts.staging.readonly` > top-level `readonly` > `false`.
+
+If no URI is available (no `--uri`, no context, no `current-context`), print a
+helpful error directing the user to `pbmate context add`.
+
+## Configuration
+
+### File Location
+
+```
+$XDG_CONFIG_HOME/pbmate/config.yaml    # if XDG_CONFIG_HOME is set
+~/.config/pbmate/config.yaml           # fallback (XDG default)
+```
+
+Overridable with `--config <path>` or `PBMATE_CONFIG` env var.
+
+### File Format
+
+Single YAML file containing both global settings and connection contexts:
+
+```yaml
+theme: mocha
+readonly: false
+
+current-context: production
+
+contexts:
+  production:
+    uri: mongodb://prod-host:27017
+  staging:
+    uri: mongodb://staging-host:27017
+    theme: latte
+    readonly: true
+  local:
+    uri: mongodb://localhost:27017
+```
+
+### Config Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `theme` | string | `"default"` | Global color theme |
+| `readonly` | bool | `false` | Global readonly mode |
+| `current-context` | string | `""` | Active context name |
+| `contexts` | map | `{}` | Named connection contexts |
+
+### Context Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `uri` | string | Yes | MongoDB connection URI |
+| `theme` | string | No | Theme override for this context |
+| `readonly` | *bool | No | Readonly override (nil = inherit global) |
+
+### Package Layout
+
+```
+internal/config/
+├── config.go           # AppConfig struct, Context struct, Load(), Save(), XDG path
+└── config_test.go      # Round-trip, merge, validation tests
+```
+
+`internal/config` is shared between CLI commands and TUI startup. It has no
+dependency on the SDK or TUI packages.

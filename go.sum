@@ -48,6 +48,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/alecthomas/chroma/v2 v2.23.1 h1:nv2AVZdTyClGbVQkIzlDm/rnhk1E9bU9nXwmZ/Vk/iY=
 github.com/alecthomas/chroma/v2 v2.23.1/go.mod h1:NqVhfBR0lte5Ouh3DcthuUCTUpDC9cxBOfyMbMQPs3o=
+github.com/alecthomas/kong v1.14.0 h1:gFgEUZWu2ZmZ+UhyZ1bDhuutbKN1nTtJTwh19Wsn21s=
+github.com/alecthomas/kong v1.14.0/go.mod h1:wrlbXem1CWqUV5Vbmss5ISYhsVPkBb1Yo7YKJghju2I=
 github.com/alibabacloud-go/debug v1.0.0/go.mod h1:8gfgZCCAC3+SCzjWtY053FrOcd4/qlH6IHTI4QyICOc=
 github.com/alibabacloud-go/debug v1.0.1 h1:MsW9SmUtbb1Fnt3ieC6NNZi6aEwrXfDksD4QA6GSbPg=
 github.com/alibabacloud-go/debug v1.0.1/go.mod h1:8gfgZCCAC3+SCzjWtY053FrOcd4/qlH6IHTI4QyICOc=

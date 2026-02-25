@@ -13,7 +13,7 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 Prioritized next items:
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
-- [ ] `--readonly` flag to disable all mutation actions
+- [ ] `--readonly` flag to disable all mutation actions (config field ready, TUI enforcement pending)
 - [ ] Connection reconnect on failure (currently dead-end after connect error)
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 
@@ -84,6 +84,9 @@ Overlay helpers extracted (`dismissOverlay`, `updateFormModel`, `initFormWithAdv
 
 ### TUI Visual Polish
 Config tab list redesigned: two-column layout (name + type), path dropped, bold-on-select for Main (star removed), muted "── Profiles ──" section label. Backup list separator "── Backups ──" between PITR timelines and backup profiles. Vertical padding added to all panels (`Padding(1,1)`). Global `d` delete key (unified across Backups and Config tabs).
+
+### CLI & Configuration
+Kong-based CLI with `pbmate tui` as default command. XDG-compliant config file (`$XDG_CONFIG_HOME/pbmate/config.yaml`). Named connection contexts with URI + optional theme/readonly overrides. Flag precedence: CLI flag > context setting > global config > default. Context management subcommands: list, current, use, add, remove. `internal/config` package with Load/Save/Resolve methods and full test coverage. `tui.New()` accepts `Options` struct for stable extensibility. Active context name displayed in TUI header bar (muted style, hidden for direct `--uri`).
 
 ## Deferred Features
 

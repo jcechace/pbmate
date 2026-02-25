@@ -29,6 +29,7 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.55.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.55.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.23.1 // indirect
+	github.com/alecthomas/kong v1.14.0 // indirect
 	github.com/alibabacloud-go/debug v1.0.1 // indirect
 	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.4.0 // indirect
 	github.com/aliyun/credentials-go v1.4.11 // indirect

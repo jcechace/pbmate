@@ -108,6 +108,14 @@ Module-specific: `sdk:build`, `sdk:test`, `sdk:check`, `tui:build`, `tui:test`, 
 6. Add conversion test in `command_convert_test.go`.
 7. The compiler will catch missing type switch cases via `default: panic("unreachable")`.
 
+### Adding a new CLI command
+
+1. Add command struct with `cmd:""` tag in `main.go` CLI hierarchy.
+2. Add `Run(cfg *config.AppConfig) error` method.
+3. Wire into parent struct (e.g., add field to `ContextCmd`).
+4. Kong auto-discovers it — no registration needed.
+5. Update `docs/agents/tui-design.md` CLI section with the new command.
+
 ### Adding a new TUI tab
 
 1. Create `<tab>.go` with a sub-model struct (not `tea.Model`).

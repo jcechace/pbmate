@@ -29,12 +29,21 @@ var tabNames = [tabCount]string{
 	"Config",
 }
 
+// Options configures the TUI at startup. Fields are resolved from CLI flags,
+// config file, and connection context before the TUI is created.
+type Options struct {
+	URI         string // MongoDB connection URI (required)
+	Theme       Theme  // Color theme
+	ContextName string // Named context (empty for direct --uri connections)
+}
+
 // Model is the root BubbleTea model for PBMate.
 type Model struct {
-	client   *sdk.Client // nil until connectMsg arrives
-	mongoURI string      // connection URI for background connect
-	ctx      context.Context
-	cancel   context.CancelFunc
+	client      *sdk.Client // nil until connectMsg arrives
+	mongoURI    string      // connection URI for background connect
+	contextName string      // named context, empty for direct URI
+	ctx         context.Context
+	cancel      context.CancelFunc
 
 	styles Styles
 
@@ -60,14 +69,15 @@ type Model struct {
 	keys globalKeyMap
 }
 
-// New creates a new root model with the given theme. The SDK connection
+// New creates a new root model from the given options. The SDK connection
 // is established asynchronously — the TUI renders immediately while
 // connecting in the background.
-func New(uri string, theme Theme) Model {
-	s := NewStyles(theme)
+func New(opts Options) Model {
+	s := NewStyles(opts.Theme)
 	ctx, cancel := context.WithCancel(context.Background())
 	return Model{
-		mongoURI:     uri,
+		mongoURI:     opts.URI,
+		contextName:  opts.ContextName,
 		ctx:          ctx,
 		cancel:       cancel,
 		styles:       s,
@@ -420,10 +430,16 @@ func (m Model) headerView() string {
 	}
 
 	title := lipgloss.NewStyle().Bold(true).Padding(0, 1).Render("PBMate")
-	row := lipgloss.JoinHorizontal(lipgloss.Bottom,
-		title,
-		strings.Join(tabs, ""),
-	)
+
+	var headerParts []string
+	headerParts = append(headerParts, title)
+	if m.contextName != "" {
+		ctxLabel := m.styles.StatusMuted.Render(m.contextName)
+		headerParts = append(headerParts, ctxLabel, " ")
+	}
+	headerParts = append(headerParts, strings.Join(tabs, ""))
+
+	row := lipgloss.JoinHorizontal(lipgloss.Bottom, headerParts...)
 
 	return m.styles.Header.Width(m.width).Render(row)
 }
