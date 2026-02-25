@@ -33,3 +33,5 @@
 | `require` vs `assert` in tests | Use `require` only for preconditions (setup that must succeed). Using `require` for test assertions hides subsequent failures. |
 | PBM workarounds | Always mark with `TODO(pbm-fix)`. Isolate workarounds to minimize blast radius when PBM fixes the issue upstream. |
 | Unknown enum values | Log `slog.Warn`, don't crash. SDK pins to a specific PBM version; unknown enums appear only on version mismatch, which is recoverable. |
+| `TestType_Method` underscore naming | The `TestType_Method` pattern is NOT a Go stdlib convention. The stdlib uses concatenated names (`TestReaderLenSize`, `TestBufferGrowth`). Use `TestTypeMethod` — no underscores. |
+| Non-table-driven tests | When testing multiple inputs against the same logic, individual test functions are harder to maintain and extend. Use table-driven tests with `t.Run` subtests instead. |
