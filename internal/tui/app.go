@@ -379,6 +379,11 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
+		// No input to sub-models before connection — there's no data to
+		// interact with, and sub-models may rely on client/ctx being set.
+		if m.client == nil {
+			return m, nil
+		}
 		// Forward to active tab sub-model.
 		switch m.activeTab {
 		case tabOverview:

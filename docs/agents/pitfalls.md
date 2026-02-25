@@ -26,6 +26,7 @@
 | Follow context canceled flash | Pressing `f` twice quickly (start then stop follow) showed `"follow: context canceled"` because `waitForLogEntry` returns `ctx.Err()` when cancelled. | Suppress `context.Canceled` in both `logFollowMsg` and `logFollowDoneMsg` handlers — it's a normal shutdown, not an error. |
 | Double action error prefixes | `setFlash("start", err)` produced `"start: start backup: ..."` because SDK already wraps errors with the operation name. | Show `msg.err.Error()` directly for action results instead of prepending a TUI prefix. |
 | Config ErrNotFound as flash error | `Config.Get` returns `ErrNotFound` when no main config exists (valid state). If it raced first in `firstErrCollector`, user saw `"fetch: not found"`. | Skip `errs.set()` when the error is `ErrNotFound` for config fetch goroutines. |
+| Nil context panic on follow before connect | Pressing `f` before connection succeeded panicked with "cannot create context from nil parent" because `overviewModel.ctx` is nil until `connectMsg` arrives. | Guard sub-model key dispatch in `updateKeys` with `m.client == nil` check — no input to sub-models before connection. |
 
 ## General Pitfalls
 
