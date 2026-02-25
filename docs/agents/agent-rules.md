@@ -76,6 +76,22 @@ Module-specific: `sdk:build`, `sdk:test`, `sdk:check`, `tui:build`, `tui:test`, 
 - Never push to remote.
 - Never amend published commits.
 
+### Release Tags
+
+Monorepo with multiple Go modules — each has its own tag namespace:
+
+| Component | Tag format | Example | Artifacts |
+|-----------|-----------|---------|-----------|
+| TUI binary | `v<semver>` | `v0.1.0`, `v1.0.0` | Binaries via GoReleaser |
+| SDK module | `sdk/v<semver>` | `sdk/v2.0.0`, `sdk/v2.1.0` | None (Go module only) |
+| MCP (future) | `mcp/v<semver>` | `mcp/v0.1.0` | TBD |
+
+The Go toolchain requires subdirectory modules to use `<path>/v<version>` tags.
+`go get github.com/jcechace/pbmate/sdk/v2@v2.0.1` resolves to tag `sdk/v2.0.1`.
+
+The release workflow (`.github/workflows/release.yml`) triggers only on `v*` tags,
+so SDK and MCP tags do not produce binary releases.
+
 ## Doc Maintenance
 
 | When | Update |
