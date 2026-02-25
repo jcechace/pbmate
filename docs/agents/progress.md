@@ -13,7 +13,7 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 Prioritized next items:
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - [ ] `/` filter in list views
-- [ ] `--readonly` flag to disable all mutation actions (config field ready, TUI enforcement pending)
+- [x] `--readonly` flag to disable all mutation actions
 - [ ] Connection reconnect on failure (currently dead-end after connect error)
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 
@@ -87,6 +87,9 @@ Config tab list redesigned: two-column layout (name + type), path dropped, bold-
 
 ### CLI & Configuration
 Kong-based CLI with `pbmate tui` as default command. XDG-compliant config file (`$XDG_CONFIG_HOME/pbmate/config.yaml`). Named connection contexts with URI + optional theme/readonly overrides. Flag precedence: CLI flag > context setting > global config > default. Context management subcommands: list, current, use, add, remove. `internal/config` package with Load/Save/Resolve methods and full test coverage. `tui.New()` accepts `Options` struct for stable extensibility. Active context name displayed in TUI header bar (muted style, hidden for direct `--uri`).
+
+### Readonly Mode
+`--readonly` TUI enforcement. All 11 mutation keys guarded (`s`, `S`, `X`, `d`, `R`, `r` on Backups, `C`, `c`, `d`, `R`, `r` on Config). Bold yellow `READONLY` badge in bottom bar status zone. Help overlay filters out mutation entries in readonly mode. Resolved from CLI flag > context override > global config > false.
 
 ### TUI Code Quality (Review Items)
 Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form construction blocks replaced with one-liners. Unified byte formatting: removed `humanize.IBytes` in restore forms, use `humanBytes` consistently everywhere. Split domain-specific detail renderers (`statusIndicator`, `agentIndicator`, `renderBackupDetail`, `renderRestoreDetail`) from `render.go` into `detail_render.go`. Added tests for `rebuildItems` cursor stability (4 scenarios), `selectedItem`, `setRestoreData` cursor clamping, and `appendLogEntries` buffer trimming (4 scenarios).

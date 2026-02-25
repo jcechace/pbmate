@@ -35,6 +35,7 @@ type Options struct {
 	URI         string // MongoDB connection URI (required)
 	Theme       Theme  // Color theme
 	ContextName string // Named context (empty for direct --uri connections)
+	Readonly    bool   // Disable all mutation actions
 }
 
 // Model is the root BubbleTea model for PBMate.
@@ -42,6 +43,7 @@ type Model struct {
 	client      *sdk.Client // nil until connectMsg arrives
 	mongoURI    string      // connection URI for background connect
 	contextName string      // named context, empty for direct URI
+	readonly    bool        // disable all mutation actions
 	ctx         context.Context
 	cancel      context.CancelFunc
 
@@ -78,6 +80,7 @@ func New(opts Options) Model {
 	return Model{
 		mongoURI:     opts.URI,
 		contextName:  opts.ContextName,
+		readonly:     opts.Readonly,
 		ctx:          ctx,
 		cancel:       cancel,
 		styles:       s,
@@ -348,11 +351,11 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		newTab = tabBackups
 	case key.Matches(msg, m.keys.Tab3):
 		newTab = tabConfig
-	case key.Matches(msg, backupKeys.Start) && m.client != nil:
+	case key.Matches(msg, backupKeys.Start) && m.client != nil && !m.readonly:
 		return m, m.openBackupForm(backupFormQuick)
-	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil:
+	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil && !m.readonly:
 		return m, m.openBackupForm(backupFormFull)
-	case key.Matches(msg, backupKeys.Cancel) && m.client != nil:
+	case key.Matches(msg, backupKeys.Cancel) && m.client != nil && !m.readonly:
 		if m.overview.HasRunningOps() {
 			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
 				"Cancel Backup",
@@ -372,11 +375,11 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		case tabBackups:
-			if cmd := m.backups.update(msg, m.keys); cmd != nil {
+			if cmd := m.backups.update(msg, m.keys, m.readonly); cmd != nil {
 				return m, cmd
 			}
 		case tabConfig:
-			if cmd := m.config.update(msg, m.keys); cmd != nil {
+			if cmd := m.config.update(msg, m.keys, m.readonly); cmd != nil {
 				return m, cmd
 			}
 		}
@@ -449,7 +452,7 @@ func (m Model) headerView() string {
 // When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
 	if m.showHelp {
-		return renderHelpOverlay(&m.styles, m.width, height)
+		return renderHelpOverlay(&m.styles, m.width, height, m.readonly)
 	}
 	if m.activeOverlay != nil {
 		return m.activeOverlay.View(&m.styles, m.width, height)
@@ -472,6 +475,9 @@ func (m Model) contentView(height int) string {
 func (m Model) bottomBarView() string {
 	// Left zone: operational status HUD.
 	var statusParts []string
+	if m.readonly {
+		statusParts = append(statusParts, m.styles.StatusWarning.Bold(true).Render("READONLY"))
+	}
 	switch {
 	case m.flashErr != "":
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))

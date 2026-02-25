@@ -99,32 +99,52 @@ func TestRenderCursorList(t *testing.T) {
 }
 
 func TestHelpColumns(t *testing.T) {
-	left, right := helpColumns()
+	t.Run("normal mode", func(t *testing.T) {
+		left, right := helpColumns(false)
 
-	// Verify we have the expected number of sections per column.
-	require.Len(t, left, 3, "left column should have 3 sections")
-	require.Len(t, right, 3, "right column should have 3 sections")
+		// Verify we have the expected number of sections per column.
+		require.Len(t, left, 3, "left column should have 3 sections")
+		require.Len(t, right, 3, "right column should have 3 sections")
 
-	// Verify left column section titles.
-	assert.Equal(t, "Navigation", left[0].title)
-	assert.Equal(t, "Global", left[1].title)
-	assert.Equal(t, "General", left[2].title)
+		// Verify left column section titles.
+		assert.Equal(t, "Navigation", left[0].title)
+		assert.Equal(t, "Global", left[1].title)
+		assert.Equal(t, "General", left[2].title)
 
-	// Verify right column section titles.
-	assert.Equal(t, "1:Overview", right[0].title)
-	assert.Equal(t, "2:Backups", right[1].title)
-	assert.Equal(t, "3:Config", right[2].title)
+		// Verify right column section titles.
+		assert.Equal(t, "1:Overview", right[0].title)
+		assert.Equal(t, "2:Backups", right[1].title)
+		assert.Equal(t, "3:Config", right[2].title)
 
-	// Every section should have at least one entry with non-empty key/desc.
-	for _, sections := range [][]helpSection{left, right} {
-		for _, s := range sections {
-			assert.NotEmpty(t, s.entries, "section %q should have entries", s.title)
-			for _, e := range s.entries {
-				assert.NotEmpty(t, e.key, "entry in %q should have a key", s.title)
-				assert.NotEmpty(t, e.desc, "entry in %q should have a desc", s.title)
+		// Every section should have at least one entry with non-empty key/desc.
+		for _, sections := range [][]helpSection{left, right} {
+			for _, s := range sections {
+				assert.NotEmpty(t, s.entries, "section %q should have entries", s.title)
+				for _, e := range s.entries {
+					assert.NotEmpty(t, e.key, "entry in %q should have a key", s.title)
+					assert.NotEmpty(t, e.desc, "entry in %q should have a desc", s.title)
+				}
 			}
 		}
-	}
+	})
+
+	t.Run("readonly mode", func(t *testing.T) {
+		left, right := helpColumns(true)
+
+		// Left column: Navigation + General only (no Global mutation section).
+		require.Len(t, left, 2, "left column should have 2 sections in readonly")
+		assert.Equal(t, "Navigation", left[0].title)
+		assert.Equal(t, "General", left[1].title)
+
+		// Right column: Overview + Backups (toggle only), no Config section.
+		require.Len(t, right, 2, "right column should have 2 sections in readonly")
+		assert.Equal(t, "1:Overview", right[0].title)
+		assert.Equal(t, "2:Backups", right[1].title)
+
+		// Backups section should only have the toggle entry (no restore).
+		require.Len(t, right[1].entries, 1, "Backups section should have 1 entry in readonly")
+		assert.Equal(t, "tab", right[1].entries[0].key)
+	})
 }
 
 func TestHelpCombined(t *testing.T) {

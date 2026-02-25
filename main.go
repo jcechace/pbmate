@@ -48,10 +48,13 @@ func (cmd *tuiCmd) Run(cfg *config.AppConfig) error {
 		contextName = cfg.CurrentContext
 	}
 
+	readonly := cfg.ResolveReadonly(cmd.Readonly, cmd.Context)
+
 	m := tui.New(tui.Options{
 		URI:         uri,
 		Theme:       theme,
 		ContextName: contextName,
+		Readonly:    readonly,
 	})
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	result, err := p.Run()

@@ -129,7 +129,8 @@ func (m *backupsModel) selectedRestore() *sdk.Restore {
 
 // update handles key messages for the Backups tab.
 // Returns a tea.Cmd if an action was triggered, nil otherwise.
-func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
+// The readonly flag disables all mutation actions (restore, delete).
+func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) tea.Cmd {
 	switch {
 	case key.Matches(msg, backupKeys.Toggle) && m.focus == panelLeft:
 		if m.mode == listBackups {
@@ -147,7 +148,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		m.handleVertical(1)
 	case key.Matches(msg, keys.Up):
 		m.handleVertical(-1)
-	case key.Matches(msg, backupKeys.Restore):
+	case key.Matches(msg, backupKeys.Restore) && !readonly:
 		// Generic restore: open Step 1 (target selection) with all data.
 		if m.mode == listBackups {
 			backups := m.allBackups()
@@ -156,7 +157,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 				return restoreTargetRequest{backups: backups, timelines: timelines}
 			}
 		}
-	case key.Matches(msg, backupKeys.RestoreSelected):
+	case key.Matches(msg, backupKeys.RestoreSelected) && !readonly:
 		// Selected restore: skip Step 1, go straight to Step 2.
 		if m.mode == listBackups {
 			// Snapshot restore from a completed backup.
@@ -175,7 +176,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 				}
 			}
 		}
-	case key.Matches(msg, keys.Delete):
+	case key.Matches(msg, keys.Delete) && !readonly:
 		if m.mode == listBackups {
 			if sel := m.selectedBackup(); sel != nil {
 				baseName, title, desc := m.resolveDeleteTarget(sel)

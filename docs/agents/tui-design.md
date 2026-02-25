@@ -139,8 +139,33 @@ override confirm), `c` set config for selected item (pre-filled from cursor),
 
 - Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
 - `/` filter in list views
-- `--readonly` flag to disable all mutation actions
 - Connection reconnect on failure
+
+## Readonly Mode
+
+When `--readonly` is active (via CLI flag, context override, or global config),
+all mutation actions are disabled. The TUI operates as a monitoring-only viewer.
+
+### Behavior
+
+- **Disabled keys**: `s`, `S` (start backup), `X` (cancel backup), `d` (delete),
+  `R`, `r` (restore) on the Backups tab, `C`, `c` (set config), `R`, `r` (resync),
+  `d` (delete profile) on the Config tab. These keys are silently ignored.
+- **Help overlay**: Mutation entries are omitted from the help overlay. Only
+  navigation, view-only, and general bindings are shown.
+- **Bottom bar badge**: A bold yellow `READONLY` badge is displayed as the first
+  item in the bottom bar status zone (left side), before PITR/Op/time indicators.
+  This makes the mode immediately visible on all tabs.
+
+```
+│ READONLY  PITR:on  Op:none  15:04 │ ↑↓:nav  tab:toggle  ?:help  q:quit │
+```
+
+### Resolution
+
+Readonly is resolved with full precedence at startup:
+CLI `--readonly`/`--no-readonly` flag > context-level `readonly` override >
+global `readonly` config field > `false` (default).
 
 ## Keybindings
 

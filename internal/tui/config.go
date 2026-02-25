@@ -154,21 +154,22 @@ type resyncFormRequest struct {
 // --- Update ---
 
 // update handles key messages for the Config tab.
-func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
+// The readonly flag disables all mutation actions (set config, resync, delete).
+func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) tea.Cmd {
 	switch {
-	case key.Matches(msg, configKeys.SetConfig):
+	case key.Matches(msg, configKeys.SetConfig) && !readonly:
 		return m.emitSetConfigRequest(nil)
-	case key.Matches(msg, configKeys.SetConfigSelected):
+	case key.Matches(msg, configKeys.SetConfigSelected) && !readonly:
 		return m.emitSetConfigRequest(m.setConfigPresetFromSelection())
-	case key.Matches(msg, keys.Delete):
+	case key.Matches(msg, keys.Delete) && !readonly:
 		if name := m.selectedProfileName(); name != "" {
 			return func() tea.Msg {
 				return removeProfileRequest{name: name}
 			}
 		}
-	case key.Matches(msg, configKeys.Resync):
+	case key.Matches(msg, configKeys.Resync) && !readonly:
 		return m.emitResyncRequest(nil)
-	case key.Matches(msg, configKeys.ResyncSelected):
+	case key.Matches(msg, configKeys.ResyncSelected) && !readonly:
 		return m.emitResyncRequest(m.resyncPresetFromSelection())
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)

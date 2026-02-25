@@ -111,7 +111,9 @@ func helpCombined(a, b key.Binding, desc string) helpEntry {
 // Left: Navigation, Global, General. Right: tab-specific sections.
 // Entries are derived from the actual key.Binding definitions in keys.go,
 // so the help overlay stays in sync with keybinding changes.
-func helpColumns() (left, right []helpSection) {
+// When readonly is true, mutation entries (backup, cancel, delete, restore,
+// set config, resync) are omitted.
+func helpColumns(readonly bool) (left, right []helpSection) {
 	left = []helpSection{
 		{"Navigation", []helpEntry{
 			{
@@ -122,31 +124,43 @@ func helpColumns() (left, right []helpSection) {
 			helpFromBinding(globalKeys.Down),
 			{"1-3", "jump to tab"},
 		}},
-		{"Global", []helpEntry{
+	}
+	if !readonly {
+		left = append(left, helpSection{"Global", []helpEntry{
 			helpCombined(backupKeys.Start, backupKeys.StartCustom, "backup"),
 			helpFromBinding(backupKeys.Cancel),
 			helpFromBinding(globalKeys.Delete),
-		}},
-		{"General", []helpEntry{
-			helpFromBinding(globalKeys.Help),
-			{key: globalKeys.Back.Help().Key, desc: "back / dismiss"},
-			helpFromBinding(globalKeys.Quit),
-		}},
+		}})
 	}
+	left = append(left, helpSection{"General", []helpEntry{
+		helpFromBinding(globalKeys.Help),
+		{key: globalKeys.Back.Help().Key, desc: "back / dismiss"},
+		helpFromBinding(globalKeys.Quit),
+	}})
+
 	right = []helpSection{
 		{"1:Overview", []helpEntry{
 			helpFromBinding(overviewKeys.Toggle),
 			helpFromBinding(overviewKeys.Follow),
 			helpFromBinding(overviewKeys.Wrap),
 		}},
-		{"2:Backups", []helpEntry{
+	}
+
+	if readonly {
+		// Backups tab: only navigation (toggle), no mutations.
+		right = append(right, helpSection{"2:Backups", []helpEntry{
+			helpFromBinding(backupKeys.Toggle),
+		}})
+		// Config tab: no mutation bindings, section omitted entirely.
+	} else {
+		right = append(right, helpSection{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
 			helpCombined(backupKeys.RestoreSelected, backupKeys.Restore, "restore"),
-		}},
-		{"3:Config", []helpEntry{
+		}})
+		right = append(right, helpSection{"3:Config", []helpEntry{
 			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),
 			helpCombined(configKeys.ResyncSelected, configKeys.Resync, "resync"),
-		}},
+		}})
 	}
 	return
 }
@@ -171,12 +185,13 @@ func renderHelpColumn(sections []helpSection, keyStyle, descStyle, sectionStyle 
 // renderHelpOverlay renders a centered two-column help panel showing all
 // keybindings organized by category. Left column has navigation, global, and
 // general bindings. Right column has tab-specific sections.
-func renderHelpOverlay(styles *Styles, contentW, contentH int) string {
+// When readonly is true, mutation entries are omitted.
+func renderHelpOverlay(styles *Styles, contentW, contentH int, readonly bool) string {
 	keyStyle := styles.HintKey
 	descStyle := lipgloss.NewStyle().Foreground(styles.FocusedBorderColor)
 	sectionStyle := lipgloss.NewStyle().Bold(true).Foreground(styles.FocusedBorderColor)
 
-	left, right := helpColumns()
+	left, right := helpColumns(readonly)
 	leftStr := renderHelpColumn(left, keyStyle, descStyle, sectionStyle)
 	rightStr := renderHelpColumn(right, keyStyle, descStyle, sectionStyle)
 
