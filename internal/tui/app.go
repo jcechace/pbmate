@@ -49,12 +49,13 @@ type Model struct {
 
 	styles Styles
 
-	activeTab    tab
-	width        int
-	height       int
-	pollInterval time.Duration
-	connecting   bool   // true while waiting for the initial connection
-	flashErr     string // transient error message for the status bar
+	activeTab      tab
+	width          int
+	height         int
+	pollInterval   time.Duration
+	connecting     bool   // true while initial connection is in progress (including retries)
+	connectAttempt int    // number of connection attempts (0 = first try, 1+ = retries)
+	flashErr       string // transient error message for the status bar
 
 	// activeOverlay captures all input when non-nil. Overlays include
 	// backup forms, file pickers, profile name forms, and confirm dialogs.
@@ -131,15 +132,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case connectMsg:
-		m.connecting = false
 		if msg.err != nil {
-			m.flashErr = fmt.Sprintf("connect: %v", msg.err)
-			return m, nil
+			m.connectAttempt++
+			delay := connectBackoff(m.connectAttempt)
+			m.flashErr = fmt.Sprintf("connect: %v (retry in %s)", msg.err, delay.Truncate(time.Second))
+			return m, reconnectCmd(delay)
 		}
+		m.connecting = false
+		m.connectAttempt = 0
+		m.flashErr = ""
 		m.client = msg.client
 		m.overview.ctx = m.ctx
 		m.overview.client = msg.client
 		return m, tickCmd(0)
+
+	case reconnectMsg:
+		m.flashErr = ""
+		return m, connectCmd(m.mongoURI)
 
 	case tickMsg:
 		if m.client == nil {
@@ -481,6 +490,9 @@ func (m Model) bottomBarView() string {
 	switch {
 	case m.flashErr != "":
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
+	case m.connecting && m.connectAttempt > 0:
+		label := fmt.Sprintf("Connecting... (attempt %d)", m.connectAttempt+1)
+		statusParts = append(statusParts, m.styles.StatusWarning.Render(label))
 	case m.connecting:
 		statusParts = append(statusParts, m.styles.StatusWarning.Render("Connecting..."))
 	default:

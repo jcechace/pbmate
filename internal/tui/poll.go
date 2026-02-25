@@ -12,7 +12,26 @@ const (
 
 	// activeInterval is the polling interval when an operation is in progress.
 	activeInterval = 2 * time.Second
+
+	// connectRetryMin is the initial delay before retrying a failed connection.
+	connectRetryMin = 2 * time.Second
+
+	// connectRetryMax is the maximum delay between connection retry attempts.
+	connectRetryMax = 30 * time.Second
 )
+
+// connectBackoff returns the retry delay for the given attempt number (1-based).
+// Uses exponential backoff: 2s, 4s, 8s, 16s, 30s, 30s, ...
+func connectBackoff(attempt int) time.Duration {
+	d := connectRetryMin
+	for i := 1; i < attempt; i++ {
+		d *= 2
+		if d >= connectRetryMax {
+			return connectRetryMax
+		}
+	}
+	return d
+}
 
 // tickMsg signals that it is time to fetch fresh data.
 type tickMsg time.Time

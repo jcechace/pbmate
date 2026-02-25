@@ -239,6 +239,29 @@ we know terminal dimensions, and `connectCmd` runs `sdk.NewClient()` in a
 goroutine, returning `connectMsg{client, err}`. The TUI renders immediately
 with "Connecting..." while the SDK connects in the background.
 
+### Connection Retry
+
+If the initial connection fails, the TUI retries automatically with exponential
+backoff (2s, 4s, 8s, 16s, 30s cap). The retry chain uses `reconnectMsg`:
+
+```
+connectCmd(uri)
+  └─> connectMsg{err}  → flashErr shows error + retry delay
+        └─> reconnectCmd(delay)
+              └─> reconnectMsg  → flashErr cleared
+                    └─> connectCmd(uri)
+                          └─> connectMsg{ok}  → normal polling starts
+```
+
+Bottom bar status during retries:
+- First attempt: `Connecting...`
+- After failure: `connect: <error> (retry in 4s)` (red)
+- During retry: `Connecting... (attempt 3)` (yellow)
+
+The user can quit (`q`/`Ctrl+C`) at any time. Once connected, retry state is
+cleared. Mid-session disconnects are handled by the MongoDB driver's built-in
+automatic reconnection — PBMate does not re-create the SDK client.
+
 ### Polling Chain
 
 See `docs/agents/tui-conventions.md` Polling Pattern section for the chained
@@ -251,6 +274,7 @@ single-shot timer design and adaptive intervals (2s active, 10s idle).
 | `tea.WindowSizeMsg` | BubbleTea runtime    | Terminal resized                  |
 | `tea.KeyMsg`        | BubbleTea runtime    | User keypress                     |
 | `connectMsg`        | `connectCmd`         | SDK client ready or error         |
+| `reconnectMsg`      | `reconnectCmd`       | Retry delay elapsed, reconnect    |
 | `tickMsg`           | `tickCmd`            | Timer fired, time to fetch        |
 | `overviewDataMsg`   | `fetchOverviewCmd`   | Overview data arrived             |
 | `backupsDataMsg`    | `fetchBackupsCmd`    | Backup list arrived               |

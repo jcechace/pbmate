@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/sync/errgroup"
@@ -48,6 +49,16 @@ func connectCmd(uri string) tea.Cmd {
 		client, err := sdk.NewClient(ctx, sdk.WithMongoURI(uri))
 		return connectMsg{client: client, err: err}
 	}
+}
+
+// reconnectMsg signals that the retry delay has elapsed and a new connection
+// attempt should be made.
+type reconnectMsg struct{}
+
+// reconnectCmd returns a tea.Cmd that waits for the given delay, then sends
+// a reconnectMsg to trigger another connection attempt.
+func reconnectCmd(delay time.Duration) tea.Cmd {
+	return tea.Tick(delay, func(time.Time) tea.Msg { return reconnectMsg{} })
 }
 
 // overviewData holds the result of a single overview poll cycle.

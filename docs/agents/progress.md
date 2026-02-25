@@ -11,7 +11,7 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 ## Backlog
 
 Prioritized next items:
-- [ ] Connection reconnect on failure (currently dead-end after connect error)
+- [x] Connection reconnect on failure (auto-retry with exponential backoff)
 - [ ] Refine error messages (e.g. "follow: context canceled" on double-f toggle)
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
@@ -92,6 +92,9 @@ Kong-based CLI with `pbmate tui` as default command. XDG-compliant config file (
 
 ### Readonly Mode
 `--readonly` TUI enforcement. All 11 mutation keys guarded (`s`, `S`, `X`, `d`, `R`, `r` on Backups, `C`, `c`, `d`, `R`, `r` on Config). Bold yellow `READONLY` badge in bottom bar status zone. Help overlay filters out mutation entries in readonly mode. Resolved from CLI flag > context override > global config > false.
+
+### Connection Reconnect
+Auto-retry with exponential backoff (2s, 4s, 8s, 16s, 30s cap) on initial connection failure. Retry chain via `reconnectMsg` message. Bottom bar shows attempt count during retries. User can quit at any time. Mid-session disconnects handled by MongoDB driver.
 
 ### TUI Code Quality (Review Items)
 Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form construction blocks replaced with one-liners. Unified byte formatting: removed `humanize.IBytes` in restore forms, use `humanBytes` consistently everywhere. Split domain-specific detail renderers (`statusIndicator`, `agentIndicator`, `renderBackupDetail`, `renderRestoreDetail`) from `render.go` into `detail_render.go`. Added tests for `rebuildItems` cursor stability (4 scenarios), `selectedItem`, `setRestoreData` cursor clamping, and `appendLogEntries` buffer trimming (4 scenarios).
