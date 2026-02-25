@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 )
@@ -36,9 +37,10 @@ type Client struct {
 }
 
 type options struct {
-	mongoURI string
-	appName  string
-	logger   *slog.Logger
+	mongoURI       string
+	appName        string
+	logger         *slog.Logger
+	connectTimeout *time.Duration
 }
 
 // Option configures how the Client is created.
@@ -58,6 +60,14 @@ func WithAppName(name string) Option {
 // If not set, the SDK produces no log output.
 func WithLogger(l *slog.Logger) Option {
 	return func(o *options) { o.logger = l }
+}
+
+// WithConnectTimeout sets a timeout for the initial connection to MongoDB.
+// This bounds the time spent on server discovery, authentication, and topology
+// resolution during [NewClient]. If not set, the connection uses the MongoDB
+// driver's default server selection timeout (30s).
+func WithConnectTimeout(d time.Duration) Option {
+	return func(o *options) { o.connectTimeout = &d }
 }
 
 // NewClient creates a new PBM client with the given options.
@@ -92,6 +102,14 @@ func newMongoClient(ctx context.Context, o *options) (*Client, error) {
 	log := o.logger
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
+	}
+
+	// TODO(pbm-fix): Once PBM's connect.Connect accepts variadic MongoOption,
+	// use connect.ServerSelectionTimeout instead of a context deadline.
+	if o.connectTimeout != nil {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *o.connectTimeout)
+		defer cancel()
 	}
 
 	conn, err := connect.Connect(ctx, o.mongoURI, o.appName)

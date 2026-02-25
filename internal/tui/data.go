@@ -44,10 +44,14 @@ type connectMsg struct {
 }
 
 // connectCmd returns a tea.Cmd that connects to PBM in the background.
+// Each attempt is bounded by connectTimeout (defined in poll.go).
 func connectCmd(uri string) tea.Cmd {
 	return func() tea.Msg {
 		ctx := context.Background()
-		client, err := sdk.NewClient(ctx, sdk.WithMongoURI(uri))
+		client, err := sdk.NewClient(ctx,
+			sdk.WithMongoURI(uri),
+			sdk.WithConnectTimeout(connectTimeout),
+		)
 		return connectMsg{client: client, err: err}
 	}
 }

@@ -253,9 +253,12 @@ connectCmd(uri)
                           └─> connectMsg{ok}  → normal polling starts
 ```
 
+Each connection attempt uses a 10s timeout (`sdk.WithConnectTimeout`) so
+the user gets feedback quickly rather than waiting for the driver's 30s default.
+
 Bottom bar status during retries:
-- First attempt: `Connecting...`
-- After failure: `connect: <error> (retry in 4s)` (red)
+- First attempt: `Connecting...` (up to 10s)
+- After failure: `Connection failed (retry in 2s)` (red)
 - During retry: `Connecting... (attempt 3)` (yellow)
 
 The user can quit (`q`/`Ctrl+C`) at any time. Once connected, retry state is

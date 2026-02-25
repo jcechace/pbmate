@@ -13,6 +13,10 @@ const (
 	// activeInterval is the polling interval when an operation is in progress.
 	activeInterval = 2 * time.Second
 
+	// connectTimeout is the maximum time to wait for a single connection
+	// attempt to MongoDB before giving up and scheduling a retry.
+	connectTimeout = 10 * time.Second
+
 	// connectRetryMin is the initial delay before retrying a failed connection.
 	connectRetryMin = 2 * time.Second
 
