@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestBackup_IsIncremental(t *testing.T) {
+func TestBackupIsIncremental(t *testing.T) {
 	tests := []struct {
 		name   string
 		backup Backup
@@ -42,7 +42,7 @@ func TestBackup_IsIncremental(t *testing.T) {
 	}
 }
 
-func TestBackup_IsIncrementalBase(t *testing.T) {
+func TestBackupIsIncrementalBase(t *testing.T) {
 	tests := []struct {
 		name   string
 		backup Backup
@@ -72,7 +72,7 @@ func TestBackup_IsIncrementalBase(t *testing.T) {
 	}
 }
 
-func TestBackup_IsSelective(t *testing.T) {
+func TestBackupIsSelective(t *testing.T) {
 	tests := []struct {
 		name   string
 		backup Backup
@@ -102,7 +102,7 @@ func TestBackup_IsSelective(t *testing.T) {
 	}
 }
 
-func TestBackup_InProgress(t *testing.T) {
+func TestBackupInProgress(t *testing.T) {
 	tests := []struct {
 		name   string
 		status Status
@@ -124,7 +124,7 @@ func TestBackup_InProgress(t *testing.T) {
 	}
 }
 
-func TestBackup_Duration(t *testing.T) {
+func TestBackupDuration(t *testing.T) {
 	start := time.Date(2026, 2, 19, 20, 0, 0, 0, time.UTC)
 
 	tests := []struct {

@@ -16,7 +16,7 @@ func mkBackup(name string, typ BackupType, src string) Backup {
 	}
 }
 
-func TestBackupChain_Len(t *testing.T) {
+func TestBackupChainLen(t *testing.T) {
 	t.Run("base only", func(t *testing.T) {
 		c := BackupChain{Base: mkBackup("base", BackupTypeIncremental, "")}
 		assert.Equal(t, 1, c.Len())
@@ -34,7 +34,7 @@ func TestBackupChain_Len(t *testing.T) {
 	})
 }
 
-func TestBackupChain_All(t *testing.T) {
+func TestBackupChainAll(t *testing.T) {
 	c := BackupChain{
 		Base: mkBackup("base", BackupTypeIncremental, ""),
 		Children: []Backup{

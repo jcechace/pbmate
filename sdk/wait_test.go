@@ -39,7 +39,7 @@ func makeWaitParams(calls *[]testEntity, entities ...testEntity) waitParams[*tes
 	}
 }
 
-func TestWaitForTerminal_ImmediateDone(t *testing.T) {
+func TestWaitForTerminalImmediateDone(t *testing.T) {
 	var calls []testEntity
 	p := makeWaitParams(&calls, testEntity{status: StatusDone})
 
@@ -49,7 +49,7 @@ func TestWaitForTerminal_ImmediateDone(t *testing.T) {
 	assert.Len(t, calls, 1, "should poll exactly once for immediate terminal")
 }
 
-func TestWaitForTerminal_PollsThroughNonTerminal(t *testing.T) {
+func TestWaitForTerminalPollsThroughNonTerminal(t *testing.T) {
 	var calls []testEntity
 	p := makeWaitParams(&calls,
 		testEntity{status: StatusStarting},
@@ -63,7 +63,7 @@ func TestWaitForTerminal_PollsThroughNonTerminal(t *testing.T) {
 	assert.Len(t, calls, 3)
 }
 
-func TestWaitForTerminal_ErrorStatus(t *testing.T) {
+func TestWaitForTerminalErrorStatus(t *testing.T) {
 	var calls []testEntity
 	p := makeWaitParams(&calls,
 		testEntity{status: StatusRunning},
@@ -80,7 +80,7 @@ func TestWaitForTerminal_ErrorStatus(t *testing.T) {
 	assert.Equal(t, StatusError, result.status, "entity should still be returned on error")
 }
 
-func TestWaitForTerminal_PartlyDoneStatus(t *testing.T) {
+func TestWaitForTerminalPartlyDoneStatus(t *testing.T) {
 	var calls []testEntity
 	p := makeWaitParams(&calls,
 		testEntity{status: StatusPartlyDone, errMsg: "partial failure"},
@@ -95,7 +95,7 @@ func TestWaitForTerminal_PartlyDoneStatus(t *testing.T) {
 	assert.Equal(t, StatusPartlyDone, result.status)
 }
 
-func TestWaitForTerminal_NotFoundRetry(t *testing.T) {
+func TestWaitForTerminalNotFoundRetry(t *testing.T) {
 	// Simulate entity not found on first call, then appearing.
 	idx := 0
 	var calls []string
@@ -121,7 +121,7 @@ func TestWaitForTerminal_NotFoundRetry(t *testing.T) {
 	assert.Equal(t, []string{"not-found", "not-found", "found"}, calls)
 }
 
-func TestWaitForTerminal_NonNotFoundError(t *testing.T) {
+func TestWaitForTerminalNonNotFoundError(t *testing.T) {
 	someErr := errors.New("connection lost")
 	p := waitParams[*testEntity]{
 		get: func(_ context.Context, _ string) (*testEntity, error) {
@@ -139,7 +139,7 @@ func TestWaitForTerminal_NonNotFoundError(t *testing.T) {
 	assert.Contains(t, err.Error(), "wait for test \"test-1\"")
 }
 
-func TestWaitForTerminal_ContextCancellation(t *testing.T) {
+func TestWaitForTerminalContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	callCount := 0
@@ -163,7 +163,7 @@ func TestWaitForTerminal_ContextCancellation(t *testing.T) {
 	assert.Equal(t, StatusRunning, result.status, "last observed entity should be returned")
 }
 
-func TestWaitForTerminal_OnProgressCallback(t *testing.T) {
+func TestWaitForTerminalOnProgressCallback(t *testing.T) {
 	var progressCalls []*testEntity
 	var calls []testEntity
 	p := makeWaitParams(&calls,
@@ -183,7 +183,7 @@ func TestWaitForTerminal_OnProgressCallback(t *testing.T) {
 	assert.Equal(t, StatusDone, progressCalls[2].status)
 }
 
-func TestWaitForTerminal_DefaultPollInterval(t *testing.T) {
+func TestWaitForTerminalDefaultPollInterval(t *testing.T) {
 	// Passing 0 interval should use defaultPollInterval (1s).
 	// We just verify it doesn't panic and works. We use a real terminal
 	// status on the first call to avoid a long test.
@@ -195,7 +195,7 @@ func TestWaitForTerminal_DefaultPollInterval(t *testing.T) {
 	assert.Equal(t, StatusDone, result.status)
 }
 
-func TestWaitForTerminal_CancelledStatus(t *testing.T) {
+func TestWaitForTerminalCancelledStatus(t *testing.T) {
 	var calls []testEntity
 	p := makeWaitParams(&calls, testEntity{status: StatusCancelled})
 

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRestore_InProgress(t *testing.T) {
+func TestRestoreInProgress(t *testing.T) {
 	tests := []struct {
 		name   string
 		status Status
@@ -29,7 +29,7 @@ func TestRestore_InProgress(t *testing.T) {
 	}
 }
 
-func TestRestore_Duration(t *testing.T) {
+func TestRestoreDuration(t *testing.T) {
 	start := time.Date(2026, 2, 19, 20, 0, 0, 0, time.UTC)
 
 	tests := []struct {
