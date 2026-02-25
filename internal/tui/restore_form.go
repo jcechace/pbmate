@@ -7,7 +7,6 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/dustin/go-humanize"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -265,13 +264,7 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 			Value(&result.confirmed),
 	))
 
-	form := huh.NewForm(groups...).
-		WithTheme(formTheme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	form := newStandardForm(groups, formTheme)
 
 	return form, result
 }
@@ -322,7 +315,7 @@ func completedBackupOptions(backups []sdk.Backup, profile string) []huh.Option[s
 		}
 		label := fmt.Sprintf("%s  %s", bk.Name, bk.Type)
 		if bk.Size > 0 {
-			label += "  " + humanize.IBytes(uint64(bk.Size))
+			label += "  " + humanBytes(bk.Size)
 		}
 		opts = append(opts, huh.NewOption(label, bk.Name))
 	}
@@ -364,7 +357,7 @@ func backupContextDescription(bk *sdk.Backup) string {
 	parts = append(parts, bk.Status.String())
 
 	if bk.Size > 0 {
-		parts = append(parts, humanize.IBytes(uint64(bk.Size)))
+		parts = append(parts, humanBytes(bk.Size))
 	}
 
 	if bk.ConfigName.String() != "" {
@@ -460,13 +453,7 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup, initial *resto
 		),
 	)
 
-	form := huh.NewForm(groups...).
-		WithTheme(formTheme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	form := newStandardForm(groups, formTheme)
 
 	return form, result
 }
@@ -618,13 +605,7 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 		),
 	)
 
-	form := huh.NewForm(groups...).
-		WithTheme(formTheme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	form := newStandardForm(groups, formTheme)
 
 	return form, result
 }

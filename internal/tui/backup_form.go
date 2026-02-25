@@ -135,10 +135,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 		confirmed:   true,
 	}
 
-	theme := *formTheme
-	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-
-	form := huh.NewForm(
+	form := newBorderlessForm([]*huh.Group{
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Start Backup").
@@ -149,13 +146,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 				Negative("Customize (c)").
 				Value(&result.confirmed),
 		),
-	).
-		WithTheme(&theme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	}, formTheme)
 
 	return form, result
 }
@@ -267,13 +258,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 		),
 	)
 
-	form := huh.NewForm(groups...).
-		WithTheme(formTheme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	form := newStandardForm(groups, formTheme)
 
 	return form, result
 }
@@ -290,10 +275,7 @@ type confirmFormResult struct {
 func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
 	result := &confirmFormResult{confirmed: true}
 
-	theme := *formTheme
-	theme.Focused.Base = theme.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-
-	form := huh.NewForm(
+	form := newBorderlessForm([]*huh.Group{
 		huh.NewGroup(
 			huh.NewNote().
 				Description(description),
@@ -303,15 +285,32 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 				Negative(negative).
 				Value(&result.confirmed),
 		),
-	).
-		WithTheme(&theme).
+	}, formTheme)
+
+	return form, result
+}
+
+// --- Form construction helpers ---
+
+// newStandardForm creates a huh.Form with PBMate's standard configuration:
+// stack layout, default overlay width, no help/errors, custom keymap.
+func newStandardForm(groups []*huh.Group, theme *huh.Theme) *huh.Form {
+	return huh.NewForm(groups...).
+		WithTheme(theme).
 		WithLayout(huh.LayoutStack).
 		WithWidth(formOverlayDefaultWidth).
 		WithShowHelp(false).
 		WithShowErrors(false).
 		WithKeyMap(formKeyMap())
+}
 
-	return form, result
+// newBorderlessForm creates a standard form with hidden group borders.
+// Used for compact overlays (confirms, quick backup) where the overlay
+// panel border is sufficient.
+func newBorderlessForm(groups []*huh.Group, theme *huh.Theme) *huh.Form {
+	t := *theme
+	t.Focused.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+	return newStandardForm(groups, &t)
 }
 
 // --- Shared overlay helpers ---

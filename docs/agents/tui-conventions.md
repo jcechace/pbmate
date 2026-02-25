@@ -142,7 +142,8 @@ internal/tui/
 ├── overlay.go          # formOverlay interface + all overlay types
 ├── log_panel.go        # Reusable log viewer component
 ├── data.go             # Data fetching commands, message types, actionResultMsg, firstErrCollector
-├── render.go           # Shared rendering helpers
+├── render.go           # Shared rendering primitives (panels, cursor list, help, formatting)
+├── detail_render.go    # Domain-specific detail renderers (backup, restore, status/agent indicators)
 ├── layout.go           # Layout helpers, dimension math, panelBorderColor
 ├── keys.go             # Key bindings (global + per-tab)
 ├── styles.go           # Lipgloss styles

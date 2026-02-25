@@ -113,13 +113,7 @@ func newSetConfigForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initi
 			Value(&result.confirmed),
 	))
 
-	form := huh.NewForm(groups...).
-		WithTheme(formTheme).
-		WithLayout(huh.LayoutStack).
-		WithWidth(formOverlayDefaultWidth).
-		WithShowHelp(false).
-		WithShowErrors(false).
-		WithKeyMap(formKeyMap())
+	form := newStandardForm(groups, formTheme)
 
 	return form, result
 }
