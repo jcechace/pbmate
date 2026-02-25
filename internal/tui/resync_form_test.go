@@ -9,7 +9,7 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-func TestResyncFormResult_ToCommand(t *testing.T) {
+func TestResyncFormResultToCommand(t *testing.T) {
 	t.Run("main scope", func(t *testing.T) {
 		r := &resyncFormResult{
 			scope:           resyncScopeMain,

@@ -41,7 +41,7 @@ func TestParseOptionalInt(t *testing.T) {
 
 // --- backupFormResult.toCommand ---
 
-func TestBackupFormResult_ToCommand_Logical(t *testing.T) {
+func TestBackupFormResultToCommandLogical(t *testing.T) {
 	t.Run("default logical backup", func(t *testing.T) {
 		r := backupFormResult{
 			backupType:  "logical",
@@ -122,7 +122,7 @@ func TestBackupFormResult_ToCommand_Logical(t *testing.T) {
 	})
 }
 
-func TestBackupFormResult_ToCommand_Incremental(t *testing.T) {
+func TestBackupFormResultToCommandIncremental(t *testing.T) {
 	t.Run("incremental backup", func(t *testing.T) {
 		r := backupFormResult{
 			backupType:  "incremental",

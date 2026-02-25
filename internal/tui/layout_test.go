@@ -55,7 +55,7 @@ func TestHorizontalSplit(t *testing.T) {
 	}
 }
 
-func TestHorizontalSplit_PanelWidthsSumToTotal(t *testing.T) {
+func TestHorizontalSplitPanelWidthsSumToTotal(t *testing.T) {
 	// For any reasonable terminal width, left + right panel widths (plus
 	// borders) should sum to the total terminal width.
 	for totalW := 40; totalW <= 200; totalW++ {

@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSetConfigFormResult_IsNew(t *testing.T) {
+func TestSetConfigFormResultIsNew(t *testing.T) {
 	tests := []struct {
 		name   string
 		result setConfigFormResult
@@ -35,7 +35,7 @@ func TestSetConfigFormResult_IsNew(t *testing.T) {
 	}
 }
 
-func TestSetConfigFormResult_EffectiveProfile(t *testing.T) {
+func TestSetConfigFormResultEffectiveProfile(t *testing.T) {
 	tests := []struct {
 		name   string
 		result setConfigFormResult
