@@ -114,11 +114,7 @@ func (p *clusterPanel) toggleCollapse() {
 
 // scrollDetail scrolls the detail viewport by delta lines.
 func (p *clusterPanel) scrollDetail(delta int) {
-	if delta > 0 {
-		p.detailVP.ScrollDown(delta)
-	} else {
-		p.detailVP.ScrollUp(-delta)
-	}
+	scrollViewport(&p.detailVP, delta)
 }
 
 // clusterView returns the cluster tree viewport output.

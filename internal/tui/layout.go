@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
+)
 
 // Layout constants controlling panel geometry.
 const (
@@ -40,6 +43,15 @@ func horizontalSplit(totalW int) (panelLeftW, panelRightW, contentLeftW, content
 // innerHeight computes the usable height inside a panel's border and padding.
 func innerHeight(panelH int) int {
 	return max(panelH-panelBorderV-panelPaddingV, 0)
+}
+
+// scrollViewport scrolls a viewport by delta lines (positive = down, negative = up).
+func scrollViewport(vp *viewport.Model, delta int) {
+	if delta > 0 {
+		vp.ScrollDown(delta)
+	} else {
+		vp.ScrollUp(-delta)
+	}
 }
 
 // panelBorderColor returns the focused or unfocused border color depending on

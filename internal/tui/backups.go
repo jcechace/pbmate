@@ -218,11 +218,7 @@ func (m *backupsModel) handleVertical(delta int) {
 			m.moveRestoreCursor(delta)
 		}
 	case panelRight:
-		if delta > 0 {
-			m.detailVP.ScrollDown(delta)
-		} else {
-			m.detailVP.ScrollUp(-delta)
-		}
+		scrollViewport(&m.detailVP, delta)
 	}
 }
 

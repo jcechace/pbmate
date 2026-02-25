@@ -48,11 +48,7 @@ func (p *logPanel) setFollowing(following bool) {
 
 // scroll moves the log viewport by delta lines and updates the pinned state.
 func (p *logPanel) scroll(delta int) {
-	if delta > 0 {
-		p.vp.ScrollDown(delta)
-	} else {
-		p.vp.ScrollUp(-delta)
-	}
+	scrollViewport(&p.vp, delta)
 	p.pinned = p.atBottom()
 }
 

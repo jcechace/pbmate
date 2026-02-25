@@ -209,11 +209,7 @@ func (m *configModel) handleVertical(delta int) {
 	case panelLeft:
 		m.moveCursor(delta)
 	case panelRight:
-		if delta > 0 {
-			m.detailVP.ScrollDown(delta)
-		} else {
-			m.detailVP.ScrollUp(-delta)
-		}
+		scrollViewport(&m.detailVP, delta)
 	}
 }
 
