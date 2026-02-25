@@ -13,15 +13,19 @@ import (
 	"github.com/jcechace/pbmate/internal/tui"
 )
 
+// version is set at build time by GoReleaser via -ldflags.
+var version = "dev"
+
 // configFilePath is a named type to avoid kong DI type collisions with
 // plain string parameters. It holds the resolved path to the config file.
 type configFilePath string
 
 // cli is the root kong CLI struct for PBMate.
 type cli struct {
-	Config  string     `help:"Config file path." type:"path" env:"PBMATE_CONFIG"`
-	TUI     tuiCmd     `cmd:"" default:"withargs" help:"Start the TUI (default)."`
-	Context contextCmd `cmd:"" help:"Manage connection contexts."`
+	Config  string           `help:"Config file path." type:"path" env:"PBMATE_CONFIG"`
+	Version kong.VersionFlag `help:"Print version and exit."`
+	TUI     tuiCmd           `cmd:"" default:"withargs" help:"Start the TUI (default)."`
+	Context contextCmd       `cmd:"" help:"Manage connection contexts."`
 }
 
 // tuiCmd starts the TUI with the resolved connection settings.
@@ -232,6 +236,7 @@ func main() {
 		kong.Name("pbmate"),
 		kong.Description("TUI companion for Percona Backup for MongoDB."),
 		kong.UsageOnError(),
+		kong.Vars{"version": version},
 	)
 
 	// Resolve config file path.

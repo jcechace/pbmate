@@ -13,8 +13,10 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 Prioritized next items:
 - [x] Connection reconnect on failure (auto-retry with exponential backoff)
 - [x] Refine error messages (follow context canceled, double prefixes, config ErrNotFound, connect verbosity)
+- [x] CI/CD: GitHub Actions (test/lint/vulncheck), Dependabot, GoReleaser, `--version` flag
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
+- [ ] Homebrew tap for binary distribution
 
 Deferred (add when needed):
 - [ ] Detail panel sub-tabs (`[`/`]`) for Backups (Info, Replicas, Logs)
@@ -95,6 +97,9 @@ Kong-based CLI with `pbmate tui` as default command. XDG-compliant config file (
 
 ### Connection Reconnect
 Auto-retry with exponential backoff (2s, 4s, 8s, 16s, 30s cap) on initial connection failure. Retry chain via `reconnectMsg` message. Bottom bar shows attempt count during retries. User can quit at any time. Mid-session disconnects handled by MongoDB driver.
+
+### CI/CD & Release Pipeline
+GitHub Actions CI: `task check` (build+vet+lint+test) and `govulncheck` (CVE scanning) run on PRs and main pushes. Dependabot configured for Go modules (root + SDK) and GitHub Actions versions. GoReleaser config for cross-compiled binaries (linux/amd64, linux/arm64, darwin/arm64) with version ldflags. Release workflow triggers on `v*` tags. Added `--version` flag via Kong's `VersionFlag` with `var version = "dev"` overridden at build time.
 
 ### Error Message Refinement
 Minimal connection error (`"Connection failed (retry in Ns)"`). Suppress `context.Canceled` in follow handlers (normal on double-`f` toggle). Show SDK error directly for action results — removes redundant TUI prefix (`"start: start backup:"` → `"start backup:"`). Suppress `ErrNotFound` from config fetch goroutines (no-main-config is valid state, not an error). SDK `WithConnectTimeout` option bounds each connection attempt (TUI uses 10s) instead of the 30s MongoDB driver default.
