@@ -225,3 +225,42 @@ func TestConfigNameNewEmpty(t *testing.T) {
 	_, err := NewConfigName("")
 	assert.Error(t, err)
 }
+
+func TestTimestampBefore(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Timestamp
+		want bool
+	}{
+		{"T less", Timestamp{T: 100, I: 0}, Timestamp{T: 200, I: 0}, true},
+		{"T greater", Timestamp{T: 200, I: 0}, Timestamp{T: 100, I: 0}, false},
+		{"T equal I less", Timestamp{T: 100, I: 1}, Timestamp{T: 100, I: 5}, true},
+		{"T equal I greater", Timestamp{T: 100, I: 5}, Timestamp{T: 100, I: 1}, false},
+		{"T equal I equal", Timestamp{T: 100, I: 3}, Timestamp{T: 100, I: 3}, false},
+		{"zero before nonzero", Timestamp{}, Timestamp{T: 1}, true},
+		{"both zero", Timestamp{}, Timestamp{}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.a.Before(tt.b))
+		})
+	}
+}
+
+func TestTimestampAfter(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b Timestamp
+		want bool
+	}{
+		{"T greater", Timestamp{T: 200}, Timestamp{T: 100}, true},
+		{"T less", Timestamp{T: 100}, Timestamp{T: 200}, false},
+		{"T equal I greater", Timestamp{T: 100, I: 5}, Timestamp{T: 100, I: 1}, true},
+		{"T equal I equal", Timestamp{T: 100, I: 3}, Timestamp{T: 100, I: 3}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.a.After(tt.b))
+		})
+	}
+}

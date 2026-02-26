@@ -23,6 +23,20 @@ func (ts Timestamp) IsZero() bool {
 	return ts.T == 0 && ts.I == 0
 }
 
+// Before reports whether ts is strictly before other.
+// Compares seconds first, then the ordinal increment as tiebreaker.
+func (ts Timestamp) Before(other Timestamp) bool {
+	if ts.T != other.T {
+		return ts.T < other.T
+	}
+	return ts.I < other.I
+}
+
+// After reports whether ts is strictly after other.
+func (ts Timestamp) After(other Timestamp) bool {
+	return other.Before(ts)
+}
+
 // =============================================================================
 // Status
 // =============================================================================
