@@ -161,6 +161,10 @@ type contextAddCmd struct {
 }
 
 func (cmd *contextAddCmd) Run(cfg *config.AppConfig, path configFilePath) error {
+	if err := config.ValidateURI(cmd.URI); err != nil {
+		return err
+	}
+
 	if cfg.Contexts == nil {
 		cfg.Contexts = make(map[string]config.Context)
 	}
@@ -257,22 +261,17 @@ type cfgSetCmd struct {
 }
 
 func (cmd *cfgSetCmd) Run(cfg *config.AppConfig, path configFilePath) error {
-	if cmd.Context != "" {
-		ctx, ok := cfg.Contexts[cmd.Context]
-		if !ok {
-			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
-		}
-		if err := config.SetByPath(&ctx, cmd.Key, cmd.Value); err != nil {
-			return err
-		}
-		cfg.Contexts[cmd.Context] = ctx
-	} else {
-		if err := config.SetByPath(cfg, cmd.Key, cmd.Value); err != nil {
+	// Validate URI before persisting.
+	if cmd.Key == "uri" {
+		if err := config.ValidateURI(cmd.Value); err != nil {
 			return err
 		}
 	}
 
-	if err := cfg.Save(string(path)); err != nil {
+	err := mutateConfig(cfg, cmd.Context, string(path), func(target any) error {
+		return config.SetByPath(target, cmd.Key, cmd.Value)
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Printf("Set %s = %s\n", cmd.Key, cmd.Value)
@@ -286,22 +285,10 @@ type cfgUnsetCmd struct {
 }
 
 func (cmd *cfgUnsetCmd) Run(cfg *config.AppConfig, path configFilePath) error {
-	if cmd.Context != "" {
-		ctx, ok := cfg.Contexts[cmd.Context]
-		if !ok {
-			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
-		}
-		if err := config.UnsetByPath(&ctx, cmd.Key); err != nil {
-			return err
-		}
-		cfg.Contexts[cmd.Context] = ctx
-	} else {
-		if err := config.UnsetByPath(cfg, cmd.Key); err != nil {
-			return err
-		}
-	}
-
-	if err := cfg.Save(string(path)); err != nil {
+	err := mutateConfig(cfg, cmd.Context, string(path), func(target any) error {
+		return config.UnsetByPath(target, cmd.Key)
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Printf("Unset %s\n", cmd.Key)
@@ -314,6 +301,27 @@ type cfgPathCmd struct{}
 func (cmd *cfgPathCmd) Run(path configFilePath) error {
 	fmt.Println(string(path))
 	return nil
+}
+
+// mutateConfig applies fn to the appropriate target (the full config or a
+// named context), writes the result back, and saves to disk. This is the
+// shared helper for config set and config unset.
+func mutateConfig(cfg *config.AppConfig, contextName, path string, fn func(any) error) error {
+	if contextName != "" {
+		ctx, ok := cfg.Contexts[contextName]
+		if !ok {
+			return fmt.Errorf("context %q not found; available: %s", contextName, contextNameList(cfg))
+		}
+		if err := fn(&ctx); err != nil {
+			return err
+		}
+		cfg.Contexts[contextName] = ctx
+	} else {
+		if err := fn(cfg); err != nil {
+			return err
+		}
+	}
+	return cfg.Save(path)
 }
 
 // contextNameList returns a comma-separated list of context names for error messages.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -194,6 +195,30 @@ func FormatYAML(v any) (string, error) {
 		return "", fmt.Errorf("marshal yaml: %w", err)
 	}
 	return string(data), nil
+}
+
+// ValidateURI checks that uri is a valid MongoDB connection string with a
+// recognized scheme (mongodb:// or mongodb+srv://) and a non-empty host.
+// It does not validate credentials, options, or reachability.
+//
+// We use string prefix matching instead of net/url.Parse because Go's URL
+// parser rejects MongoDB's multi-host format (e.g. host1:27017,host2:27017).
+func ValidateURI(uri string) error {
+	for _, scheme := range []string{"mongodb+srv://", "mongodb://"} {
+		if strings.HasPrefix(uri, scheme) {
+			rest := strings.TrimPrefix(uri, scheme)
+			if rest == "" || strings.HasPrefix(rest, "/") {
+				return fmt.Errorf("invalid URI: missing host")
+			}
+			return nil
+		}
+	}
+
+	scheme := uri
+	if idx := strings.Index(uri, "://"); idx >= 0 {
+		scheme = uri[:idx]
+	}
+	return fmt.Errorf("invalid URI scheme %q: expected mongodb:// or mongodb+srv://", scheme)
 }
 
 // contextNames returns a comma-separated list of context names for error

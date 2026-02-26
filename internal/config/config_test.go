@@ -256,3 +256,61 @@ func TestResolveReadonly(t *testing.T) {
 		assert.False(t, cfg.ResolveReadonly(&flag, "prod"))
 	})
 }
+
+func TestValidateURI(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     string
+		wantErr string
+	}{
+		{
+			name: "valid mongodb",
+			uri:  "mongodb://localhost:27017",
+		},
+		{
+			name: "valid mongodb+srv",
+			uri:  "mongodb+srv://cluster.example.com",
+		},
+		{
+			name: "valid with auth and options",
+			uri:  "mongodb://user:pass@host1:27017,host2:27017/admin?replicaSet=rs0",
+		},
+		{
+			name:    "no scheme",
+			uri:     "localhost:27017",
+			wantErr: "invalid URI scheme",
+		},
+		{
+			name:    "wrong scheme",
+			uri:     "http://localhost:27017",
+			wantErr: "invalid URI scheme",
+		},
+		{
+			name:    "empty string",
+			uri:     "",
+			wantErr: "invalid URI scheme",
+		},
+		{
+			name:    "scheme only no host",
+			uri:     "mongodb://",
+			wantErr: "missing host",
+		},
+		{
+			name:    "garbage",
+			uri:     "garbage",
+			wantErr: "invalid URI scheme",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateURI(tt.uri)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
