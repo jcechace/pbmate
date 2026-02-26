@@ -21,7 +21,7 @@ styling.
 │    (navigable list)      │         (selected item info)          │
 │                          │                                       │
 ├──────────────────────────┴───────────────────────────────────────┤
-│ PITR:on  Op:none  15:04 │ ↑↓:nav  s:backup  ?:help  q:quit      │
+│ PITR:on  Op:none  15:04 │ ↑↓:nav  s:backup  ?:help  q:quit(2x)   │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -158,7 +158,7 @@ all mutation actions are disabled. The TUI operates as a monitoring-only viewer.
   This makes the mode immediately visible on all tabs.
 
 ```
-│ READONLY  PITR:on  Op:none  15:04 │ ↑↓:nav  tab:toggle  ?:help  q:quit │
+│ READONLY  PITR:on  Op:none  15:04 │ ↑↓:nav  tab:toggle  ?:help  q:quit(2x) │
 ```
 
 ### Resolution
@@ -170,7 +170,8 @@ global `readonly` config field > `false` (default).
 ## Keybindings
 
 ### Global
-- `q` / `ctrl+c` — quit
+- `q` (double-press) — quit (first press shows hint, second quits within 2s)
+- `ctrl+c` — quit immediately (bypasses double-press guard)
 - `1`-`3` — jump to tab
 - `?` — toggle full help overlay
 - `esc` — back / close overlay / clear filter
@@ -201,7 +202,7 @@ global `readonly` config field > `false` (default).
 Single merged bar replacing the previous two-bar (status + help) design.
 
 ```
-│ PITR:on  Op:backup(●)  15:04 │ s:backup  d:delete  X:cancel  ?:help  q:quit │
+│ PITR:on  Op:backup(●)  15:04 │ s:backup  d:delete  X:cancel  ?:help  q:quit(2x) │
 ```
 
 **Left zone**: Persistent operational HUD visible on all tabs.
@@ -261,7 +262,7 @@ Bottom bar status during retries:
 - After failure: `Connection failed (retry in 2s)` (red)
 - During retry: `Connecting... (attempt 3)` (yellow)
 
-The user can quit (`q`/`Ctrl+C`) at any time. Once connected, retry state is
+The user can quit (`q` double-press or `Ctrl+C`) at any time. Once connected, retry state is
 cleared. Mid-session disconnects are handled by the MongoDB driver's built-in
 automatic reconnection — PBMate does not re-create the SDK client.
 
