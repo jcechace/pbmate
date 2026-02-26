@@ -120,10 +120,37 @@ func (p *logPanel) rebuildContent() {
 }
 
 // formatEntry formats a single log entry for display.
+// Includes RS/node prefix from the entry's structured attributes when available.
 func (p *logPanel) formatEntry(entry sdk.LogEntry) string {
 	ts := entry.Timestamp.UTC().Format("15:04:05")
 	sev := p.severityStyle(entry.Severity).Render(entry.Severity.String()[:1])
-	return fmt.Sprintf(" %s %s %s", p.styles.StatusMuted.Render(ts), sev, entry.Message)
+	source := formatLogSource(entry.Attrs)
+	if source != "" {
+		source = p.styles.StatusMuted.Render("["+source+"]") + " "
+	}
+	return fmt.Sprintf(" %s %s %s%s", p.styles.StatusMuted.Render(ts), sev, source, entry.Message)
+}
+
+// formatLogSource builds a compact source identifier from log entry attributes.
+// Returns "rs/node" when both are available, "rs" when only RS is set, or ""
+// when neither is available.
+func formatLogSource(attrs map[string]any) string {
+	rs, _ := attrs[sdk.LogKeyReplicaSet].(string)
+	node, _ := attrs[sdk.LogKeyNode].(string)
+
+	if rs == "" {
+		return ""
+	}
+	if node == "" {
+		return rs
+	}
+	// Shorten the node to just the port or short hostname for compactness.
+	// Node format is typically "hostname:port".
+	short := node
+	if idx := strings.LastIndex(node, ":"); idx >= 0 {
+		short = node[idx+1:]
+	}
+	return rs + "/" + short
 }
 
 // severityStyle returns the style for a log severity level.
