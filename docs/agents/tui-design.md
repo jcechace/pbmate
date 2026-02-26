@@ -410,6 +410,14 @@ pbmate context current                  # print current context name + URI
 pbmate context use <name>               # switch active context (writes config)
 pbmate context add <name> --uri=<uri>   # add context (optional: --theme, --readonly)
 pbmate context remove <name>            # remove context
+
+pbmate config show                      # print full config as YAML
+pbmate config show --context=<name>     # print single context as YAML
+pbmate config set <key> <value>         # set a global config value
+pbmate config set <key> <val> --context=<name>  # set per-context override
+pbmate config unset <key>               # reset global value to default
+pbmate config unset <key> --context=<name>      # remove per-context override (inherit)
+pbmate config path                      # print resolved config file path
 ```
 
 `pbmate` with no subcommand runs `pbmate tui` via kong's `default:"withargs"`.
@@ -479,8 +487,10 @@ contexts:
 
 ```
 internal/config/
-├── config.go           # AppConfig struct, Context struct, Load(), Save(), XDG path
-└── config_test.go      # Round-trip, merge, validation tests
+├── config.go           # AppConfig struct, Context struct, Load(), Save(), FormatYAML(), XDG path
+├── config_test.go      # Round-trip, merge, validation tests
+├── field.go            # SetByPath(), GetByPath(), UnsetByPath() — reflection helpers for config set/unset
+└── field_test.go       # Table-driven tests for field operations
 ```
 
 `internal/config` is shared between CLI commands and TUI startup. It has no

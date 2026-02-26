@@ -174,11 +174,11 @@ pbmate/
 │   ├── log_convert.go      # PBM -> SDK conversion
 │   └── cmd/smoketest/      # Manual smoke test binary
 ├── internal/
-│   ├── config/             # App config: XDG path, Load/Save, context resolution
+│   ├── config/             # App config: XDG path, Load/Save, context resolution, field helpers
 │   └── tui/                # TUI implementation (see docs/tui-conventions.md)
 ├── mcp/
 │   └── go.mod              # MCP module placeholder
-├── main.go                 # CLI entry point (kong): TUI + context commands
+├── main.go                 # CLI entry point (kong): TUI + context + config commands
 ├── go.mod                  # Root module: github.com/jcechace/pbmate
 └── Taskfile.yaml           # Build runner config
 ```

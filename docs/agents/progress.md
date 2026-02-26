@@ -104,6 +104,9 @@ GitHub Actions CI: `task check` (build+vet+lint+test) and `govulncheck` (CVE sca
 ### Error Message Refinement
 Minimal connection error (`"Connection failed (retry in Ns)"`). Suppress `context.Canceled` in follow handlers (normal on double-`f` toggle). Show SDK error directly for action results — removes redundant TUI prefix (`"start: start backup:"` → `"start backup:"`). Suppress `ErrNotFound` from config fetch goroutines (no-main-config is valid state, not an error). SDK `WithConnectTimeout` option bounds each connection attempt (TUI uses 10s) instead of the 30s MongoDB driver default.
 
+### Config CLI Command
+`pbmate config` subcommand with `show`, `set`, `unset`, and `path` subcommands. Reflection-based `SetByPath`/`GetByPath`/`UnsetByPath` in `internal/config/field.go` walks struct fields by yaml tag, coerces string values to field types (string, bool, *bool, int, int64, time.Duration). `config set` and `config unset` support `--context` flag to target per-context settings. `config unset` resets fields to zero value (nil for pointers, "" for strings, false for bools). `config show` supports `--context` to display a single context. `config path` prints resolved config file path. `FormatYAML` helper added to config package.
+
 ### TUI Code Quality (Review Items)
 Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form construction blocks replaced with one-liners. Unified byte formatting: removed `humanize.IBytes` in restore forms, use `humanBytes` consistently everywhere. Split domain-specific detail renderers (`statusIndicator`, `agentIndicator`, `renderBackupDetail`, `renderRestoreDetail`) from `render.go` into `detail_render.go`. Added tests for `rebuildItems` cursor stability (4 scenarios), `selectedItem`, `setRestoreData` cursor clamping, and `appendLogEntries` buffer trimming (4 scenarios).
 
@@ -111,7 +114,7 @@ Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form con
 
 | Feature | Reason | Priority |
 |---------|--------|----------|
-| Config SetVar | Pending PITR enable/disable design — needs cohesive config mutation surface | Medium |
+| Config domain validation | Validate theme names, URI format, etc. in `config set` | Low |
 | Cleanup command | Composable from Backups.Delete + PITR.Delete. Add only if requested. | Low |
 | Oplog replay | Very low priority. `CmdTypeReplay` constant ready. | Low |
 | Physical/external backup start | Out-of-band file operations. Display types exist. | Low |

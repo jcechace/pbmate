@@ -186,6 +186,16 @@ func (c *AppConfig) ResolveReadonly(flagReadonly *bool, flagContext string) bool
 	return c.Readonly
 }
 
+// FormatYAML marshals v to YAML and returns it as a string. This avoids
+// requiring callers to import the yaml package directly.
+func FormatYAML(v any) (string, error) {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return "", fmt.Errorf("marshal yaml: %w", err)
+	}
+	return string(data), nil
+}
+
 // contextNames returns a comma-separated list of context names for error
 // messages. Returns "(none)" if no contexts are defined.
 func (c *AppConfig) contextNames() string {

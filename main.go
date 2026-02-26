@@ -26,6 +26,7 @@ type cli struct {
 	Version kong.VersionFlag `help:"Print version and exit."`
 	TUI     tuiCmd           `cmd:"" default:"withargs" help:"Start the TUI (default)."`
 	Context contextCmd       `cmd:"" help:"Manage connection contexts."`
+	Cfg     cfgCmd           `cmd:"" name:"config" help:"View and modify configuration."`
 }
 
 // tuiCmd starts the TUI with the resolved connection settings.
@@ -214,6 +215,104 @@ func (cmd *contextRemoveCmd) Run(cfg *config.AppConfig, path configFilePath) err
 	}
 
 	fmt.Printf("Removed context %q.\n", cmd.Name)
+	return nil
+}
+
+// cfgCmd is the parent for configuration management subcommands.
+type cfgCmd struct {
+	Show  cfgShowCmd  `cmd:"" help:"Print current configuration."`
+	Set   cfgSetCmd   `cmd:"" help:"Set a configuration value."`
+	Unset cfgUnsetCmd `cmd:"" help:"Unset a configuration value (reset to default)."`
+	Path  cfgPathCmd  `cmd:"" help:"Print config file path."`
+}
+
+// cfgShowCmd prints the full config or a single context's settings.
+type cfgShowCmd struct {
+	Context string `optional:"" help:"Show only this context's settings." name:"context"`
+}
+
+func (cmd *cfgShowCmd) Run(cfg *config.AppConfig) error {
+	var target any = cfg
+	if cmd.Context != "" {
+		ctx, ok := cfg.Contexts[cmd.Context]
+		if !ok {
+			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
+		}
+		target = ctx
+	}
+
+	out, err := config.FormatYAML(target)
+	if err != nil {
+		return err
+	}
+	fmt.Print(out)
+	return nil
+}
+
+// cfgSetCmd sets a configuration value by key.
+type cfgSetCmd struct {
+	Key     string `arg:"" help:"Config key (e.g. theme, readonly)."`
+	Value   string `arg:"" help:"Value to set."`
+	Context string `optional:"" help:"Set on a named context instead of global." name:"context"`
+}
+
+func (cmd *cfgSetCmd) Run(cfg *config.AppConfig, path configFilePath) error {
+	if cmd.Context != "" {
+		ctx, ok := cfg.Contexts[cmd.Context]
+		if !ok {
+			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
+		}
+		if err := config.SetByPath(&ctx, cmd.Key, cmd.Value); err != nil {
+			return err
+		}
+		cfg.Contexts[cmd.Context] = ctx
+	} else {
+		if err := config.SetByPath(cfg, cmd.Key, cmd.Value); err != nil {
+			return err
+		}
+	}
+
+	if err := cfg.Save(string(path)); err != nil {
+		return err
+	}
+	fmt.Printf("Set %s = %s\n", cmd.Key, cmd.Value)
+	return nil
+}
+
+// cfgUnsetCmd resets a configuration value to its default (zero value).
+type cfgUnsetCmd struct {
+	Key     string `arg:"" help:"Config key to unset (e.g. theme, readonly)."`
+	Context string `optional:"" help:"Unset on a named context instead of global." name:"context"`
+}
+
+func (cmd *cfgUnsetCmd) Run(cfg *config.AppConfig, path configFilePath) error {
+	if cmd.Context != "" {
+		ctx, ok := cfg.Contexts[cmd.Context]
+		if !ok {
+			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
+		}
+		if err := config.UnsetByPath(&ctx, cmd.Key); err != nil {
+			return err
+		}
+		cfg.Contexts[cmd.Context] = ctx
+	} else {
+		if err := config.UnsetByPath(cfg, cmd.Key); err != nil {
+			return err
+		}
+	}
+
+	if err := cfg.Save(string(path)); err != nil {
+		return err
+	}
+	fmt.Printf("Unset %s\n", cmd.Key)
+	return nil
+}
+
+// cfgPathCmd prints the resolved config file path.
+type cfgPathCmd struct{}
+
+func (cmd *cfgPathCmd) Run(path configFilePath) error {
+	fmt.Println(string(path))
 	return nil
 }
 

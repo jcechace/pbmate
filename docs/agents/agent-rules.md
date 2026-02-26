@@ -129,7 +129,7 @@ so SDK and MCP tags do not produce binary releases.
 
 1. Add command struct with `cmd:""` tag in `main.go` CLI hierarchy.
 2. Add `Run(cfg *config.AppConfig) error` method.
-3. Wire into parent struct (e.g., add field to `ContextCmd`).
+3. Wire into parent struct (e.g., add field to `contextCmd` or `cfgCmd`).
 4. Kong auto-discovers it — no registration needed.
 5. Update `docs/agents/tui-design.md` CLI section with the new command.
 

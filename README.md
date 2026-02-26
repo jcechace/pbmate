@@ -26,13 +26,40 @@ The terminal UI provides a real-time dashboard with three tabs:
 ### Usage
 
 ```
-pbmate --uri <mongodb-uri> [--theme <theme>]
+pbmate                              # start TUI with current context
+pbmate --uri <mongodb-uri>          # start TUI with explicit URI
+pbmate --theme mocha --readonly     # theme and readonly overrides
 ```
 
 | Flag | Description | Default |
 |---|---|---|
-| `--uri` | MongoDB connection URI (required) | — |
+| `--uri` | MongoDB connection URI (overrides context) | — |
+| `--context` | Use a named context (overrides current-context) | — |
 | `--theme` | Color theme: `default`, `mocha`, `latte`, `frappe`, `macchiato` | `default` |
+| `--readonly` | Disable mutation actions in the TUI | `false` |
+| `--config` | Config file path (or set `PBMATE_CONFIG`) | `~/.config/pbmate/config.yaml` |
+
+### Context Management
+
+Named connection contexts avoid repeating URIs:
+
+```
+pbmate context add prod --uri=mongodb://prod:27017 --theme=mocha
+pbmate context use prod
+pbmate context list
+```
+
+### Configuration
+
+View and modify settings from the command line:
+
+```
+pbmate config show                          # print full config as YAML
+pbmate config set theme mocha               # set global theme
+pbmate config set readonly true --context=prod  # per-context override
+pbmate config unset readonly --context=prod # remove override (inherit global)
+pbmate config path                          # print config file path
+```
 
 ### Keybindings
 
@@ -41,12 +68,13 @@ pbmate --uri <mongodb-uri> [--theme <theme>]
 | `1` `2` `3` | Switch tabs |
 | `]` `[` | Cycle panel focus |
 | `j`/`k` or arrows | Navigate lists |
-| `s` | Start backup (quick) |
-| `S` | Start backup (configure) |
-| `c` | Cancel running backup |
-| `d` | Delete selected backup |
-| `e` | Apply YAML configuration |
-| `p` | New storage profile |
+| `s` / `S` | Start backup (quick / configure) |
+| `X` | Cancel running backup |
+| `d` | Delete selected item (backup or profile) |
+| `R` / `r` | Restore (wizard / from cursor) |
+| `C` / `c` | Set config (wizard / on Config tab) |
+| `R` / `r` | Resync (on Config tab) |
+| `x` | Delete profile (Config tab) |
 | `f` | Toggle log follow mode |
 | `w` | Toggle log word wrap |
 | `tab` | Toggle backups / restores |
@@ -80,7 +108,8 @@ bk, _ := client.Backups.Wait(ctx, result.Name, sdk.BackupWaitOptions{})
 pbmate/
   sdk/              Standalone SDK module (github.com/jcechace/pbmate/sdk/v2)
   internal/tui/     Terminal UI (BubbleTea)
-  main.go           TUI entry point
+  internal/config/  App configuration (Load/Save, contexts, field helpers)
+  main.go           CLI entry point (kong): TUI + context + config commands
 ```
 
 The SDK is a separate Go module with its own `go.mod`. The TUI depends on the SDK via a `replace` directive for local development. Consumers import the SDK independently — no dependency on the TUI.
