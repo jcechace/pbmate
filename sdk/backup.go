@@ -65,6 +65,7 @@ type BackupService interface {
 	//
 	// The cmd parameter is a sealed [StartBackupCommand] with variants:
 	//   - [StartLogicalBackup] for logical (mongodump) backups.
+	//   - [StartPhysicalBackup] for physical (WiredTiger file-level) backups.
 	//   - [StartIncrementalBackup] for incremental backups.
 	//
 	// Example — logical backup:
@@ -78,6 +79,10 @@ type BackupService interface {
 	//	    ConfigName: name,
 	//	    Namespaces: []string{"mydb.mycol"},
 	//	})
+	//
+	// Example — physical backup:
+	//
+	//	result, err := client.Backups.Start(ctx, sdk.StartPhysicalBackup{})
 	//
 	// Example — incremental backup base:
 	//

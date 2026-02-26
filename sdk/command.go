@@ -100,7 +100,9 @@ type StartPhysicalBackup struct {
 }
 
 func (c StartPhysicalBackup) startBackupCommand() {}
-func (c StartPhysicalBackup) Validate() error     { return nil }
+
+// Validate always returns nil — physical backups have no client-side constraints.
+func (c StartPhysicalBackup) Validate() error { return nil }
 
 // StartIncrementalBackup requests an incremental backup. Incremental backups
 // capture only the changes since the previous backup in the chain.
@@ -126,7 +128,9 @@ type StartIncrementalBackup struct {
 }
 
 func (c StartIncrementalBackup) startBackupCommand() {}
-func (c StartIncrementalBackup) Validate() error     { return nil }
+
+// Validate always returns nil — incremental backups have no client-side constraints.
+func (c StartIncrementalBackup) Validate() error { return nil }
 
 // StartRestoreCommand is a sealed interface for restore initiation variants.
 // Each variant represents a specific restore strategy:
