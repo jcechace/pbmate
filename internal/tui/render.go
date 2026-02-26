@@ -130,6 +130,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 			helpCombined(backupKeys.Start, backupKeys.StartCustom, "backup"),
 			helpFromBinding(backupKeys.Cancel),
 			helpFromBinding(globalKeys.Delete),
+			helpFromBinding(globalKeys.PITRToggle),
 		}})
 	}
 	left = append(left, helpSection{"General", []helpEntry{

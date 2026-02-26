@@ -412,6 +412,27 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openBackupForm(backupFormQuick)
 	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil && !m.readonly:
 		return m, m.openBackupForm(backupFormFull)
+	case key.Matches(msg, m.keys.PITRToggle) && m.client != nil && !m.readonly:
+		pitr := m.overview.data.pitr
+		if pitr == nil {
+			return m, nil // no status yet
+		}
+		if pitr.Enabled {
+			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+				"Disable PITR",
+				"Stop oplog slicing on all nodes?\nExisting oplog chunks are preserved.",
+				"Disable", "Cancel",
+				disablePITRCmd(m.ctx, m.client))
+			m.activeOverlay = overlay
+			return m, cmd
+		}
+		overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+			"Enable PITR",
+			"Start oplog slicing on all nodes?",
+			"Enable", "Cancel",
+			enablePITRCmd(m.ctx, m.client))
+		m.activeOverlay = overlay
+		return m, cmd
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil && !m.readonly:
 		if m.overview.HasRunningOps() {
 			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,

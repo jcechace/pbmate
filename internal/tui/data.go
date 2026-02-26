@@ -532,6 +532,24 @@ func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) t
 	}
 }
 
+// --- PITR toggle ---
+
+// enablePITRCmd returns a tea.Cmd that enables PITR oplog slicing.
+func enablePITRCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		err := client.PITR.Enable(ctx)
+		return actionResultMsg{action: "enable PITR", err: err}
+	}
+}
+
+// disablePITRCmd returns a tea.Cmd that disables PITR oplog slicing.
+func disablePITRCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
+	return func() tea.Msg {
+		err := client.PITR.Disable(ctx)
+		return actionResultMsg{action: "disable PITR", err: err}
+	}
+}
+
 // --- Remove profile ---
 
 // removeProfileCmd returns a tea.Cmd that removes a named storage profile.

@@ -4,18 +4,19 @@ import "github.com/charmbracelet/bubbles/key"
 
 // globalKeyMap defines keybindings available in all views.
 type globalKeyMap struct {
-	Quit      key.Binding // q — double-press to quit
-	ForceQuit key.Binding // ctrl+c — immediate quit
-	Tab1      key.Binding
-	Tab2      key.Binding
-	Tab3      key.Binding
-	NextPanel key.Binding
-	PrevPanel key.Binding
-	Help      key.Binding
-	Back      key.Binding
-	Up        key.Binding
-	Down      key.Binding
-	Delete    key.Binding
+	Quit       key.Binding // q — double-press to quit
+	ForceQuit  key.Binding // ctrl+c — immediate quit
+	PITRToggle key.Binding // p — toggle PITR enable/disable
+	Tab1       key.Binding
+	Tab2       key.Binding
+	Tab3       key.Binding
+	NextPanel  key.Binding
+	PrevPanel  key.Binding
+	Help       key.Binding
+	Back       key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	Delete     key.Binding
 }
 
 var globalKeys = globalKeyMap{
@@ -25,6 +26,10 @@ var globalKeys = globalKeyMap{
 	),
 	ForceQuit: key.NewBinding(
 		key.WithKeys("ctrl+c"),
+	),
+	PITRToggle: key.NewBinding(
+		key.WithKeys("p"),
+		key.WithHelp("p", "toggle PITR"),
 	),
 	Tab1: key.NewBinding(
 		key.WithKeys("1"),
