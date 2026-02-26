@@ -112,6 +112,22 @@ func (s *pitrServiceImpl) Bases(ctx context.Context, target Timestamp) ([]Backup
 	return FilterPITRBases(target, backups, timelines), nil
 }
 
+func (s *pitrServiceImpl) Enable(ctx context.Context) error {
+	s.log.InfoContext(ctx, "enabling PITR")
+	if err := config.SetConfigVar(ctx, s.conn, "pitr.enabled", "true"); err != nil {
+		return fmt.Errorf("enable pitr: %w", err)
+	}
+	return nil
+}
+
+func (s *pitrServiceImpl) Disable(ctx context.Context) error {
+	s.log.InfoContext(ctx, "disabling PITR")
+	if err := config.SetConfigVar(ctx, s.conn, "pitr.enabled", "false"); err != nil {
+		return fmt.Errorf("disable pitr: %w", err)
+	}
+	return nil
+}
+
 func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (CommandResult, error) {
 	switch c := cmd.(type) {
 	case DeletePITRBefore:

@@ -5,7 +5,8 @@ import (
 	"sort"
 )
 
-// PITRService provides read access to PITR status and oplog timelines.
+// PITRService provides access to PITR status, oplog timelines, and
+// PITR enable/disable controls.
 //
 // Example — check PITR status and available restore windows:
 //
@@ -48,6 +49,23 @@ type PITRService interface {
 	//	    fmt.Println("no valid base backup for PITR")
 	//	}
 	Bases(ctx context.Context, target Timestamp) ([]Backup, error)
+
+	// Enable turns on PITR oplog slicing. Agents begin capturing oplog
+	// data on all replica sets. The configuration change is applied
+	// immediately and agents detect it via an epoch bump.
+	//
+	// Example:
+	//
+	//	err := client.PITR.Enable(ctx)
+	Enable(ctx context.Context) error
+
+	// Disable turns off PITR oplog slicing. Existing oplog chunks are
+	// preserved but no new data is captured.
+	//
+	// Example:
+	//
+	//	err := client.PITR.Disable(ctx)
+	Disable(ctx context.Context) error
 
 	// Delete requests deletion of PITR oplog chunks. The deletion is
 	// processed asynchronously by PBM agents — the command returns
