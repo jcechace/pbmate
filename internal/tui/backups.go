@@ -164,7 +164,7 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) 
 			if sel := m.selectedBackup(); sel != nil && sel.Status.Equal(sdk.StatusDone) {
 				bk := *sel // copy to avoid data race with polling
 				return func() tea.Msg {
-					return restoreRequest{mode: restoreModeSnapshot, backup: &bk, backupName: bk.Name}
+					return restoreRequest{mode: restoreModeSnapshot, backup: &bk}
 				}
 			}
 			// PITR restore from a timeline item.

@@ -364,12 +364,11 @@ type restoreTargetRequest struct {
 //   - snapshot: restore from the selected backup (backupName is set)
 //   - pitr: restore to a point in time (timeline and backups are set)
 type restoreRequest struct {
-	mode       restoreMode
-	backup     *sdk.Backup    // set for snapshot mode (full object for context display)
-	backupName string         // set for snapshot mode
-	timeline   *sdk.Timeline  // set for PITR mode
-	backups    []sdk.Backup   // set for PITR mode (for base backup filtering)
-	timelines  []sdk.Timeline // set for PITR mode (for base backup filtering)
+	mode      restoreMode
+	backup    *sdk.Backup    // set for snapshot mode (full object for context display)
+	timeline  *sdk.Timeline  // set for PITR mode
+	backups   []sdk.Backup   // set for PITR mode (for base backup filtering)
+	timelines []sdk.Timeline // set for PITR mode (for base backup filtering)
 }
 
 // startRestoreCmd returns a tea.Cmd that starts a restore with the given command.
