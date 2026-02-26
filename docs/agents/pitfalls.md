@@ -31,6 +31,7 @@
 | Config ErrNotFound as flash error | `Config.Get` returns `ErrNotFound` when no main config exists (valid state). If it raced first in `firstErrCollector`, user saw `"fetch: not found"`. | Skip `errs.set()` when the error is `ErrNotFound` for config fetch goroutines. |
 | Nil context panic on follow before connect | Pressing `f` before connection succeeded panicked with "cannot create context from nil parent" because `overviewModel.ctx` is nil until `connectMsg` arrives. | Guard sub-model key dispatch in `updateKeys` with `m.client == nil` check — no input to sub-models before connection. |
 | parseNamespaces returns `[""]` for empty input | `strings.Split("", ",")` returns `[""]`, not `nil`. Selective restore with no namespaces entered would send `[""]` to PBM. | Filter out empty strings after trimming. Return nil when no non-empty entries remain. |
+| latestTimeline compared only `.T` | `latestTimeline()` used `.End.T > best.End.T`, ignoring the ordinal — same class of bug as the SDK Timestamp comparison pitfall. | Use `Timestamp.After()` for all timestamp comparisons, including TUI helpers. |
 
 ## General Pitfalls
 

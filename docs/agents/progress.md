@@ -20,6 +20,7 @@ Prioritized next items:
 
 Deferred (add when needed):
 - [ ] `/` filter in list views (backups, maybe logs search)
+- [ ] Codecov integration for coverage tracking
 
 ## Completed Milestones
 
@@ -124,6 +125,9 @@ SDK `FilterPITRBases` pure function with full validation (StatusDone, LastWriteT
 
 ### TUI Restore Form Quality
 Extracted `resolvePITRTarget` free function (deduplicated from two `effectivePITRTarget` methods). Extracted `pitrBaseGroup` helper (deduplicated base backup selector logic from `newRestoreTargetForm` and `newPITRRestoreForm`). Fixed `parseNamespaces` empty string edge case (`strings.Split("", ",")` returns `[""]`). Removed dead `backupName` field from `restoreRequest`. Normalized `restoreFormResult` receivers to pointer. Replaced `restoreTargetOverlay.findBackup` method with standalone `findBackupByName`. Added tests for `resolvePITRTarget`, `parseNamespaces`, `backupContextDescription`, `pitrPresetOptions`, `physicalRestoreWarning`, and `findBackupByName`.
+
+### Code Review Fixes
+Fixed `latestTimeline()` to use `Timestamp.After()` instead of raw `.T` comparison (same class of ordinal bug as SDK fix). Replaced hardcoded `"c"` string literal in backup form overlay with `customizeKey` binding constant. Added `FilterPITRBases` boundary test for backup at `timeline.End`. Added PBM version compatibility note to SDK README.
 
 ## Deferred Features
 
