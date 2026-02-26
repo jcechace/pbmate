@@ -119,6 +119,12 @@ Physical and incremental restores shut down mongod on all nodes (including PITR 
 ### PITR Base Backup Selector
 SDK `FilterPITRBases` pure function with full validation (StatusDone, LastWriteTS before target, not selective, not external, main config only, timeline coverage). `PITRService.Bases()` server method. TUI PITR restore forms (both Step 1 wizard and Step 2 direct) now show a "Base backup" selector instead of auto-selecting via the old `findBaseBackup()`. Pre-selects most recent valid base. Shows "No valid base backup" note when none qualify. Physical/incremental PITR bases still trigger the physical restore warning overlay.
 
+### SDK Hardening (PITR & Timestamps)
+`Timestamp.Before()`/`After()` comparison methods (T first, ordinal tiebreaker). PITR filtering uses `Before()` throughout — fixes ordinal-insensitive comparisons. `FilterPITRBases` switched to `sort.SliceStable`. `PITRService.Bases()` parallelized with `errgroup`. `BackupService.Start` doc updated for `StartPhysicalBackup`. Doc comments on empty `Validate()` methods. Table-driven validate tests for physical and incremental backup commands.
+
+### TUI Restore Form Quality
+Extracted `resolvePITRTarget` free function (deduplicated from two `effectivePITRTarget` methods). Extracted `pitrBaseGroup` helper (deduplicated base backup selector logic from `newRestoreTargetForm` and `newPITRRestoreForm`). Fixed `parseNamespaces` empty string edge case (`strings.Split("", ",")` returns `[""]`). Removed dead `backupName` field from `restoreRequest`. Normalized `restoreFormResult` receivers to pointer. Replaced `restoreTargetOverlay.findBackup` method with standalone `findBackupByName`. Added tests for `resolvePITRTarget`, `parseNamespaces`, `backupContextDescription`, `pitrPresetOptions`, `physicalRestoreWarning`, and `findBackupByName`.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |

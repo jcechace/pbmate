@@ -110,6 +110,7 @@ Key PBM internal packages:
 - No magic constants. All literals that control behavior must be named constants.
 
 ### SDK-Specific
+- **Design for arbitrary consumers.** The SDK is a standalone library — not just a backend for PBMate's TUI. API decisions (types, method signatures, convenience functions) must make sense for any Go program importing the SDK.
 - Prefer PBM's exported internal APIs over direct MongoDB queries. If it means fetching more data and filtering in memory, do that — data volumes (backups, restores, agents) are always small.
 - Direct DB interaction only when no reasonable PBM API exists (currently: command dispatch, since `ctrl.sendCommand` is unexported).
 - Mark PBM workarounds with `TODO(pbm-fix)`.

@@ -10,9 +10,10 @@
 | PITR duration truncation | Used `Truncate(1)` instead of `Truncate(time.Second)`. `Truncate(1)` truncates to 1 nanosecond, which is a no-op. | Always use `time.Duration` constants with `Truncate`. |
 | Stale timeline cursor | Compared pointers (`cursor == &item`) instead of values. After data refresh, pointer identity changes even if the item is logically the same. | Track selection by value identity (name, key), not pointer or index. |
 | ConfigName empty string | PBM uses `""` for main config. If SDK doesn't normalize, consumers see empty strings and write broken comparisons. | SDK normalizes to `MainConfig` constant. Never check for `""` in TUI code. |
-| PITR restore base backup | SDK requires `BackupName` for `StartPITRRestore` (PBM CLI auto-selects). Decision to add SDK auto-selection is postponed. | TUI handles it via `findBaseBackup()` — selects latest completed backup before target time from cached data. |
+| PITR restore base backup | SDK requires `BackupName` for `StartPITRRestore` (PBM CLI auto-selects). Decision to add SDK auto-selection is postponed. | SDK exports `FilterPITRBases` for validation; TUI shows a base backup selector in PITR restore forms via `pitrBaseGroup` helper. |
 | NumParallelColls on incremental | `StartIncrementalBackup` had a `NumParallelColls` field, but PBM's `doPhysical` never reads it — only `doLogical` uses parallel collections. The field was dead. | Removed from SDK. TUI only shows "Parallel Collections" for logical backups. |
-| Physical/incremental restore shuts down mongod | PBM's physical restore (`PhysRestore.Snapshot`) shuts down mongod on every node, wipes the data directory, copies WiredTiger files, and does multiple mongod restarts. The TUI loses its connection. | TUI currently allows it but future work should handle this with TUI exit/block on command dispatch. |
+| Physical/incremental restore shuts down mongod | PBM's physical restore (`PhysRestore.Snapshot`) shuts down mongod on every node, wipes the data directory, copies WiredTiger files, and does multiple mongod restarts. The TUI loses its connection. | TUI shows a warning confirmation overlay before dispatch, then exits cleanly with a farewell message. |
+| Timestamp comparisons ignored ordinal | PITR filtering compared only `.T` (seconds), ignoring `.I` (ordinal increment). Two events in the same second could be misordered. | Added `Timestamp.Before()`/`After()` methods that compare T first, then I as tiebreaker. Used throughout PITR filtering. |
 
 ## TUI Pitfalls
 
@@ -29,6 +30,7 @@
 | Double action error prefixes | `setFlash("start", err)` produced `"start: start backup: ..."` because SDK already wraps errors with the operation name. | Show `msg.err.Error()` directly for action results instead of prepending a TUI prefix. |
 | Config ErrNotFound as flash error | `Config.Get` returns `ErrNotFound` when no main config exists (valid state). If it raced first in `firstErrCollector`, user saw `"fetch: not found"`. | Skip `errs.set()` when the error is `ErrNotFound` for config fetch goroutines. |
 | Nil context panic on follow before connect | Pressing `f` before connection succeeded panicked with "cannot create context from nil parent" because `overviewModel.ctx` is nil until `connectMsg` arrives. | Guard sub-model key dispatch in `updateKeys` with `m.client == nil` check — no input to sub-models before connection. |
+| parseNamespaces returns `[""]` for empty input | `strings.Split("", ",")` returns `[""]`, not `nil`. Selective restore with no namespaces entered would send `[""]` to PBM. | Filter out empty strings after trimming. Return nil when no non-empty entries remain. |
 
 ## General Pitfalls
 
