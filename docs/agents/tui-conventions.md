@@ -98,6 +98,7 @@ All overlays implement the `formOverlay` interface (overlay.go):
 - Quick/full backup wizard
 - Two-step restore wizard (target selection → options) and context-sensitive restore forms
 - Resync form with target selector (Main / Profile / All)
+- Bulk delete form with target (Backups/PITR), preset/custom date, type/profile filters
 - Set config wizard (target form → file picker → optional override confirm)
 - Profile name form, file picker for config
 
@@ -137,6 +138,7 @@ internal/tui/
 ├── backup_form.go      # Backup forms + shared overlay helpers (dismissOverlay, updateFormModel, initFormWithAdvance)
 ├── restore_form.go     # Restore forms (snapshot, PITR, target wizard with profile filter)
 ├── resync_form.go      # Resync form (Main / Profile / All)
+├── bulk_delete_form.go # Bulk delete form (Backups/PITR, preset/custom date, type/profile)
 ├── config.go           # Config tab
 ├── config_form.go      # Set config form (target → file picker → confirm)
 ├── overlay.go          # formOverlay interface + all overlay types

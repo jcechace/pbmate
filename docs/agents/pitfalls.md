@@ -14,6 +14,7 @@
 | NumParallelColls on incremental | `StartIncrementalBackup` had a `NumParallelColls` field, but PBM's `doPhysical` never reads it — only `doLogical` uses parallel collections. The field was dead. | Removed from SDK. TUI only shows "Parallel Collections" for logical backups. |
 | Physical/incremental restore shuts down mongod | PBM's physical restore (`PhysRestore.Snapshot`) shuts down mongod on every node, wipes the data directory, copies WiredTiger files, and does multiple mongod restarts. The TUI loses its connection. | TUI shows a warning confirmation overlay before dispatch, then exits cleanly with a farewell message. |
 | Timestamp comparisons ignored ordinal | PITR filtering compared only `.T` (seconds), ignoring `.I` (ordinal increment). Two events in the same second could be misordered. | Added `Timestamp.Before()`/`After()` methods that compare T first, then I as tiebreaker. Used throughout PITR filtering. |
+| ConfigName "all profiles" doc mismatch | `DeleteBackupsBefore.ConfigName` doc said "zero value means all profiles" but `configNameToPBM` maps zero to `""`, which PBM interprets as "main config only". PBM does not support cross-profile deletion in a single command. | Fixed doc to say "zero value means main config". TUI bulk delete form shows a concrete profile selector (Main + named profiles), no "All" option. |
 
 ## TUI Pitfalls
 

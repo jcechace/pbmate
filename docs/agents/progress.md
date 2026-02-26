@@ -135,12 +135,17 @@ Fixed `latestTimeline()` to use `Timestamp.After()` instead of raw `.T` comparis
 ### PITR Enable/Disable
 SDK `PITRService.Enable()` and `Disable()` methods using PBM's exported `config.SetConfigVar` (which handles the epoch bump internally). Returns plain `error` — not `CommandResult` — because PITR toggle is a direct config update, not a PBM command. TUI global `p` key toggles PITR state with a confirmation overlay. Help overlay shows `p` in Global section.
 
+### Bulk Delete (Backups & PITR)
+SDK: Replaced `DeletePITRAll` with `DeletePITROlderThan` (takes `time.Duration`; 0 = delete all, matching PBM's deprecation of `--all`). Added `DeleteBackupsOlderThan` with the same duration-based pattern. Fixed `DeleteBackupsBefore.ConfigName` doc — zero value means main config, not all profiles (PBM does not support cross-profile deletion in a single command).
+
+TUI: Global `D` key opens a bulk delete form overlay. Target selector (Backups/PITR), preset durations (Now, 1d, 3d, 1w, 2w, 1m, Custom), custom date input (YYYY-MM-DD or YYYY-MM-DD HH:MM), backup type filter (All/Logical/Physical/Incremental), and profile selector (Main + named profiles). Dynamic form rebuild on target/preset changes. Tests cover date parsing, preset resolution, command conversion, and confirm titles.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |
 |---------|--------|----------|
 | Config domain validation | Validate theme names, URI format, etc. in `config set` | Low |
-| Cleanup command | Composable from Backups.Delete + PITR.Delete. Add only if requested. | Low |
+| Cleanup command | Superseded by bulk delete (`D` key). | Done |
 | Oplog replay | Very low priority. `CmdTypeReplay` constant ready. | Low |
 | External backup start | Out-of-band file operations. Display types exist. | Low |
 | Backup collections list | `--with-collections` requires storage I/O. Non-trivial. | Low |
@@ -162,8 +167,8 @@ User-facing command types use sealed interfaces to make invalid states unreprese
 Completed sealed hierarchies:
 - `StartBackupCommand` — `StartLogicalBackup`, `StartPhysicalBackup`, `StartIncrementalBackup`
 - `StartRestoreCommand` — `StartSnapshotRestore`, `StartPITRRestore`
-- `DeleteBackupCommand` — `DeleteBackupByName`, `DeleteBackupsBefore`
-- `DeletePITRCommand` — `DeletePITRBefore`, `DeletePITRAll`
+- `DeleteBackupCommand` — `DeleteBackupByName`, `DeleteBackupsBefore`, `DeleteBackupsOlderThan`
+- `DeletePITRCommand` — `DeletePITRBefore`, `DeletePITROlderThan`
 - `ResyncCommand` — `ResyncMain`, `ResyncProfile`, `ResyncAllProfiles`
 
 ### Command Architecture Simplification

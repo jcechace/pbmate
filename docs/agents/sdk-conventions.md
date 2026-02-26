@@ -53,8 +53,8 @@ Operations with distinct variants use sealed interfaces (unexported marker metho
 |-----------------|----------|
 | `StartBackupCommand` | `StartLogicalBackup`, `StartPhysicalBackup`, `StartIncrementalBackup` |
 | `StartRestoreCommand` | `StartSnapshotRestore`, `StartPITRRestore` |
-| `DeleteBackupCommand` | `DeleteBackupByName`, `DeleteBackupsBefore` |
-| `DeletePITRCommand` | `DeletePITRBefore`, `DeletePITRAll` |
+| `DeleteBackupCommand` | `DeleteBackupByName`, `DeleteBackupsBefore`, `DeleteBackupsOlderThan` |
+| `DeletePITRCommand` | `DeletePITRBefore`, `DeletePITROlderThan` |
 | `ResyncCommand` | `ResyncMain`, `ResyncProfile`, `ResyncAllProfiles` |
 
 All commands implement `Validate() error`. Service methods call Validate before lock checks or dispatch. Type switches in `Start`/`Delete`/`Resync` methods use `default: panic("unreachable: ...")` to catch missing branches at development time.
