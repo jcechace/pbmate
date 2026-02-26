@@ -36,7 +36,7 @@ const (
 
 // restoreFormResult holds the user's selections from the restore form.
 type restoreFormResult struct {
-	scope            string // "full" or "selective" (snapshot mode)
+	scope            string // "full" or "selective" (snapshot and logical PITR mode)
 	pitrPreset       string // selected PITR preset value (timestamp or "custom")
 	pitrTarget       string // human-readable datetime (PITR mode only)
 	pitrBaseName     string // selected base backup name (PITR mode only)
@@ -52,17 +52,13 @@ func (r *restoreFormResult) isSelective() bool {
 	return r.scope == restoreScopeSelective
 }
 
-// effectivePITRTarget returns the PITR target to use. If the user selected
-// a preset, that value is used; otherwise the custom input is used.
+// effectivePITRTarget returns the PITR target to use.
 func (r *restoreFormResult) effectivePITRTarget() string {
-	if r.pitrPreset != pitrPresetCustom {
-		return r.pitrPreset
-	}
-	return r.pitrTarget
+	return resolvePITRTarget(r.pitrPreset, r.pitrTarget)
 }
 
 // toSnapshotCommand converts the form result into a StartSnapshotRestore.
-func (r restoreFormResult) toSnapshotCommand(backupName string) sdk.StartSnapshotRestore {
+func (r *restoreFormResult) toSnapshotCommand(backupName string) sdk.StartSnapshotRestore {
 	cmd := sdk.StartSnapshotRestore{
 		BackupName:          backupName,
 		NumParallelColls:    parseOptionalInt(r.parallelColls),
@@ -79,7 +75,7 @@ func (r restoreFormResult) toSnapshotCommand(backupName string) sdk.StartSnapsho
 
 // toPITRCommand converts the form result into a StartPITRRestore.
 // Returns an error if the PITR target cannot be parsed.
-func (r restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRRestore, error) {
+func (r *restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRRestore, error) {
 	target, err := parsePITRTarget(r.effectivePITRTarget())
 	if err != nil {
 		return sdk.StartPITRRestore{}, err
@@ -100,14 +96,23 @@ func (r restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRRestor
 }
 
 // parseNamespaces splits the comma-separated namespace string into a slice.
-// Returns nil for empty or "*.*" (full restore).
-func (r restoreFormResult) parseNamespaces() []string {
+// Returns nil for empty input or when scope is not selective.
+// Empty entries after trimming are filtered out (e.g. trailing commas,
+// whitespace-only entries, or empty input which yields [""] from Split).
+func (r *restoreFormResult) parseNamespaces() []string {
 	if !r.isSelective() {
 		return nil
 	}
-	nss := strings.Split(r.namespaces, ",")
-	for i := range nss {
-		nss[i] = strings.TrimSpace(nss[i])
+	parts := strings.Split(r.namespaces, ",")
+	var nss []string
+	for _, s := range parts {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			nss = append(nss, s)
+		}
+	}
+	if len(nss) == 0 {
+		return nil
 	}
 	return nss
 }
@@ -145,13 +150,19 @@ type restoreTargetResult struct {
 	confirmed    bool
 }
 
-// effectivePITRTarget returns the PITR target to use from Step 1. If the user
-// selected a preset, that value is used; otherwise the custom input is used.
+// effectivePITRTarget returns the PITR target to use from Step 1.
 func (r *restoreTargetResult) effectivePITRTarget() string {
-	if r.pitrPreset != pitrPresetCustom {
-		return r.pitrPreset
+	return resolvePITRTarget(r.pitrPreset, r.pitrTarget)
+}
+
+// resolvePITRTarget returns the effective PITR target string. If the preset
+// is not "custom", the preset value is the target; otherwise the custom
+// input string is used.
+func resolvePITRTarget(preset, customTarget string) string {
+	if preset != pitrPresetCustom {
+		return preset
 	}
-	return r.pitrTarget
+	return customTarget
 }
 
 // newRestoreTargetForm creates the restore target form (Step 1 of the wizard).
@@ -267,26 +278,7 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 
 			// Base backup selector: filter backups valid for the
 			// effective PITR target using the same criteria as the SDK.
-			baseOpts := pitrBaseOptions(result.effectivePITRTarget(), backups, timelines)
-			if len(baseOpts) > 0 {
-				if !hasOptionValue(baseOpts, result.pitrBaseName) {
-					result.pitrBaseName = baseOpts[0].Value
-				}
-				groups = append(groups, huh.NewGroup(
-					huh.NewSelect[string]().
-						Title("Base backup").
-						Options(baseOpts...).
-						Value(&result.pitrBaseName),
-				))
-			} else {
-				// No valid base — show a note and leave pitrBaseName empty.
-				result.pitrBaseName = ""
-				groups = append(groups, huh.NewGroup(
-					huh.NewNote().
-						Title("Base backup").
-						Description("No valid base backup for this target"),
-				))
-			}
+			groups = append(groups, pitrBaseGroup(result.effectivePITRTarget(), backups, timelines, &result.pitrBaseName))
 		}
 	}
 
@@ -622,25 +614,7 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []
 	}
 
 	// Base backup selector for PITR.
-	baseOpts := pitrBaseOptions(result.effectivePITRTarget(), backups, timelines)
-	if len(baseOpts) > 0 {
-		if !hasOptionValue(baseOpts, result.pitrBaseName) {
-			result.pitrBaseName = baseOpts[0].Value
-		}
-		groups = append(groups, huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Base backup").
-				Options(baseOpts...).
-				Value(&result.pitrBaseName),
-		))
-	} else {
-		result.pitrBaseName = ""
-		groups = append(groups, huh.NewGroup(
-			huh.NewNote().
-				Title("Base backup").
-				Description("No valid base backup for this target"),
-		))
-	}
+	groups = append(groups, pitrBaseGroup(result.effectivePITRTarget(), backups, timelines, &result.pitrBaseName))
 
 	// Determine whether the selected base is physical/incremental.
 	// Physical PITR restores use the file-level restore path — scope,
@@ -719,6 +693,32 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []
 }
 
 // --- PITR base backup selection ---
+
+// pitrBaseGroup builds a form group for the base backup selector and updates
+// the baseName pointer to a valid selection. Returns the group to append and
+// the (possibly modified) baseName. Used by both newRestoreTargetForm and
+// newPITRRestoreForm to avoid duplicating the filter-options-or-note logic.
+func pitrBaseGroup(targetStr string, backups []sdk.Backup, timelines []sdk.Timeline, baseName *string) *huh.Group {
+	baseOpts := pitrBaseOptions(targetStr, backups, timelines)
+	if len(baseOpts) > 0 {
+		if !hasOptionValue(baseOpts, *baseName) {
+			*baseName = baseOpts[0].Value
+		}
+		return huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Base backup").
+				Options(baseOpts...).
+				Value(baseName),
+		)
+	}
+	// No valid base — show a note and clear the selection.
+	*baseName = ""
+	return huh.NewGroup(
+		huh.NewNote().
+			Title("Base backup").
+			Description("No valid base backup for this target"),
+	)
+}
 
 // pitrBaseOptions returns huh.Option entries for backups that are valid PITR
 // base snapshots for the given target time string. Uses [sdk.FilterPITRBases]
