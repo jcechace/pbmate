@@ -5,13 +5,12 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // SetByPath sets a field on target (must be a pointer to struct) identified by
 // a dot-separated path of yaml tag names. The rawValue string is coerced to
-// the field's type. Supported leaf types: string, bool, *bool, int, int64,
-// time.Duration. Map, slice, and struct leaves return an error.
+// the field's type. Supported leaf types: string, bool, *bool, int, int64.
+// Map, slice, and struct leaves return an error.
 func SetByPath(target any, dotPath string, rawValue string) error {
 	field, err := resolveField(target, dotPath)
 	if err != nil {
@@ -115,16 +114,6 @@ func setFieldValue(field reflect.Value, rawValue string) error {
 
 	switch field.Kind() {
 	case reflect.String:
-		// Check if it's a time.Duration (underlying kind is int64 but
-		// type is time.Duration).
-		if field.Type() == reflect.TypeOf(time.Duration(0)) {
-			d, err := time.ParseDuration(rawValue)
-			if err != nil {
-				return fmt.Errorf("invalid duration value: %q", rawValue)
-			}
-			field.Set(reflect.ValueOf(d))
-			return nil
-		}
 		field.SetString(rawValue)
 	case reflect.Bool:
 		b, err := strconv.ParseBool(rawValue)
@@ -133,14 +122,6 @@ func setFieldValue(field reflect.Value, rawValue string) error {
 		}
 		field.SetBool(b)
 	case reflect.Int, reflect.Int64:
-		if field.Type() == reflect.TypeOf(time.Duration(0)) {
-			d, err := time.ParseDuration(rawValue)
-			if err != nil {
-				return fmt.Errorf("invalid duration value: %q", rawValue)
-			}
-			field.SetInt(int64(d))
-			return nil
-		}
 		n, err := strconv.ParseInt(rawValue, 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid int value: %q", rawValue)
@@ -168,9 +149,6 @@ func formatFieldValue(field reflect.Value) string {
 	case reflect.Bool:
 		return strconv.FormatBool(field.Bool())
 	case reflect.Int, reflect.Int64:
-		if field.Type() == reflect.TypeOf(time.Duration(0)) {
-			return time.Duration(field.Int()).String()
-		}
 		return strconv.FormatInt(field.Int(), 10)
 	default:
 		return field.String()
