@@ -138,7 +138,7 @@ SDK `PITRService.Enable()` and `Disable()` methods using PBM's exported `config.
 ### Bulk Delete (Backups & PITR)
 SDK: Replaced `DeletePITRAll` with `DeletePITROlderThan` (takes `time.Duration`; 0 = delete all, matching PBM's deprecation of `--all`). Added `DeleteBackupsOlderThan` with the same duration-based pattern. Fixed `DeleteBackupsBefore.ConfigName` doc — zero value means main config, not all profiles (PBM does not support cross-profile deletion in a single command).
 
-TUI: Global `D` key opens a bulk delete form overlay. Target selector (Backups/PITR), preset durations (Now, 1d, 3d, 1w, 2w, 1m, Custom), custom date input (YYYY-MM-DD or YYYY-MM-DD HH:MM), backup type filter (All/Logical/Physical/Incremental), and profile selector (Main + named profiles). Dynamic form rebuild on target/preset changes. Tests cover date parsing, preset resolution, command conversion, and confirm titles.
+TUI: Backups-tab `D` key opens a bulk delete form overlay; `d` on a PITR timeline opens it with PITR preselected. Target selector (Backups/PITR), preset durations (Now, 1d, 3d, 1w, 2w, 1m, Custom), custom date input (YYYY-MM-DD or YYYY-MM-DD HH:MM), backup type filter (All/Logical/Physical/Incremental), and profile selector (Main + named profiles). Dynamic form rebuild on target/preset changes. Tests cover date parsing, preset resolution, command conversion, and confirm titles.
 
 ## Deferred Features
 

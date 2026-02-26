@@ -177,8 +177,7 @@ global `readonly` config field > `false` (default).
 - `esc` — back / close overlay / clear filter
 - `s` / `S` — start backup (quick confirm / full wizard)
 - `X` — cancel running backup
-- `d` — delete (backup on Backups tab, profile on Config tab)
-- `D` — bulk delete (form overlay: Backups or PITR, preset/custom date, type/profile filters)
+- `d` — delete (backup on Backups tab, profile on Config tab; on PITR timeline opens bulk delete with PITR preselected)
 - `p` — toggle PITR (enable/disable with confirm overlay)
 
 ### Navigation (within panels)
@@ -193,6 +192,7 @@ global `readonly` config field > `false` (default).
 ### Backups-specific
 - `tab` — toggle between Backups and Restores list
 - `R` / `r` — restore (generic wizard / from selected item)
+- `D` — bulk delete (form overlay: Backups or PITR, preset/custom date, type/profile filters)
 - `space` / `enter` — expand/collapse profile group
 
 ### Config-specific
