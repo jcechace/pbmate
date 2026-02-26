@@ -368,6 +368,252 @@ func TestCompletedBackupOptions(t *testing.T) {
 	})
 }
 
+// --- resolvePITRTarget ---
+
+func TestResolvePITRTarget(t *testing.T) {
+	tests := []struct {
+		name         string
+		preset       string
+		customTarget string
+		want         string
+	}{
+		{
+			name:         "non-custom preset returns preset value",
+			preset:       "2026-02-20T14:30:00",
+			customTarget: "ignored",
+			want:         "2026-02-20T14:30:00",
+		},
+		{
+			name:         "custom preset returns custom target",
+			preset:       pitrPresetCustom,
+			customTarget: "2026-03-01T10:00:00",
+			want:         "2026-03-01T10:00:00",
+		},
+		{
+			name:         "empty preset returns empty (not custom)",
+			preset:       "",
+			customTarget: "something",
+			want:         "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolvePITRTarget(tt.preset, tt.customTarget)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// --- parseNamespaces ---
+
+func TestParseNamespaces(t *testing.T) {
+	tests := []struct {
+		name       string
+		scope      string
+		namespaces string
+		want       []string
+	}{
+		{
+			name:       "full scope returns nil",
+			scope:      restoreScopeFull,
+			namespaces: "db.col1, db.col2",
+			want:       nil,
+		},
+		{
+			name:       "selective with valid namespaces",
+			scope:      restoreScopeSelective,
+			namespaces: "db.col1, db.col2",
+			want:       []string{"db.col1", "db.col2"},
+		},
+		{
+			name:       "selective with single namespace",
+			scope:      restoreScopeSelective,
+			namespaces: "mydb.mycol",
+			want:       []string{"mydb.mycol"},
+		},
+		{
+			name:       "selective with empty string returns nil",
+			scope:      restoreScopeSelective,
+			namespaces: "",
+			want:       nil,
+		},
+		{
+			name:       "selective with whitespace only returns nil",
+			scope:      restoreScopeSelective,
+			namespaces: "  ,  ,  ",
+			want:       nil,
+		},
+		{
+			name:       "selective with trailing comma filters empty",
+			scope:      restoreScopeSelective,
+			namespaces: "db.col1, db.col2,",
+			want:       []string{"db.col1", "db.col2"},
+		},
+		{
+			name:       "selective trims whitespace",
+			scope:      restoreScopeSelective,
+			namespaces: " db.col1 , db.col2 ",
+			want:       []string{"db.col1", "db.col2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &restoreFormResult{scope: tt.scope, namespaces: tt.namespaces}
+			got := r.parseNamespaces()
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// --- backupContextDescription ---
+
+func TestBackupContextDescription(t *testing.T) {
+	t.Run("logical backup with size and config", func(t *testing.T) {
+		cn, _ := sdk.NewConfigName("s3-west")
+		bk := &sdk.Backup{
+			Name:       "2026-02-20T14:30:00Z",
+			Type:       sdk.BackupTypeLogical,
+			Status:     sdk.StatusDone,
+			Size:       1024 * 1024 * 50, // 50 MiB
+			ConfigName: cn,
+		}
+		desc := backupContextDescription(bk)
+		assert.Contains(t, desc, "logical")
+		assert.Contains(t, desc, "done")
+		assert.Contains(t, desc, "s3-west")
+	})
+
+	t.Run("incremental backup shows chain parent", func(t *testing.T) {
+		bk := &sdk.Backup{
+			Name:       "2026-02-20T15:00:00Z",
+			Type:       sdk.BackupTypeIncremental,
+			Status:     sdk.StatusDone,
+			SrcBackup:  "2026-02-20T14:00:00Z",
+			ConfigName: sdk.MainConfig,
+		}
+		desc := backupContextDescription(bk)
+		assert.Contains(t, desc, "incremental")
+		assert.Contains(t, desc, "Chain parent: 2026-02-20T14:00:00Z")
+	})
+
+	t.Run("backup with zero size omits size", func(t *testing.T) {
+		bk := &sdk.Backup{
+			Name:       "2026-02-20T14:30:00Z",
+			Type:       sdk.BackupTypeLogical,
+			Status:     sdk.StatusRunning,
+			ConfigName: sdk.MainConfig,
+		}
+		desc := backupContextDescription(bk)
+		assert.Contains(t, desc, "logical")
+		assert.Contains(t, desc, "running")
+		// Should not contain byte formatting artifacts.
+		assert.NotContains(t, desc, "0 B")
+	})
+}
+
+// --- pitrPresetOptions ---
+
+func TestPitrPresetOptions(t *testing.T) {
+	t.Run("short timeline only has latest and custom", func(t *testing.T) {
+		// 3-minute timeline — no relative presets fit.
+		tl := &sdk.Timeline{
+			Start: sdk.Timestamp{T: 1000},
+			End:   sdk.Timestamp{T: 1180}, // 3 minutes
+		}
+		opts := pitrPresetOptions(tl)
+		require.Len(t, opts, 2) // Latest + Custom
+		assert.Contains(t, opts[0].Key, "Latest")
+		assert.Equal(t, pitrPresetCustom, opts[len(opts)-1].Value)
+	})
+
+	t.Run("long timeline includes relative presets", func(t *testing.T) {
+		// 2-hour timeline — should include -5m, -15m, -30m, -1h.
+		start := uint32(1771590000)
+		end := start + 7200 // 2 hours
+		tl := &sdk.Timeline{
+			Start: sdk.Timestamp{T: start},
+			End:   sdk.Timestamp{T: end},
+		}
+		opts := pitrPresetOptions(tl)
+		// Latest + -5m + -15m + -30m + -1h + Custom = 6
+		require.Len(t, opts, 6)
+		assert.Contains(t, opts[0].Key, "Latest")
+		assert.Contains(t, opts[1].Key, "-5 min")
+		assert.Contains(t, opts[2].Key, "-15 min")
+		assert.Contains(t, opts[3].Key, "-30 min")
+		assert.Contains(t, opts[4].Key, "-1 hour")
+		assert.Equal(t, pitrPresetCustom, opts[5].Value)
+	})
+
+	t.Run("custom is always last", func(t *testing.T) {
+		tl := &sdk.Timeline{
+			Start: sdk.Timestamp{T: 1000},
+			End:   sdk.Timestamp{T: 100000},
+		}
+		opts := pitrPresetOptions(tl)
+		require.True(t, len(opts) >= 2)
+		assert.Equal(t, pitrPresetCustom, opts[len(opts)-1].Value)
+	})
+}
+
+// --- physicalRestoreWarning ---
+
+func TestPhysicalRestoreWarning(t *testing.T) {
+	t.Run("snapshot restore", func(t *testing.T) {
+		req := physicalRestoreConfirmRequest{
+			backupName: "2026-02-20T14:30:00Z",
+			backupType: "physical",
+			isPITR:     false,
+		}
+		warning := physicalRestoreWarning(req)
+		assert.Contains(t, warning, "physical restore")
+		assert.Contains(t, warning, "shut down mongod")
+		assert.Contains(t, warning, "2026-02-20T14:30:00Z")
+		assert.NotContains(t, warning, "base backup")
+	})
+
+	t.Run("PITR restore with physical base", func(t *testing.T) {
+		req := physicalRestoreConfirmRequest{
+			backupName: "2026-02-20T14:00:00Z",
+			backupType: "incremental",
+			isPITR:     true,
+		}
+		warning := physicalRestoreWarning(req)
+		assert.Contains(t, warning, "base backup")
+		assert.Contains(t, warning, "incremental")
+		assert.Contains(t, warning, "shut down mongod")
+		assert.Contains(t, warning, "2026-02-20T14:00:00Z")
+	})
+}
+
+// --- findBackupByName ---
+
+func TestFindBackupByName(t *testing.T) {
+	backups := []sdk.Backup{
+		{Name: "bk1"},
+		{Name: "bk2"},
+		{Name: "bk3"},
+	}
+
+	t.Run("found", func(t *testing.T) {
+		got := findBackupByName(backups, "bk2")
+		require.NotNil(t, got)
+		assert.Equal(t, "bk2", got.Name)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		got := findBackupByName(backups, "nonexistent")
+		assert.Nil(t, got)
+	})
+
+	t.Run("empty slice", func(t *testing.T) {
+		got := findBackupByName(nil, "bk1")
+		assert.Nil(t, got)
+	})
+}
+
 // --- hasOptionValue ---
 
 func TestHasOptionValue(t *testing.T) {
