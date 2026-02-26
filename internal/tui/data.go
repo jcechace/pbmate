@@ -532,6 +532,26 @@ func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) t
 	}
 }
 
+// --- Bulk delete ---
+
+// deleteBackupsBulkCmd returns a tea.Cmd that deletes backups matching the
+// given command (DeleteBackupsBefore or DeleteBackupsOlderThan).
+func deleteBackupsBulkCmd(ctx context.Context, client *sdk.Client, cmd sdk.DeleteBackupCommand) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Backups.Delete(ctx, cmd)
+		return actionResultMsg{action: "bulk delete", err: err}
+	}
+}
+
+// deletePITRCmd returns a tea.Cmd that deletes PITR chunks matching the
+// given command (DeletePITRBefore or DeletePITROlderThan).
+func deletePITRCmd(ctx context.Context, client *sdk.Client, cmd sdk.DeletePITRCommand) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.PITR.Delete(ctx, cmd)
+		return actionResultMsg{action: "bulk delete", err: err}
+	}
+}
+
 // --- PITR toggle ---
 
 // enablePITRCmd returns a tea.Cmd that enables PITR oplog slicing.
