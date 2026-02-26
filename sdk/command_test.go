@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func intPtr(n int) *int { return &n }
+
 func TestStartLogicalBackupValidate(t *testing.T) {
 	t.Run("valid full backup", func(t *testing.T) {
 		cmd := StartLogicalBackup{}
@@ -46,13 +48,58 @@ func TestStartLogicalBackupValidate(t *testing.T) {
 }
 
 func TestStartPhysicalBackupValidate(t *testing.T) {
-	cmd := StartPhysicalBackup{}
-	assert.NoError(t, cmd.Validate())
+	tests := []struct {
+		name string
+		cmd  StartPhysicalBackup
+	}{
+		{
+			name: "zero value",
+			cmd:  StartPhysicalBackup{},
+		},
+		{
+			name: "with all fields",
+			cmd: StartPhysicalBackup{
+				ConfigName:       MainConfig,
+				Compression:      CompressionTypeZSTD,
+				CompressionLevel: intPtr(3),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NoError(t, tt.cmd.Validate())
+		})
+	}
 }
 
 func TestStartIncrementalBackupValidate(t *testing.T) {
-	cmd := StartIncrementalBackup{Base: true}
-	assert.NoError(t, cmd.Validate())
+	tests := []struct {
+		name string
+		cmd  StartIncrementalBackup
+	}{
+		{
+			name: "base",
+			cmd:  StartIncrementalBackup{Base: true},
+		},
+		{
+			name: "non-base (extends chain)",
+			cmd:  StartIncrementalBackup{Base: false},
+		},
+		{
+			name: "with all fields",
+			cmd: StartIncrementalBackup{
+				ConfigName:       MainConfig,
+				Compression:      CompressionTypeLZ4,
+				CompressionLevel: intPtr(6),
+				Base:             true,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.NoError(t, tt.cmd.Validate())
+		})
+	}
 }
 
 func TestStartSnapshotRestoreValidate(t *testing.T) {
