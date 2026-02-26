@@ -87,6 +87,13 @@ tasks:
       - task: tui:lint
       - task: tui:test
 
+  tui:install:
+    desc: Install pbmate to $GOPATH/bin (runs check first)
+    deps:
+      - tui:check
+    cmds:
+      - go install .
+
   # ---------------------------------------------------------------------------
   # All modules
   # ---------------------------------------------------------------------------
