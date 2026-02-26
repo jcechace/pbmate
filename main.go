@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/alecthomas/kong"
 	tea "github.com/charmbracelet/bubbletea"
@@ -140,7 +139,7 @@ type contextUseCmd struct {
 
 func (cmd *contextUseCmd) Run(cfg *config.AppConfig, path configFilePath) error {
 	if _, ok := cfg.Contexts[cmd.Name]; !ok {
-		return fmt.Errorf("context %q not found; available: %s", cmd.Name, contextNameList(cfg))
+		return fmt.Errorf("context %q not found; available: %s", cmd.Name, cfg.ContextNames())
 	}
 
 	cfg.CurrentContext = cmd.Name
@@ -240,7 +239,7 @@ func (cmd *cfgShowCmd) Run(cfg *config.AppConfig) error {
 	if cmd.Context != "" {
 		ctx, ok := cfg.Contexts[cmd.Context]
 		if !ok {
-			return fmt.Errorf("context %q not found; available: %s", cmd.Context, contextNameList(cfg))
+			return fmt.Errorf("context %q not found; available: %s", cmd.Context, cfg.ContextNames())
 		}
 		target = ctx
 	}
@@ -310,7 +309,7 @@ func mutateConfig(cfg *config.AppConfig, contextName, path string, fn func(any) 
 	if contextName != "" {
 		ctx, ok := cfg.Contexts[contextName]
 		if !ok {
-			return fmt.Errorf("context %q not found; available: %s", contextName, contextNameList(cfg))
+			return fmt.Errorf("context %q not found; available: %s", contextName, cfg.ContextNames())
 		}
 		if err := fn(&ctx); err != nil {
 			return err
@@ -322,19 +321,6 @@ func mutateConfig(cfg *config.AppConfig, contextName, path string, fn func(any) 
 		}
 	}
 	return cfg.Save(path)
-}
-
-// contextNameList returns a comma-separated list of context names for error messages.
-func contextNameList(cfg *config.AppConfig) string {
-	if len(cfg.Contexts) == 0 {
-		return "(none)"
-	}
-	names := make([]string, 0, len(cfg.Contexts))
-	for name := range cfg.Contexts {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return strings.Join(names, ", ")
 }
 
 func main() {

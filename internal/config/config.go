@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -133,7 +134,7 @@ func (c *AppConfig) ResolveURI(flagURI, flagContext string) (string, error) {
 
 	ctx, ok := c.Contexts[contextName]
 	if !ok {
-		return "", fmt.Errorf("context %q not found; available contexts: %s", contextName, c.contextNames())
+		return "", fmt.Errorf("context %q not found; available contexts: %s", contextName, c.ContextNames())
 	}
 
 	if ctx.URI == "" {
@@ -221,18 +222,16 @@ func ValidateURI(uri string) error {
 	return fmt.Errorf("invalid URI scheme %q: expected mongodb:// or mongodb+srv://", scheme)
 }
 
-// contextNames returns a comma-separated list of context names for error
-// messages. Returns "(none)" if no contexts are defined.
-func (c *AppConfig) contextNames() string {
+// ContextNames returns a sorted, comma-separated list of context names for
+// error messages. Returns "(none)" if no contexts are defined.
+func (c *AppConfig) ContextNames() string {
 	if len(c.Contexts) == 0 {
 		return "(none)"
 	}
-	names := ""
+	names := make([]string, 0, len(c.Contexts))
 	for name := range c.Contexts {
-		if names != "" {
-			names += ", "
-		}
-		names += name
+		names = append(names, name)
 	}
-	return names
+	sort.Strings(names)
+	return strings.Join(names, ", ")
 }
