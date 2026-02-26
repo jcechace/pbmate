@@ -132,6 +132,9 @@ Fixed `latestTimeline()` to use `Timestamp.After()` instead of raw `.T` comparis
 ### Double-Press Quit
 `q` now requires a double-press within 2s to quit — prevents accidental exit. First press shows "Press q again to quit" in the status bar (uses `StatusWarning` style, higher priority than `flashErr`). Timer auto-clears the pending state via `quitTimeoutMsg`. `ctrl+c` bypasses the guard for immediate exit. Overlays still dismiss on single `q` (they receive the `Quit` binding, not `ForceQuit`). Help text updated to show `q quit (2x)`.
 
+### PITR Enable/Disable
+SDK `PITRService.Enable()` and `Disable()` methods using PBM's exported `config.SetConfigVar` (which handles the epoch bump internally). Returns plain `error` — not `CommandResult` — because PITR toggle is a direct config update, not a PBM command. TUI global `p` key toggles PITR state with a confirmation overlay. Help overlay shows `p` in Global section.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |

@@ -178,6 +178,7 @@ global `readonly` config field > `false` (default).
 - `s` / `S` — start backup (quick confirm / full wizard)
 - `X` — cancel running backup
 - `d` — delete (backup on Backups tab, profile on Config tab)
+- `p` — toggle PITR (enable/disable with confirm overlay)
 
 ### Navigation (within panels)
 - `up`/`down` or `k`/`j` — move selection / scroll in focused panel
