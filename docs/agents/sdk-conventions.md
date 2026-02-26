@@ -42,7 +42,7 @@ Shared helpers: `convert.go` / `convert_test.go`, `wait.go` / `wait_test.go`.
 | RestoreService | `restore.go` | List, Get, Start, Wait |
 | ConfigService | `config.go` | Get, GetYAML, ListProfiles, GetProfile, SetProfile, Resync |
 | ClusterService | `cluster.go` | Members, Agents, RunningOperations, CheckLock, ServerInfo |
-| PITRService | `pitr.go` | Status, Timelines, Delete |
+| PITRService | `pitr.go` | Status, Timelines, Bases, Delete |
 | LogService | `log.go` | Get, Follow |
 
 ## Sealed Command Pattern

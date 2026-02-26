@@ -69,85 +69,70 @@ func TestParsePITRTarget(t *testing.T) {
 	}
 }
 
-// --- findBaseBackup ---
+// --- pitrBaseOptions ---
 
-func TestFindBaseBackup(t *testing.T) {
-	mkBackup := func(name string, status sdk.Status, lastWriteT uint32) sdk.Backup {
+func TestPitrBaseOptions(t *testing.T) {
+	timelines := []sdk.Timeline{
+		{Start: sdk.Timestamp{T: 1000}, End: sdk.Timestamp{T: 5000}},
+	}
+
+	mkBackup := func(name string, lastWriteT uint32) sdk.Backup {
 		return sdk.Backup{
 			Name:        name,
-			Status:      status,
+			Status:      sdk.StatusDone,
+			Type:        sdk.BackupTypeLogical,
+			ConfigName:  sdk.MainConfig,
 			LastWriteTS: sdk.Timestamp{T: lastWriteT},
 		}
 	}
 
-	backups := []sdk.Backup{
-		mkBackup("bk-old", sdk.StatusDone, 1000),
-		mkBackup("bk-mid", sdk.StatusDone, 2000),
-		mkBackup("bk-new", sdk.StatusDone, 3000),
-		mkBackup("bk-future", sdk.StatusDone, 5000),
-		mkBackup("bk-err", sdk.StatusError, 1500), // non-done
-	}
-
 	tests := []struct {
-		name     string
-		targetT  uint32
-		backups  []sdk.Backup
-		wantName string
-		wantErr  bool
+		name       string
+		targetStr  string
+		backups    []sdk.Backup
+		timelines  []sdk.Timeline
+		wantValues []string
 	}{
 		{
-			name:     "selects latest before target",
-			targetT:  2500,
-			backups:  backups,
-			wantName: "bk-mid",
+			name:       "invalid target returns nil",
+			targetStr:  "not-a-date",
+			backups:    []sdk.Backup{mkBackup("bk1", 2000)},
+			timelines:  timelines,
+			wantValues: nil,
 		},
 		{
-			name:     "exact match on lastWriteTS",
-			targetT:  3000,
-			backups:  backups,
-			wantName: "bk-new",
+			name:       "no valid bases returns nil",
+			targetStr:  "2000-01-01T00:00:10", // T=946684810
+			backups:    nil,
+			timelines:  timelines,
+			wantValues: nil,
 		},
 		{
-			name:    "target before all backups",
-			targetT: 500,
-			backups: backups,
-			wantErr: true,
-		},
-		{
-			name:    "empty backup list",
-			targetT: 3000,
-			backups: nil,
-			wantErr: true,
-		},
-		{
-			name:    "skips non-done backups",
-			targetT: 1800,
+			name:      "returns options sorted by LastWriteTS desc",
+			targetStr: "2000-01-01T00:50:00", // T=946687800, within timeline if we adjust
 			backups: []sdk.Backup{
-				mkBackup("bk-err", sdk.StatusError, 1500),
-				mkBackup("bk-running", sdk.StatusRunning, 1200),
+				mkBackup("bk-early", 1100),
+				mkBackup("bk-late", 1300),
+				mkBackup("bk-mid", 1200),
 			},
-			wantErr: true,
-		},
-		{
-			name:    "skips zero lastWriteTS",
-			targetT: 3000,
-			backups: []sdk.Backup{
-				{Name: "bk-zero", Status: sdk.StatusDone, LastWriteTS: sdk.Timestamp{}},
+			timelines: []sdk.Timeline{
+				{Start: sdk.Timestamp{T: 1000}, End: sdk.Timestamp{T: 946687800}},
 			},
-			wantErr: true,
+			wantValues: []string{"bk-late", "bk-mid", "bk-early"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			target := sdk.Timestamp{T: tt.targetT}
-			name, err := findBaseBackup(target, tt.backups)
-			if tt.wantErr {
-				assert.Error(t, err)
+			opts := pitrBaseOptions(tt.targetStr, tt.backups, tt.timelines)
+			if tt.wantValues == nil {
+				assert.Nil(t, opts)
 				return
 			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantName, name)
+			require.Len(t, opts, len(tt.wantValues))
+			for i, wantVal := range tt.wantValues {
+				assert.Equal(t, wantVal, opts[i].Value, "opts[%d]", i)
+			}
 		})
 	}
 }

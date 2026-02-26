@@ -327,7 +327,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case restoreModeSnapshot:
 			overlay, cmd = newSnapshotRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backup)
 		case restoreModePITR:
-			overlay, cmd = newPITRRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.timeline, msg.backups)
+			overlay, cmd = newPITRRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.timeline, msg.backups, msg.timelines)
 		}
 		m.activeOverlay = overlay
 		return m, cmd

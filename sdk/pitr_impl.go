@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/percona/percona-backup-mongodb/pbm/backup"
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
@@ -73,6 +74,26 @@ func (s *pitrServiceImpl) Timelines(ctx context.Context) ([]Timeline, error) {
 	}
 
 	return convertTimelines(tlns), nil
+}
+
+func (s *pitrServiceImpl) Bases(ctx context.Context, target Timestamp) ([]Backup, error) {
+	metas, err := backup.BackupsList(ctx, s.conn, 0)
+	if err != nil {
+		return nil, fmt.Errorf("get pitr bases: list backups: %w", err)
+	}
+
+	var backups []Backup
+	for i := range metas {
+		backups = append(backups, convertBackup(&metas[i]))
+	}
+
+	tlns, err := oplog.PITRTimelines(ctx, s.conn)
+	if err != nil {
+		return nil, fmt.Errorf("get pitr bases: get timelines: %w", err)
+	}
+	timelines := convertTimelines(tlns)
+
+	return FilterPITRBases(target, backups, timelines), nil
 }
 
 func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (CommandResult, error) {

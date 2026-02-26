@@ -116,6 +116,9 @@ SDK `StartPhysicalBackup` command type added (ConfigName, Compression, Compressi
 ### Physical/Incremental Restore Safety
 Physical and incremental restores shut down mongod on all nodes (including PITR restores with a physical/incremental base). TUI now intercepts these restores with an explicit final warning confirmation overlay before dispatch. On confirm, the restore command is dispatched and the TUI exits cleanly, printing a farewell message to stdout ("Monitor progress with: pbm status"). On dispatch error, the TUI stays open with the error in the flash bar. The `R` wizard includes physical/incremental backups in its selector — the warning overlay is the safety gate.
 
+### PITR Base Backup Selector
+SDK `FilterPITRBases` pure function with full validation (StatusDone, LastWriteTS before target, not selective, not external, main config only, timeline coverage). `PITRService.Bases()` server method. TUI PITR restore forms (both Step 1 wizard and Step 2 direct) now show a "Base backup" selector instead of auto-selecting via the old `findBaseBackup()`. Pre-selects most recent valid base. Shows "No valid base backup" note when none qualify. Physical/incremental PITR bases still trigger the physical restore warning overlay.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |

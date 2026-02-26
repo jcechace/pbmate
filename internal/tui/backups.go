@@ -171,8 +171,9 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) 
 			if item := m.selectedItem(); item != nil && item.kind == itemPITR {
 				tl := item.timeline
 				backups := m.allBackups()
+				timelines := m.timelines
 				return func() tea.Msg {
-					return restoreRequest{mode: restoreModePITR, timeline: tl, backups: backups}
+					return restoreRequest{mode: restoreModePITR, timeline: tl, backups: backups, timelines: timelines}
 				}
 			}
 		}

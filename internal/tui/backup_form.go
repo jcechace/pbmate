@@ -352,6 +352,18 @@ func initFormWithAdvance(form *huh.Form, advance bool) tea.Cmd {
 	return initCmd
 }
 
+// initFormAdvanceTo calls form.Init() and advances focus by n fields.
+// Each NextField call synchronously moves the form's internal cursor;
+// the returned cmds are cosmetic (blur/focus animations). Use this when
+// a form rebuild needs to restore focus past the first interactive field.
+func initFormAdvanceTo(form *huh.Form, n int) tea.Cmd {
+	cmds := []tea.Cmd{form.Init()}
+	for range n {
+		cmds = append(cmds, form.NextField())
+	}
+	return tea.Batch(cmds...)
+}
+
 // --- Shared ---
 
 // formKeyMap returns a huh KeyMap with ] and [ added to field

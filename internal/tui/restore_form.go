@@ -39,6 +39,7 @@ type restoreFormResult struct {
 	scope            string // "full" or "selective" (snapshot mode)
 	pitrPreset       string // selected PITR preset value (timestamp or "custom")
 	pitrTarget       string // human-readable datetime (PITR mode only)
+	pitrBaseName     string // selected base backup name (PITR mode only)
 	namespaces       string // comma-separated, optional
 	usersAndRoles    bool
 	parallelColls    string // "" = server default
@@ -135,12 +136,22 @@ func parsePITRTarget(s string) (sdk.Timestamp, error) {
 // This is Step 1 of the restore wizard — it determines what to restore.
 // Step 2 (the restore options form) determines how.
 type restoreTargetResult struct {
-	restoreType restoreMode // restoreModeSnapshot or restoreModePITR
-	profileName string      // selected profile filter (snapshot mode)
-	backupName  string      // selected backup name (snapshot mode)
-	pitrPreset  string      // selected PITR preset (pitr mode)
-	pitrTarget  string      // custom target datetime (pitr mode, when preset == "custom")
-	confirmed   bool
+	restoreType  restoreMode // restoreModeSnapshot or restoreModePITR
+	profileName  string      // selected profile filter (snapshot mode)
+	backupName   string      // selected backup name (snapshot mode)
+	pitrPreset   string      // selected PITR preset (pitr mode)
+	pitrTarget   string      // custom target datetime (pitr mode, when preset == "custom")
+	pitrBaseName string      // selected base backup name (pitr mode)
+	confirmed    bool
+}
+
+// effectivePITRTarget returns the PITR target to use from Step 1. If the user
+// selected a preset, that value is used; otherwise the custom input is used.
+func (r *restoreTargetResult) effectivePITRTarget() string {
+	if r.pitrPreset != pitrPresetCustom {
+		return r.pitrPreset
+	}
+	return r.pitrTarget
 }
 
 // newRestoreTargetForm creates the restore target form (Step 1 of the wizard).
@@ -159,6 +170,7 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 		result.backupName = initial.backupName
 		result.pitrPreset = initial.pitrPreset
 		result.pitrTarget = initial.pitrTarget
+		result.pitrBaseName = initial.pitrBaseName
 	}
 
 	// Type options: PITR only available when timelines exist.
@@ -250,6 +262,29 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 							_, err := parsePITRTarget(s)
 							return err
 						}),
+				))
+			}
+
+			// Base backup selector: filter backups valid for the
+			// effective PITR target using the same criteria as the SDK.
+			baseOpts := pitrBaseOptions(result.effectivePITRTarget(), backups, timelines)
+			if len(baseOpts) > 0 {
+				if !hasOptionValue(baseOpts, result.pitrBaseName) {
+					result.pitrBaseName = baseOpts[0].Value
+				}
+				groups = append(groups, huh.NewGroup(
+					huh.NewSelect[string]().
+						Title("Base backup").
+						Options(baseOpts...).
+						Value(&result.pitrBaseName),
+				))
+			} else {
+				// No valid base — show a note and leave pitrBaseName empty.
+				result.pitrBaseName = ""
+				groups = append(groups, huh.NewGroup(
+					huh.NewNote().
+						Title("Base backup").
+						Description("No valid base backup for this target"),
 				))
 			}
 		}
@@ -521,10 +556,15 @@ func pitrPresetOptions(timeline *sdk.Timeline) []huh.Option[string] {
 }
 
 // newPITRRestoreForm creates a single-screen form for point-in-time restore.
-// Groups are built dynamically based on pitrPreset and scope — the form is
-// rebuilt when either changes (see restoreFormOverlay). initial carries values
-// from a previous form state during rebuild (nil for first open).
-func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
+// Groups are built dynamically based on pitrPreset, base backup type, and
+// scope — the form is rebuilt when any of these change (see restoreFormOverlay).
+// initial carries values from a previous form state during rebuild (nil for
+// first open).
+//
+// When the selected base backup is physical or incremental, scope and tuning
+// knobs are omitted — PBM uses the physical restore path where they don't
+// apply. This mirrors the snapshot form behavior for physical backups.
+func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
 	result := &restoreFormResult{
 		scope:     restoreScopeFull,
 		confirmed: true,
@@ -538,6 +578,7 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 		result.scope = initial.scope
 		result.pitrPreset = initial.pitrPreset
 		result.pitrTarget = initial.pitrTarget
+		result.pitrBaseName = initial.pitrBaseName
 		result.namespaces = initial.namespaces
 		result.usersAndRoles = initial.usersAndRoles
 		result.parallelColls = initial.parallelColls
@@ -551,9 +592,9 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 	rangeNote := fmt.Sprintf("%s  →  %s\n(%s)",
 		start.Format("Jan 02 15:04:05"), end.Format("Jan 02 15:04:05"), duration)
 
-	// Build groups dynamically based on preset and scope.
+	// Build groups dynamically based on preset, base type, and scope.
 	groups := []*huh.Group{
-		// Timeline context + target preset + scope.
+		// Timeline context + target preset.
 		huh.NewGroup(
 			huh.NewNote().
 				Title("Timeline").
@@ -564,15 +605,6 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 				Options(pitrPresetOptions(timeline)...).
 				Inline(true).
 				Value(&result.pitrPreset),
-
-			huh.NewSelect[string]().
-				Title("Scope").
-				Options(
-					huh.NewOption("Full", restoreScopeFull),
-					huh.NewOption("Selective", restoreScopeSelective),
-				).
-				Inline(true).
-				Value(&result.scope),
 		),
 	}
 
@@ -589,43 +621,97 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 		))
 	}
 
-	if result.scope == restoreScopeSelective {
+	// Base backup selector for PITR.
+	baseOpts := pitrBaseOptions(result.effectivePITRTarget(), backups, timelines)
+	if len(baseOpts) > 0 {
+		if !hasOptionValue(baseOpts, result.pitrBaseName) {
+			result.pitrBaseName = baseOpts[0].Value
+		}
 		groups = append(groups, huh.NewGroup(
-			huh.NewInput().
-				Title("Namespaces").
-				Placeholder("*.*  (all)").
-				Value(&result.namespaces),
-
-			huh.NewConfirm().
-				Title("Include users and roles?").
-				Inline(true).
-				Affirmative("Yes").
-				Negative("No").
-				Value(&result.usersAndRoles),
+			huh.NewSelect[string]().
+				Title("Base backup").
+				Options(baseOpts...).
+				Value(&result.pitrBaseName),
+		))
+	} else {
+		result.pitrBaseName = ""
+		groups = append(groups, huh.NewGroup(
+			huh.NewNote().
+				Title("Base backup").
+				Description("No valid base backup for this target"),
 		))
 	}
 
-	groups = append(groups,
-		// Tuning + confirmation.
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Parallel Collections").
-				Placeholder("server default").
-				Value(&result.parallelColls),
+	// Determine whether the selected base is physical/incremental.
+	// Physical PITR restores use the file-level restore path — scope,
+	// namespace filtering, and tuning knobs don't apply.
+	isPhysicalBase := false
+	if base := findBackupByName(backups, result.pitrBaseName); base != nil {
+		isPhysicalBase = base.IsPhysical() || base.IsIncremental()
+	}
 
-			huh.NewInput().
-				Title("Insertion Workers").
-				Placeholder("server default").
-				Value(&result.insertionWorkers),
+	if !isPhysicalBase {
+		// Logical base: show scope selector and tuning knobs.
+		groups = append(groups, huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Scope").
+				Options(
+					huh.NewOption("Full", restoreScopeFull),
+					huh.NewOption("Selective", restoreScopeSelective),
+				).
+				Inline(true).
+				Value(&result.scope),
+		))
 
-			huh.NewConfirm().
-				Title("Restore PITR?").
-				WithButtonAlignment(lipgloss.Left).
-				Affirmative("Restore").
-				Negative("Cancel").
-				Value(&result.confirmed),
-		),
-	)
+		if result.scope == restoreScopeSelective {
+			groups = append(groups, huh.NewGroup(
+				huh.NewInput().
+					Title("Namespaces").
+					Placeholder("*.*  (all)").
+					Value(&result.namespaces),
+
+				huh.NewConfirm().
+					Title("Include users and roles?").
+					Inline(true).
+					Affirmative("Yes").
+					Negative("No").
+					Value(&result.usersAndRoles),
+			))
+		}
+
+		groups = append(groups,
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Parallel Collections").
+					Placeholder("server default").
+					Value(&result.parallelColls),
+
+				huh.NewInput().
+					Title("Insertion Workers").
+					Placeholder("server default").
+					Value(&result.insertionWorkers),
+
+				huh.NewConfirm().
+					Title("Restore PITR?").
+					WithButtonAlignment(lipgloss.Left).
+					Affirmative("Restore").
+					Negative("Cancel").
+					Value(&result.confirmed),
+			),
+		)
+	} else {
+		// Physical/incremental base: only confirmation.
+		groups = append(groups,
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("Restore PITR?").
+					WithButtonAlignment(lipgloss.Left).
+					Affirmative("Restore").
+					Negative("Cancel").
+					Value(&result.confirmed),
+			),
+		)
+	}
 
 	form := newStandardForm(groups, formTheme)
 
@@ -634,29 +720,29 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, initial *r
 
 // --- PITR base backup selection ---
 
-// findBaseBackup finds the latest completed backup whose last write timestamp
-// is at or before the given PITR target. Returns the backup name, or an error
-// if no eligible backup exists.
-func findBaseBackup(target sdk.Timestamp, backups []sdk.Backup) (string, error) {
-	var best *sdk.Backup
-	for i := range backups {
-		bk := &backups[i]
-		if !bk.Status.Equal(sdk.StatusDone) {
-			continue
-		}
-		if bk.LastWriteTS.IsZero() {
-			continue
-		}
-		if bk.LastWriteTS.T > target.T {
-			continue
-		}
-		if best == nil || bk.LastWriteTS.T > best.LastWriteTS.T {
-			best = bk
-		}
+// pitrBaseOptions returns huh.Option entries for backups that are valid PITR
+// base snapshots for the given target time string. Uses [sdk.FilterPITRBases]
+// to apply the full validation criteria (status, config, timeline coverage).
+// Returns nil if the target cannot be parsed or no valid bases exist.
+func pitrBaseOptions(targetStr string, backups []sdk.Backup, timelines []sdk.Timeline) []huh.Option[string] {
+	target, err := parsePITRTarget(targetStr)
+	if err != nil {
+		return nil
 	}
-	if best == nil {
-		return "", fmt.Errorf("no completed backup found before target %s",
-			target.Time().UTC().Format(pitrTargetFormat))
+
+	bases := sdk.FilterPITRBases(target, backups, timelines)
+	if len(bases) == 0 {
+		return nil
 	}
-	return best.Name, nil
+
+	var opts []huh.Option[string]
+	for i := range bases {
+		bk := &bases[i]
+		label := fmt.Sprintf("%s  %s", bk.Name, bk.Type)
+		if bk.Size > 0 {
+			label += "  " + humanBytes(bk.Size)
+		}
+		opts = append(opts, huh.NewOption(label, bk.Name))
+	}
+	return opts
 }

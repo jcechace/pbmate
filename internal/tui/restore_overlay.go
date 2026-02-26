@@ -93,14 +93,15 @@ func (o *restoreTargetOverlay) transitionToOptions() (formOverlay, tea.Cmd) {
 		if timeline == nil {
 			return nil, nil // should not happen
 		}
-		// Pre-populate the PITR target from Step 1 selections.
+		// Pre-populate the PITR target and base backup from Step 1 selections.
 		initial := &restoreFormResult{
-			scope:      restoreScopeFull,
-			pitrPreset: o.result.pitrPreset,
-			pitrTarget: o.result.pitrTarget,
-			confirmed:  true,
+			scope:        restoreScopeFull,
+			pitrPreset:   o.result.pitrPreset,
+			pitrTarget:   o.result.pitrTarget,
+			pitrBaseName: o.result.pitrBaseName,
+			confirmed:    true,
 		}
-		return newPITRRestoreOverlayWithInitial(o.ctx, o.client, o.formTheme, timeline, o.backups, initial)
+		return newPITRRestoreOverlayWithInitial(o.ctx, o.client, o.formTheme, timeline, o.backups, o.timelines, initial)
 
 	default:
 		return nil, nil
@@ -140,20 +141,22 @@ func (o *restoreTargetOverlay) View(styles *Styles, contentW, contentH int) stri
 
 // restoreFormOverlay wraps the restore form. The mode determines whether
 // this is a snapshot restore (from a selected backup) or a PITR restore
-// (from a selected timeline, with auto-selected base backup).
+// (from a selected timeline, with user-selected base backup).
 type restoreFormOverlay struct {
-	form       *huh.Form
-	result     *restoreFormResult
-	mode       restoreMode
-	backupName string        // set for snapshot mode
-	backup     *sdk.Backup   // set for snapshot mode (for rebuild + incremental check)
-	backups    []sdk.Backup  // set for PITR mode (for base backup auto-selection)
-	timeline   *sdk.Timeline // set for PITR mode (for rebuild)
-	lastScope  string        // tracks scope for dynamic rebuild
-	lastPreset string        // tracks pitrPreset for dynamic rebuild (PITR mode)
-	formTheme  *huh.Theme
-	ctx        context.Context
-	client     *sdk.Client
+	form         *huh.Form
+	result       *restoreFormResult
+	mode         restoreMode
+	backupName   string         // set for snapshot mode
+	backup       *sdk.Backup    // set for snapshot mode (for rebuild + incremental check)
+	backups      []sdk.Backup   // set for PITR mode (for base backup filtering)
+	timeline     *sdk.Timeline  // set for PITR mode (for rebuild)
+	timelines    []sdk.Timeline // set for PITR mode (for base backup filtering)
+	lastScope    string         // tracks scope for dynamic rebuild
+	lastPreset   string         // tracks pitrPreset for dynamic rebuild (PITR mode)
+	lastBaseName string         // tracks pitrBaseName for dynamic rebuild (PITR mode)
+	formTheme    *huh.Theme
+	ctx          context.Context
+	client       *sdk.Client
 }
 
 func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, bk *sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
@@ -172,23 +175,25 @@ func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formThem
 	return o, o.form.Init()
 }
 
-func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
-	return newPITRRestoreOverlayWithInitial(ctx, client, formTheme, timeline, backups, nil)
+func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
+	return newPITRRestoreOverlayWithInitial(ctx, client, formTheme, timeline, backups, timelines, nil)
 }
 
-func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, initial *restoreFormResult) (*restoreFormOverlay, tea.Cmd) {
-	form, result := newPITRRestoreForm(formTheme, timeline, initial)
+func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*restoreFormOverlay, tea.Cmd) {
+	form, result := newPITRRestoreForm(formTheme, timeline, backups, timelines, initial)
 	o := &restoreFormOverlay{
-		form:       form,
-		result:     result,
-		mode:       restoreModePITR,
-		backups:    backups,
-		timeline:   timeline,
-		lastScope:  result.scope,
-		lastPreset: result.pitrPreset,
-		formTheme:  formTheme,
-		ctx:        ctx,
-		client:     client,
+		form:         form,
+		result:       result,
+		mode:         restoreModePITR,
+		backups:      backups,
+		timeline:     timeline,
+		timelines:    timelines,
+		lastScope:    result.scope,
+		lastPreset:   result.pitrPreset,
+		lastBaseName: result.pitrBaseName,
+		formTheme:    formTheme,
+		ctx:          ctx,
+		client:       client,
 	}
 	return o, o.form.Init()
 }
@@ -220,8 +225,28 @@ func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOv
 	case restoreModePITR:
 		scopeChanged := o.result.scope != o.lastScope
 		presetChanged := o.result.pitrPreset != o.lastPreset
-		if scopeChanged || presetChanged {
-			return o.rebuildPITRForm(scopeChanged)
+		baseChanged := o.result.pitrBaseName != o.lastBaseName
+		if scopeChanged || presetChanged || baseChanged {
+			// Compute how many fields to advance past after rebuild
+			// so focus lands on the field the user was interacting with.
+			//
+			// Form field order (each is one NextField step):
+			//   0: Select(Restore to)         — group 1
+			//   1: Input(Custom target)        — group 2, only when preset == "custom"
+			//   +1: Select(Base backup)        — group 3
+			//   +1: Select(Scope)              — group 4, only for logical base
+			advance := 0
+			if !presetChanged {
+				// Advance past "Restore to".
+				advance = 1
+				if o.result.pitrPreset == pitrPresetCustom {
+					advance++ // skip "Custom target"
+				}
+				if scopeChanged {
+					advance++ // skip "Base backup" to land on "Scope"
+				}
+			}
+			return o.rebuildPITRForm(advance)
 		}
 	}
 
@@ -239,19 +264,19 @@ func (o *restoreFormOverlay) rebuildSnapshotForm() (formOverlay, tea.Cmd) {
 	return o, o.form.Init()
 }
 
-// rebuildPITRForm reconstructs the PITR restore form when scope or preset
-// changes, preserving current field values. This swaps conditional groups
-// (custom target for "Custom..." preset, namespaces + users/roles for selective).
-// When scopeChanged is true, focus is advanced past "Restore to" to the Scope
-// field; otherwise Init naturally focuses "Restore to" (the first interactive
-// field after the skipped Note).
-func (o *restoreFormOverlay) rebuildPITRForm(scopeChanged bool) (formOverlay, tea.Cmd) {
-	form, result := newPITRRestoreForm(o.formTheme, o.timeline, o.result)
+// rebuildPITRForm reconstructs the PITR restore form when preset, base, or
+// scope changes, preserving current field values. advanceFields controls how
+// many fields to skip after Init so focus lands on the field the user was
+// interacting with (0 = stay on "Restore to", higher values skip subsequent
+// fields).
+func (o *restoreFormOverlay) rebuildPITRForm(advanceFields int) (formOverlay, tea.Cmd) {
+	form, result := newPITRRestoreForm(o.formTheme, o.timeline, o.backups, o.timelines, o.result)
 	o.form = form
 	o.result = result
 	o.lastScope = result.scope
 	o.lastPreset = result.pitrPreset
-	return o, initFormWithAdvance(o.form, scopeChanged)
+	o.lastBaseName = result.pitrBaseName
+	return o, initFormAdvanceTo(o.form, advanceFields)
 }
 
 // dispatchRestore builds the SDK command and dispatches it. For PITR mode
@@ -270,19 +295,15 @@ func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
 		return startRestoreCmd(o.ctx, o.client, cmd)
 
 	case restoreModePITR:
-		target, err := parsePITRTarget(o.result.effectivePITRTarget())
-		if err != nil {
-			return restoreErrorCmd(err)
-		}
-		baseName, err := findBaseBackup(target, o.backups)
-		if err != nil {
-			return restoreErrorCmd(err)
+		baseName := o.result.pitrBaseName
+		if baseName == "" {
+			return restoreErrorCmd(fmt.Errorf("no valid base backup for this PITR target"))
 		}
 		pitrCmd, err := o.result.toPITRCommand(baseName)
 		if err != nil {
 			return restoreErrorCmd(err)
 		}
-		// Check if the auto-selected base backup is physical/incremental.
+		// Check if the selected base backup is physical/incremental.
 		if base := findBackupByName(o.backups, baseName); base != nil && (base.IsPhysical() || base.IsIncremental()) {
 			return physicalRestoreConfirmCmd(pitrCmd, base.Name, base.Type.String(), true)
 		}
