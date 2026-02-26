@@ -82,7 +82,7 @@ func (o *restoreTargetOverlay) Update(msg tea.Msg, back, quit key.Binding) (form
 func (o *restoreTargetOverlay) transitionToOptions() (formOverlay, tea.Cmd) {
 	switch o.result.restoreType {
 	case restoreModeSnapshot:
-		bk := o.findBackup(o.result.backupName)
+		bk := findBackupByName(o.backups, o.result.backupName)
 		if bk == nil {
 			return nil, nil // should not happen
 		}
@@ -106,16 +106,6 @@ func (o *restoreTargetOverlay) transitionToOptions() (formOverlay, tea.Cmd) {
 	default:
 		return nil, nil
 	}
-}
-
-// findBackup looks up a backup by name from the cached backup list.
-func (o *restoreTargetOverlay) findBackup(name string) *sdk.Backup {
-	for i := range o.backups {
-		if o.backups[i].Name == name {
-			return &o.backups[i]
-		}
-	}
-	return nil
 }
 
 // rebuildForm reconstructs the restore target form when type or PITR preset
