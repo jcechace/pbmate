@@ -12,6 +12,7 @@ import (
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	pbmerrors "github.com/percona/percona-backup-mongodb/pbm/errors"
 	"github.com/percona/percona-backup-mongodb/pbm/oplog"
+	"golang.org/x/sync/errgroup"
 )
 
 type pitrServiceImpl struct {
@@ -77,21 +78,36 @@ func (s *pitrServiceImpl) Timelines(ctx context.Context) ([]Timeline, error) {
 }
 
 func (s *pitrServiceImpl) Bases(ctx context.Context, target Timestamp) ([]Backup, error) {
-	metas, err := backup.BackupsList(ctx, s.conn, 0)
-	if err != nil {
-		return nil, fmt.Errorf("get pitr bases: list backups: %w", err)
-	}
+	var (
+		backups   []Backup
+		timelines []Timeline
+	)
 
-	var backups []Backup
-	for i := range metas {
-		backups = append(backups, convertBackup(&metas[i]))
-	}
+	g, gctx := errgroup.WithContext(ctx)
 
-	tlns, err := oplog.PITRTimelines(ctx, s.conn)
-	if err != nil {
-		return nil, fmt.Errorf("get pitr bases: get timelines: %w", err)
+	g.Go(func() error {
+		metas, err := backup.BackupsList(gctx, s.conn, 0)
+		if err != nil {
+			return fmt.Errorf("list backups: %w", err)
+		}
+		for i := range metas {
+			backups = append(backups, convertBackup(&metas[i]))
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		tlns, err := oplog.PITRTimelines(gctx, s.conn)
+		if err != nil {
+			return fmt.Errorf("get timelines: %w", err)
+		}
+		timelines = convertTimelines(tlns)
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("get pitr bases: %w", err)
 	}
-	timelines := convertTimelines(tlns)
 
 	return FilterPITRBases(target, backups, timelines), nil
 }
