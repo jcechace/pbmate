@@ -17,7 +17,6 @@ type globalKeyMap struct {
 	Up         key.Binding
 	Down       key.Binding
 	Delete     key.Binding
-	BulkDelete key.Binding
 }
 
 var globalKeys = globalKeyMap{
@@ -72,10 +71,6 @@ var globalKeys = globalKeyMap{
 		key.WithKeys("d"),
 		key.WithHelp("d", "delete"),
 	),
-	BulkDelete: key.NewBinding(
-		key.WithKeys("D"),
-		key.WithHelp("D", "bulk delete"),
-	),
 }
 
 // overviewKeyMap defines keybindings specific to the Overview tab.
@@ -107,6 +102,7 @@ type backupKeyMap struct {
 	Cancel          key.Binding
 	Restore         key.Binding
 	RestoreSelected key.Binding
+	BulkDelete      key.Binding
 	Toggle          key.Binding
 }
 
@@ -157,6 +153,10 @@ var backupKeys = backupKeyMap{
 	RestoreSelected: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "restore selected"),
+	),
+	BulkDelete: key.NewBinding(
+		key.WithKeys("D"),
+		key.WithHelp("D", "bulk delete"),
 	),
 	Toggle: key.NewBinding(
 		key.WithKeys("tab"),

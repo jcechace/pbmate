@@ -534,6 +534,13 @@ func resyncCmd(ctx context.Context, client *sdk.Client, cmd sdk.ResyncCommand) t
 
 // --- Bulk delete ---
 
+// bulkDeleteRequest is emitted by the backups sub-model when the user
+// opens the bulk delete form. The initial field pre-selects the target
+// (e.g. PITR when pressing d on a timeline item).
+type bulkDeleteRequest struct {
+	initial *bulkDeleteFormResult // nil for default (backups), non-nil for pre-selection
+}
+
 // deleteBackupsBulkCmd returns a tea.Cmd that deletes backups matching the
 // given command (DeleteBackupsBefore or DeleteBackupsOlderThan).
 func deleteBackupsBulkCmd(ctx context.Context, client *sdk.Client, cmd sdk.DeleteBackupCommand) tea.Cmd {

@@ -179,11 +179,24 @@ func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) 
 		}
 	case key.Matches(msg, keys.Delete) && !readonly:
 		if m.mode == listBackups {
+			// Delete a single backup when cursor is on a backup item.
 			if sel := m.selectedBackup(); sel != nil {
 				baseName, title, desc := m.resolveDeleteTarget(sel)
 				return func() tea.Msg {
 					return deleteCheckRequest{baseName: baseName, title: title, description: desc}
 				}
+			}
+			// Open bulk delete with PITR preselected when cursor is on a timeline.
+			if item := m.selectedItem(); item != nil && item.kind == itemPITR {
+				return func() tea.Msg {
+					return bulkDeleteRequest{initial: &bulkDeleteFormResult{target: bulkDeletePITR}}
+				}
+			}
+		}
+	case key.Matches(msg, backupKeys.BulkDelete) && !readonly:
+		if m.mode == listBackups {
+			return func() tea.Msg {
+				return bulkDeleteRequest{initial: nil}
 			}
 		}
 	}

@@ -246,8 +246,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case bulkDeleteRequest:
+		if m.client != nil {
+			return m, fetchBulkDeleteProfilesCmd(m.ctx, m.client, msg.initial)
+		}
+		return m, nil
+
 	case bulkDeleteFormReadyMsg:
-		overlay, cmd := newBulkDeleteOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles)
+		overlay, cmd := newBulkDeleteOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.initial)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -417,8 +423,6 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openBackupForm(backupFormQuick)
 	case key.Matches(msg, backupKeys.StartCustom) && m.client != nil && !m.readonly:
 		return m, m.openBackupForm(backupFormFull)
-	case key.Matches(msg, m.keys.BulkDelete) && m.client != nil && !m.readonly:
-		return m, fetchBulkDeleteProfilesCmd(m.ctx, m.client)
 	case key.Matches(msg, m.keys.PITRToggle) && m.client != nil && !m.readonly:
 		pitr := m.overview.data.pitr
 		if pitr == nil {

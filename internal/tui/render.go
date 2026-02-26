@@ -129,7 +129,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 		left = append(left, helpSection{"Global", []helpEntry{
 			helpCombined(backupKeys.Start, backupKeys.StartCustom, "backup"),
 			helpFromBinding(backupKeys.Cancel),
-			helpCombined(globalKeys.Delete, globalKeys.BulkDelete, "delete"),
+			helpFromBinding(globalKeys.Delete),
 			helpFromBinding(globalKeys.PITRToggle),
 		}})
 	}
@@ -157,6 +157,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 		right = append(right, helpSection{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
 			helpCombined(backupKeys.RestoreSelected, backupKeys.Restore, "restore"),
+			helpFromBinding(backupKeys.BulkDelete),
 		}})
 		right = append(right, helpSection{"3:Config", []helpEntry{
 			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),

@@ -24,21 +24,24 @@ type bulkDeleteOverlay struct {
 }
 
 // bulkDeleteFormReadyMsg carries fetched profiles so the bulk delete form
-// can be created with the profile selector populated.
+// can be created with the profile selector populated. The initial field
+// pre-selects the target when opening from a context-sensitive action
+// (e.g. d on a PITR timeline).
 type bulkDeleteFormReadyMsg struct {
 	profiles []sdk.StorageProfile
+	initial  *bulkDeleteFormResult // nil for default
 }
 
 // fetchBulkDeleteProfilesCmd fetches storage profiles for the bulk delete form.
-func fetchBulkDeleteProfilesCmd(ctx context.Context, client *sdk.Client) tea.Cmd {
+func fetchBulkDeleteProfilesCmd(ctx context.Context, client *sdk.Client, initial *bulkDeleteFormResult) tea.Cmd {
 	return func() tea.Msg {
 		profiles, _ := client.Config.ListProfiles(ctx)
-		return bulkDeleteFormReadyMsg{profiles: profiles}
+		return bulkDeleteFormReadyMsg{profiles: profiles, initial: initial}
 	}
 }
 
-func newBulkDeleteOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile) (*bulkDeleteOverlay, tea.Cmd) {
-	form, result := newBulkDeleteForm(formTheme, profiles, nil)
+func newBulkDeleteOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *bulkDeleteFormResult) (*bulkDeleteOverlay, tea.Cmd) {
+	form, result := newBulkDeleteForm(formTheme, profiles, initial)
 	o := &bulkDeleteOverlay{
 		form:       form,
 		result:     result,
