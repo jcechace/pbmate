@@ -112,8 +112,8 @@ func FilterPITRBases(target Timestamp, backups []Backup, timelines []Timeline) [
 		result = append(result, *bk)
 	}
 
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].LastWriteTS.T > result[j].LastWriteTS.T
+	sort.SliceStable(result, func(i, j int) bool {
+		return result[j].LastWriteTS.Before(result[i].LastWriteTS)
 	})
 
 	return result
@@ -128,7 +128,7 @@ func isPITRBaseCandidate(bk *Backup, target Timestamp, timelines []Timeline) boo
 	if bk.LastWriteTS.IsZero() {
 		return false
 	}
-	if bk.LastWriteTS.T >= target.T {
+	if !bk.LastWriteTS.Before(target) {
 		return false
 	}
 	if bk.IsSelective() {
@@ -151,7 +151,7 @@ func isPITRBaseCandidate(bk *Backup, target Timestamp, timelines []Timeline) boo
 func timelineCovers(backupTS, target Timestamp, timelines []Timeline) bool {
 	for i := range timelines {
 		tl := &timelines[i]
-		if tl.Start.T <= backupTS.T && target.T <= tl.End.T {
+		if !backupTS.Before(tl.Start) && !tl.End.Before(target) {
 			return true
 		}
 	}
