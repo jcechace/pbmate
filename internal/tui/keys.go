@@ -17,6 +17,7 @@ type globalKeyMap struct {
 	Up         key.Binding
 	Down       key.Binding
 	Delete     key.Binding
+	BulkDelete key.Binding
 }
 
 var globalKeys = globalKeyMap{
@@ -70,6 +71,10 @@ var globalKeys = globalKeyMap{
 	Delete: key.NewBinding(
 		key.WithKeys("d"),
 		key.WithHelp("d", "delete"),
+	),
+	BulkDelete: key.NewBinding(
+		key.WithKeys("D"),
+		key.WithHelp("D", "bulk delete"),
 	),
 }
 
