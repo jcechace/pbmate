@@ -45,6 +45,11 @@ func TestStartLogicalBackupValidate(t *testing.T) {
 	})
 }
 
+func TestStartPhysicalBackupValidate(t *testing.T) {
+	cmd := StartPhysicalBackup{}
+	assert.NoError(t, cmd.Validate())
+}
+
 func TestStartIncrementalBackupValidate(t *testing.T) {
 	cmd := StartIncrementalBackup{Base: true}
 	assert.NoError(t, cmd.Validate())

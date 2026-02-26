@@ -11,6 +11,8 @@
 | Stale timeline cursor | Compared pointers (`cursor == &item`) instead of values. After data refresh, pointer identity changes even if the item is logically the same. | Track selection by value identity (name, key), not pointer or index. |
 | ConfigName empty string | PBM uses `""` for main config. If SDK doesn't normalize, consumers see empty strings and write broken comparisons. | SDK normalizes to `MainConfig` constant. Never check for `""` in TUI code. |
 | PITR restore base backup | SDK requires `BackupName` for `StartPITRRestore` (PBM CLI auto-selects). Decision to add SDK auto-selection is postponed. | TUI handles it via `findBaseBackup()` — selects latest completed backup before target time from cached data. |
+| NumParallelColls on incremental | `StartIncrementalBackup` had a `NumParallelColls` field, but PBM's `doPhysical` never reads it — only `doLogical` uses parallel collections. The field was dead. | Removed from SDK. TUI only shows "Parallel Collections" for logical backups. |
+| Physical/incremental restore shuts down mongod | PBM's physical restore (`PhysRestore.Snapshot`) shuts down mongod on every node, wipes the data directory, copies WiredTiger files, and does multiple mongod restarts. The TUI loses its connection. | TUI currently allows it but future work should handle this with TUI exit/block on command dispatch. |
 
 ## TUI Pitfalls
 

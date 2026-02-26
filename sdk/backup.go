@@ -196,6 +196,16 @@ type Backup struct {
 	Replsets         []BackupReplset // per-replica-set breakdown
 }
 
+// IsLogical reports whether this is a logical (mongodump-based) backup.
+func (b Backup) IsLogical() bool {
+	return b.Type.Equal(BackupTypeLogical)
+}
+
+// IsPhysical reports whether this is a physical (WiredTiger file-level) backup.
+func (b Backup) IsPhysical() bool {
+	return b.Type.Equal(BackupTypePhysical)
+}
+
 // IsIncremental reports whether this is an incremental backup.
 func (b Backup) IsIncremental() bool {
 	return b.Type.Equal(BackupTypeIncremental)

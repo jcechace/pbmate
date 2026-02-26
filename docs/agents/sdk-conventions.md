@@ -51,7 +51,7 @@ Operations with distinct variants use sealed interfaces (unexported marker metho
 
 | Sealed Interface | Variants |
 |-----------------|----------|
-| `StartBackupCommand` | `StartLogicalBackup`, `StartIncrementalBackup` |
+| `StartBackupCommand` | `StartLogicalBackup`, `StartPhysicalBackup`, `StartIncrementalBackup` |
 | `StartRestoreCommand` | `StartSnapshotRestore`, `StartPITRRestore` |
 | `DeleteBackupCommand` | `DeleteBackupByName`, `DeleteBackupsBefore` |
 | `DeletePITRCommand` | `DeletePITRBefore`, `DeletePITRAll` |

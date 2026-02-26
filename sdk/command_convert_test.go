@@ -110,6 +110,46 @@ func TestConvertStartLogicalBackupWithNilNumParallelColls(t *testing.T) {
 	assert.Nil(t, result.Backup.NumParallelColls)
 }
 
+func TestConvertStartPhysicalBackupToPBM(t *testing.T) {
+	cn, err := NewConfigName("my-s3")
+	require.NoError(t, err)
+
+	level := 5
+	cmd := StartPhysicalBackup{
+		ConfigName:       cn,
+		Compression:      CompressionTypeZSTD,
+		CompressionLevel: &level,
+		name:             "2024-01-15T10:30:00Z",
+	}
+
+	result := convertStartPhysicalBackupToPBM(cmd)
+
+	assert.Equal(t, ctrl.CmdBackup, result.Cmd)
+	require.NotNil(t, result.Backup)
+	assert.Equal(t, defs.PhysicalBackup, result.Backup.Type)
+	assert.Equal(t, "2024-01-15T10:30:00Z", result.Backup.Name)
+	assert.Equal(t, compress.CompressionTypeZstandard, result.Backup.Compression)
+	require.NotNil(t, result.Backup.CompressionLevel)
+	assert.Equal(t, 5, *result.Backup.CompressionLevel)
+	assert.Equal(t, "my-s3", result.Backup.Profile)
+	assert.False(t, result.Backup.IncrBase, "physical backup should not set IncrBase")
+	assert.Nil(t, result.Backup.Namespaces, "physical backup should not set Namespaces")
+	assert.Nil(t, result.Backup.NumParallelColls, "physical backup should not set NumParallelColls")
+	assert.False(t, result.Backup.UsersAndRoles, "physical backup should not set UsersAndRoles")
+}
+
+func TestConvertStartPhysicalBackupDefaultsToPBM(t *testing.T) {
+	cmd := StartPhysicalBackup{
+		name: "2024-01-15T10:30:00Z",
+	}
+
+	result := convertStartPhysicalBackupToPBM(cmd)
+
+	assert.Equal(t, defs.PhysicalBackup, result.Backup.Type)
+	assert.Equal(t, "", result.Backup.Profile, "zero ConfigName should map to empty string")
+	assert.Nil(t, result.Backup.CompressionLevel)
+}
+
 func TestConvertStartIncrementalBackupToPBM(t *testing.T) {
 	cmd := StartIncrementalBackup{
 		ConfigName:  MainConfig,
@@ -142,20 +182,6 @@ func TestConvertStartIncrementalBackupWithCompressionLevel(t *testing.T) {
 
 	require.NotNil(t, result.Backup.CompressionLevel)
 	assert.Equal(t, 3, *result.Backup.CompressionLevel)
-}
-
-func TestConvertStartIncrementalBackupWithNumParallelColls(t *testing.T) {
-	numColls := 4
-	cmd := StartIncrementalBackup{
-		Base:             true,
-		NumParallelColls: &numColls,
-		name:             "2024-01-15T10:30:00Z",
-	}
-
-	result := convertStartIncrementalBackupToPBM(cmd)
-
-	require.NotNil(t, result.Backup.NumParallelColls)
-	assert.Equal(t, int32(4), *result.Backup.NumParallelColls)
 }
 
 func TestConvertStartSnapshotRestoreToPBM(t *testing.T) {

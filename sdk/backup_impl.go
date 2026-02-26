@@ -91,6 +91,9 @@ func (s *backupServiceImpl) Start(ctx context.Context, cmd StartBackupCommand) (
 	case StartLogicalBackup:
 		c.name = name
 		pbmCmd = convertStartLogicalBackupToPBM(c)
+	case StartPhysicalBackup:
+		c.name = name
+		pbmCmd = convertStartPhysicalBackupToPBM(c)
 	case StartIncrementalBackup:
 		c.name = name
 		pbmCmd = convertStartIncrementalBackupToPBM(c)

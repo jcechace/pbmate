@@ -7,6 +7,44 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestBackupIsLogical(t *testing.T) {
+	tests := []struct {
+		name   string
+		backup Backup
+		want   bool
+	}{
+		{name: "logical backup", backup: Backup{Type: BackupTypeLogical}, want: true},
+		{name: "physical backup", backup: Backup{Type: BackupTypePhysical}, want: false},
+		{name: "incremental backup", backup: Backup{Type: BackupTypeIncremental}, want: false},
+		{name: "zero type", backup: Backup{}, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.backup.IsLogical())
+		})
+	}
+}
+
+func TestBackupIsPhysical(t *testing.T) {
+	tests := []struct {
+		name   string
+		backup Backup
+		want   bool
+	}{
+		{name: "physical backup", backup: Backup{Type: BackupTypePhysical}, want: true},
+		{name: "logical backup", backup: Backup{Type: BackupTypeLogical}, want: false},
+		{name: "incremental backup", backup: Backup{Type: BackupTypeIncremental}, want: false},
+		{name: "zero type", backup: Backup{}, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.backup.IsPhysical())
+		})
+	}
+}
+
 func TestBackupIsIncremental(t *testing.T) {
 	tests := []struct {
 		name   string

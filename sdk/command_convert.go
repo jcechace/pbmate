@@ -25,6 +25,19 @@ func convertStartLogicalBackupToPBM(cmd StartLogicalBackup) ctrl.Cmd {
 	}
 }
 
+func convertStartPhysicalBackupToPBM(cmd StartPhysicalBackup) ctrl.Cmd {
+	return ctrl.Cmd{
+		Cmd: ctrl.CmdBackup,
+		Backup: &ctrl.BackupCmd{
+			Type:             defs.PhysicalBackup,
+			Name:             cmd.name,
+			Compression:      compress.CompressionType(cmd.Compression.String()),
+			CompressionLevel: cmd.CompressionLevel,
+			Profile:          configNameToPBM(cmd.ConfigName),
+		},
+	}
+}
+
 func convertStartIncrementalBackupToPBM(cmd StartIncrementalBackup) ctrl.Cmd {
 	return ctrl.Cmd{
 		Cmd: ctrl.CmdBackup,
@@ -34,7 +47,6 @@ func convertStartIncrementalBackupToPBM(cmd StartIncrementalBackup) ctrl.Cmd {
 			Name:             cmd.name,
 			Compression:      compress.CompressionType(cmd.Compression.String()),
 			CompressionLevel: cmd.CompressionLevel,
-			NumParallelColls: intToInt32Ptr(cmd.NumParallelColls),
 			Profile:          configNameToPBM(cmd.ConfigName),
 		},
 	}

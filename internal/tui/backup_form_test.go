@@ -151,6 +151,34 @@ func TestBackupFormResultToCommandIncremental(t *testing.T) {
 	})
 }
 
+func TestBackupFormResultToCommandPhysical(t *testing.T) {
+	t.Run("default physical backup", func(t *testing.T) {
+		r := backupFormResult{
+			backupType:  "physical",
+			compression: "default",
+			configName:  defaultConfigName,
+		}
+		cmd := r.toCommand()
+		physical, ok := cmd.(sdk.StartPhysicalBackup)
+		require.True(t, ok, "expected StartPhysicalBackup")
+		assert.True(t, physical.ConfigName.IsZero(), "main config should be zero ConfigName")
+		assert.True(t, physical.Compression.IsZero(), "default compression should be zero")
+	})
+
+	t.Run("physical with compression and profile", func(t *testing.T) {
+		r := backupFormResult{
+			backupType:  "physical",
+			compression: "zstd",
+			configName:  "my-s3",
+		}
+		cmd := r.toCommand()
+		physical, ok := cmd.(sdk.StartPhysicalBackup)
+		require.True(t, ok)
+		assert.Equal(t, "zstd", physical.Compression.String())
+		assert.Equal(t, "my-s3", physical.ConfigName.String())
+	})
+}
+
 // --- formOverlayInnerWidth ---
 
 func TestFormOverlayInnerWidth(t *testing.T) {

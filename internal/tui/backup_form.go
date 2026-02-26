@@ -82,12 +82,18 @@ func (r backupFormResult) toCommand() sdk.StartBackupCommand {
 
 	numParallelColls := parseOptionalInt(r.parallelColls)
 
+	if r.backupType == "physical" {
+		return sdk.StartPhysicalBackup{
+			ConfigName:  configName,
+			Compression: compression,
+		}
+	}
+
 	if r.backupType == "incremental" {
 		return sdk.StartIncrementalBackup{
-			ConfigName:       configName,
-			Compression:      compression,
-			Base:             r.incrBase,
-			NumParallelColls: numParallelColls,
+			ConfigName:  configName,
+			Compression: compression,
+			Base:        r.incrBase,
 		}
 	}
 
@@ -192,6 +198,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 				Title("Type").
 				Options(
 					huh.NewOption("Logical", "logical"),
+					huh.NewOption("Physical", "physical"),
 					huh.NewOption("Incremental", "incremental"),
 				).
 				Inline(true).
@@ -226,6 +233,11 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 				Title("Namespaces").
 				Placeholder("*.*  (all)").
 				Value(&result.namespaces),
+
+			huh.NewInput().
+				Title("Parallel Collections").
+				Placeholder("server default").
+				Value(&result.parallelColls),
 		))
 	}
 
@@ -242,13 +254,7 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 	}
 
 	groups = append(groups,
-		// Tuning + confirmation.
 		huh.NewGroup(
-			huh.NewInput().
-				Title("Parallel Collections").
-				Placeholder("server default").
-				Value(&result.parallelColls),
-
 			huh.NewConfirm().
 				Title(fmt.Sprintf("Start %s backup?", result.backupType)).
 				WithButtonAlignment(lipgloss.Left).
