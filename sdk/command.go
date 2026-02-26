@@ -268,10 +268,12 @@ func (c StartPITRRestore) Validate() error {
 }
 
 // DeleteBackupCommand is a sealed interface for backup deletion variants.
-// There are exactly two implementations:
+// There are exactly three implementations:
 //   - [DeleteBackupByName] deletes a single backup by name.
-//   - [DeleteBackupsBefore] deletes all backups older than a timestamp,
+//   - [DeleteBackupsBefore] deletes all backups older than an absolute time,
 //     optionally filtered by type and storage profile.
+//   - [DeleteBackupsOlderThan] deletes all backups older than a relative
+//     duration from the current time, with the same optional filters.
 type DeleteBackupCommand interface {
 	Validate() error
 	deleteBackupCommand() // seal to this package
@@ -306,7 +308,9 @@ type DeleteBackupsBefore struct {
 	Type BackupType
 
 	// ConfigName filters deletion to backups on a specific storage profile.
-	// Zero value means all profiles.
+	// Zero value and [MainConfig] both target the main PBM storage
+	// configuration. PBM does not support deleting across all profiles
+	// in a single command — each invocation targets one storage.
 	ConfigName ConfigName
 }
 
@@ -323,18 +327,49 @@ func (c DeleteBackupsBefore) Validate() error {
 	return nil
 }
 
+// DeleteBackupsOlderThan requests deletion of all backups older than a
+// relative duration from the current time. A zero duration means "now"
+// and effectively deletes all qualifying backups. The deletion is processed
+// asynchronously by PBM agents.
+type DeleteBackupsOlderThan struct {
+	// OlderThan is the age threshold. Backups older than time.Now() minus
+	// this duration are candidates for deletion. Must be non-negative.
+	// A zero value means "delete all" (cutoff = now).
+	OlderThan time.Duration
+
+	// Type filters deletion to a specific backup type. Zero value means
+	// all types.
+	Type BackupType
+
+	// ConfigName filters deletion to backups on a specific storage profile.
+	// Zero value and [MainConfig] both target the main PBM storage
+	// configuration. PBM does not support deleting across all profiles
+	// in a single command — each invocation targets one storage.
+	ConfigName ConfigName
+}
+
+func (c DeleteBackupsOlderThan) deleteBackupCommand() {}
+
+func (c DeleteBackupsOlderThan) Validate() error {
+	if c.OlderThan < 0 {
+		return fmt.Errorf("delete backups: older-than duration must be non-negative, got %s", c.OlderThan)
+	}
+	return nil
+}
+
 // DeletePITRCommand is a sealed interface for PITR oplog chunk deletion
 // variants. There are exactly two implementations:
-//   - [DeletePITRBefore] deletes all oplog chunks older than a timestamp.
-//   - [DeletePITRAll] deletes all oplog chunks (equivalent to
-//     DeletePITRBefore with OlderThan set to the current time).
+//   - [DeletePITRBefore] deletes all oplog chunks older than an absolute time.
+//   - [DeletePITROlderThan] deletes all oplog chunks older than a relative
+//     duration from the current time.
 type DeletePITRCommand interface {
 	Validate() error
 	deletePITRCommand() // seal to this package
 }
 
 // DeletePITRBefore requests deletion of all PITR oplog chunks older than
-// a timestamp. The deletion is processed asynchronously by PBM agents.
+// an absolute timestamp. The deletion is processed asynchronously by PBM
+// agents.
 type DeletePITRBefore struct {
 	// OlderThan is the cutoff time. All oplog chunks ending before this
 	// value are candidates for deletion. Required — zero value is rejected
@@ -355,12 +390,26 @@ func (c DeletePITRBefore) Validate() error {
 	return nil
 }
 
-// DeletePITRAll requests deletion of all PITR oplog chunks. This is
-// equivalent to [DeletePITRBefore] with OlderThan set to the current time.
-type DeletePITRAll struct{}
+// DeletePITROlderThan requests deletion of all PITR oplog chunks older
+// than a relative duration from the current time. A zero duration means
+// "now" and effectively deletes all chunks. The deletion is processed
+// asynchronously by PBM agents.
+type DeletePITROlderThan struct {
+	// OlderThan is the age threshold. Chunks older than time.Now() minus
+	// this duration are candidates for deletion. Must be non-negative.
+	// A zero value means "delete all" (equivalent to PBM's deprecated
+	// --all flag).
+	OlderThan time.Duration
+}
 
-func (c DeletePITRAll) deletePITRCommand() {}
-func (c DeletePITRAll) Validate() error    { return nil }
+func (c DeletePITROlderThan) deletePITRCommand() {}
+
+func (c DeletePITROlderThan) Validate() error {
+	if c.OlderThan < 0 {
+		return fmt.Errorf("delete PITR chunks: older-than duration must be non-negative, got %s", c.OlderThan)
+	}
+	return nil
+}
 
 // ResyncCommand is a sealed interface for storage resynchronization variants.
 // Resync commands instruct PBM agents to re-read backup metadata from storage.

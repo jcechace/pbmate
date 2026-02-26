@@ -130,6 +130,8 @@ func (s *backupServiceImpl) Delete(ctx context.Context, cmd DeleteBackupCommand)
 		return s.deleteByName(ctx, c)
 	case DeleteBackupsBefore:
 		return s.deleteBefore(ctx, c)
+	case DeleteBackupsOlderThan:
+		return s.deleteOlderThan(ctx, c)
 	default:
 		panic(fmt.Sprintf("unreachable: unknown DeleteBackupCommand type %T", cmd))
 	}
@@ -165,6 +167,15 @@ func (s *backupServiceImpl) deleteBefore(ctx context.Context, cmd DeleteBackupsB
 			cmd.OlderThan.Format(time.RFC3339), err)
 	}
 	return result, nil
+}
+
+func (s *backupServiceImpl) deleteOlderThan(ctx context.Context, cmd DeleteBackupsOlderThan) (CommandResult, error) {
+	cutoff := time.Now().UTC().Add(-cmd.OlderThan)
+	return s.deleteBefore(ctx, DeleteBackupsBefore{
+		OlderThan:  cutoff,
+		Type:       cmd.Type,
+		ConfigName: cmd.ConfigName,
+	})
 }
 
 func (s *backupServiceImpl) Cancel(ctx context.Context) (CommandResult, error) {

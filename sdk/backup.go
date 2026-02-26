@@ -116,9 +116,11 @@ type BackupService interface {
 	// immediately. Returns a [*ConcurrentOperationError] if another
 	// operation is running.
 	//
-	// The cmd parameter is a sealed [DeleteBackupCommand] with two variants:
+	// The cmd parameter is a sealed [DeleteBackupCommand] with three variants:
 	//   - [DeleteBackupByName] deletes a single backup.
-	//   - [DeleteBackupsBefore] bulk-deletes backups older than a cutoff.
+	//   - [DeleteBackupsBefore] bulk-deletes backups older than an absolute time.
+	//   - [DeleteBackupsOlderThan] bulk-deletes backups older than a relative
+	//     duration from the current time.
 	//
 	// Example — delete by name:
 	//
@@ -126,12 +128,18 @@ type BackupService interface {
 	//	    Name: "2026-02-19T20:28:16Z",
 	//	})
 	//
-	// Example — bulk delete older than a cutoff:
+	// Example — bulk delete older than an absolute cutoff:
 	//
 	//	cutoff := time.Now().Add(-30 * 24 * time.Hour)
 	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupsBefore{
 	//	    OlderThan: cutoff,
 	//	    Type:      sdk.BackupTypeLogical,
+	//	})
+	//
+	// Example — bulk delete older than 30 days (relative):
+	//
+	//	_, err := client.Backups.Delete(ctx, sdk.DeleteBackupsOlderThan{
+	//	    OlderThan: 30 * 24 * time.Hour,
 	//	})
 	Delete(ctx context.Context, cmd DeleteBackupCommand) (CommandResult, error)
 

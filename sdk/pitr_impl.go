@@ -132,8 +132,8 @@ func (s *pitrServiceImpl) Delete(ctx context.Context, cmd DeletePITRCommand) (Co
 	switch c := cmd.(type) {
 	case DeletePITRBefore:
 		return s.deleteBefore(ctx, c)
-	case DeletePITRAll:
-		return s.deleteAll(ctx)
+	case DeletePITROlderThan:
+		return s.deleteOlderThan(ctx, c)
 	default:
 		panic(fmt.Sprintf("unreachable: unknown DeletePITRCommand type %T", cmd))
 	}
@@ -156,9 +156,7 @@ func (s *pitrServiceImpl) deleteBefore(ctx context.Context, cmd DeletePITRBefore
 	return result, nil
 }
 
-func (s *pitrServiceImpl) deleteAll(ctx context.Context) (CommandResult, error) {
-	s.log.InfoContext(ctx, "deleting all PITR chunks")
-	return s.deleteBefore(ctx, DeletePITRBefore{
-		OlderThan: time.Now().UTC(),
-	})
+func (s *pitrServiceImpl) deleteOlderThan(ctx context.Context, cmd DeletePITROlderThan) (CommandResult, error) {
+	cutoff := time.Now().UTC().Add(-cmd.OlderThan)
+	return s.deleteBefore(ctx, DeletePITRBefore{OlderThan: cutoff})
 }

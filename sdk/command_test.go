@@ -238,6 +238,47 @@ func TestDeleteBackupsBeforeValidate(t *testing.T) {
 	})
 }
 
+func TestDeleteBackupsOlderThanValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     DeleteBackupsOlderThan
+		wantErr string
+	}{
+		{
+			name: "valid 30 days",
+			cmd:  DeleteBackupsOlderThan{OlderThan: 30 * 24 * time.Hour},
+		},
+		{
+			name: "zero duration deletes all",
+			cmd:  DeleteBackupsOlderThan{OlderThan: 0},
+		},
+		{
+			name: "with type filter",
+			cmd:  DeleteBackupsOlderThan{OlderThan: 7 * 24 * time.Hour, Type: BackupTypeLogical},
+		},
+		{
+			name: "with config name",
+			cmd:  DeleteBackupsOlderThan{OlderThan: 7 * 24 * time.Hour, ConfigName: MainConfig},
+		},
+		{
+			name:    "negative duration",
+			cmd:     DeleteBackupsOlderThan{OlderThan: -time.Hour},
+			wantErr: "must be non-negative",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cmd.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestDeletePITRBeforeValidate(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		cmd := DeletePITRBefore{OlderThan: time.Now().Add(-24 * time.Hour)}
@@ -259,9 +300,37 @@ func TestDeletePITRBeforeValidate(t *testing.T) {
 	})
 }
 
-func TestDeletePITRAllValidate(t *testing.T) {
-	cmd := DeletePITRAll{}
-	assert.NoError(t, cmd.Validate())
+func TestDeletePITROlderThanValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		cmd     DeletePITROlderThan
+		wantErr string
+	}{
+		{
+			name: "valid 7 days",
+			cmd:  DeletePITROlderThan{OlderThan: 7 * 24 * time.Hour},
+		},
+		{
+			name: "zero duration deletes all",
+			cmd:  DeletePITROlderThan{OlderThan: 0},
+		},
+		{
+			name:    "negative duration",
+			cmd:     DeletePITROlderThan{OlderThan: -time.Hour},
+			wantErr: "must be non-negative",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cmd.Validate()
+			if tt.wantErr == "" {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+			}
+		})
+	}
 }
 
 func TestResyncProfileValidate(t *testing.T) {

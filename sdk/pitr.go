@@ -73,19 +73,28 @@ type PITRService interface {
 	// operation is running.
 	//
 	// The cmd parameter is a sealed [DeletePITRCommand] with two variants:
-	//   - [DeletePITRBefore] deletes chunks older than a cutoff time.
-	//   - [DeletePITRAll] deletes all chunks (equivalent to "older than now").
+	//   - [DeletePITRBefore] deletes chunks older than an absolute cutoff time.
+	//   - [DeletePITROlderThan] deletes chunks older than a relative duration
+	//     from the current time. A zero duration means "delete all".
 	//
-	// Example — delete chunks older than 7 days:
+	// Example — delete chunks older than 7 days (absolute):
 	//
 	//	cutoff := time.Now().Add(-7 * 24 * time.Hour)
 	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITRBefore{
 	//	    OlderThan: cutoff,
 	//	})
 	//
+	// Example — delete chunks older than 7 days (relative):
+	//
+	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITROlderThan{
+	//	    OlderThan: 7 * 24 * time.Hour,
+	//	})
+	//
 	// Example — delete all chunks:
 	//
-	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITRAll{})
+	//	_, err := client.PITR.Delete(ctx, sdk.DeletePITROlderThan{
+	//	    OlderThan: 0,
+	//	})
 	Delete(ctx context.Context, cmd DeletePITRCommand) (CommandResult, error)
 }
 
