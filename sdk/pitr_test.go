@@ -199,6 +199,16 @@ func TestFilterPITRBases(t *testing.T) {
 			wantNames: []string{"in-second"},
 		},
 		{
+			name:   "backup at timeline end with target at timeline end",
+			target: Timestamp{T: 2000},
+			backups: []Backup{
+				validBackup("at-end", 2000), // LastWriteTS == target, excluded by Before check
+				validBackup("before-end", 1800),
+			},
+			timelines: timelines,
+			wantNames: []string{"before-end"},
+		},
+		{
 			name:   "physical and incremental bases are valid",
 			target: Timestamp{T: 1800},
 			backups: []Backup{
