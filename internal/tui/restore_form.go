@@ -367,7 +367,7 @@ func latestTimeline(timelines []sdk.Timeline) *sdk.Timeline {
 	}
 	best := &timelines[0]
 	for i := 1; i < len(timelines); i++ {
-		if timelines[i].End.T > best.End.T {
+		if timelines[i].End.After(best.End) {
 			best = &timelines[i]
 		}
 	}
