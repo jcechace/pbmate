@@ -40,6 +40,11 @@ func formOverlayInnerWidth(terminalW int) int {
 	return max(min(w, formOverlayMaxWidth), formOverlayMinWidth)
 }
 
+// customizeKey is the key binding that transitions the quick backup form
+// to the full wizard. It is used inside the backup form overlay only (not
+// in tab-level routing or help text).
+var customizeKey = key.NewBinding(key.WithKeys("c"))
+
 // backupFormKind distinguishes between the quick confirm and the full wizard.
 type backupFormKind int
 
