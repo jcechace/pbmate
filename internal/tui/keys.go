@@ -78,6 +78,7 @@ type overviewKeyMap struct {
 	Toggle key.Binding
 	Follow key.Binding
 	Wrap   key.Binding
+	Filter key.Binding
 }
 
 var overviewKeys = overviewKeyMap{
@@ -92,6 +93,10 @@ var overviewKeys = overviewKeyMap{
 	Wrap: key.NewBinding(
 		key.WithKeys("w"),
 		key.WithHelp("w", "wrap logs"),
+	),
+	Filter: key.NewBinding(
+		key.WithKeys("l"),
+		key.WithHelp("l", "log filter"),
 	),
 }
 

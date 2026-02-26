@@ -243,8 +243,9 @@ func deleteBackupCmd(ctx context.Context, client *sdk.Client, name string) tea.C
 // SDK client concurrently. Errors from individual calls are coalesced into
 // the first encountered error; partial data is still returned. When skipLogs
 // is true, log fetching is skipped (e.g. during follow mode where logs stream
-// separately).
-func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) tea.Cmd {
+// separately). The logFilter is applied to the log query — zero value defaults
+// to Info severity with no other filters.
+func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool, logFilter sdk.LogFilter) tea.Cmd {
 	return func() tea.Msg {
 		var d overviewData
 		var errs firstErrCollector
@@ -308,7 +309,10 @@ func fetchOverviewCmd(ctx context.Context, client *sdk.Client, skipLogs bool) te
 
 		if !skipLogs {
 			g.Go(func() error {
-				v, err := client.Logs.Get(gctx, sdk.GetLogsOptions{Limit: logFetchCount})
+				v, err := client.Logs.Get(gctx, sdk.GetLogsOptions{
+					LogFilter: logFilter,
+					Limit:     logFetchCount,
+				})
 				d.logEntries = v
 				errs.set(err)
 				return nil

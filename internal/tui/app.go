@@ -172,7 +172,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.isFollowing())}
+		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.isFollowing(), m.overview.logFilter)}
 		if m.activeTab == tabBackups {
 			cmds = append(cmds, fetchBackupsCmd(m.ctx, m.client), fetchRestoresCmd(m.ctx, m.client))
 		}
@@ -245,6 +245,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
 		}
 		return m, nil
+
+	case logFilterRequest:
+		overlay, cmd := newLogFilterOverlay(m.styles.FormTheme, msg.agents, msg.filter)
+		m.activeOverlay = overlay
+		return m, cmd
+
+	case logFilterResultMsg:
+		if msg.reset {
+			m.overview.logFilter = sdk.LogFilter{}
+		} else {
+			m.overview.logFilter = msg.filter
+		}
+		// If following, restart follow with new filter.
+		if m.overview.isFollowing() {
+			m.overview.stopFollow()
+			cmd := m.overview.toggleFollow()
+			return m, tea.Batch(cmd, tickCmd(0))
+		}
+		return m, tickCmd(0)
 
 	case bulkDeleteRequest:
 		if m.client != nil {

@@ -144,6 +144,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 			helpFromBinding(overviewKeys.Toggle),
 			helpFromBinding(overviewKeys.Follow),
 			helpFromBinding(overviewKeys.Wrap),
+			helpFromBinding(overviewKeys.Filter),
 		}},
 	}
 

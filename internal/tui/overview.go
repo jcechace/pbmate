@@ -38,6 +38,9 @@ type overviewModel struct {
 	styles *Styles
 	data   overviewData
 
+	// Log filter — persists across poll/follow cycles until explicitly reset.
+	logFilter sdk.LogFilter
+
 	// Log follow state (reference types survive model copying).
 	logFollowCancel  context.CancelFunc
 	logFollowCtx     context.Context
@@ -120,7 +123,7 @@ func (m *overviewModel) toggleFollow() tea.Cmd {
 
 	// Start following — pin to bottom so new entries auto-scroll.
 	ctx, cancel := context.WithCancel(m.ctx)
-	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{})
+	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{LogFilter: m.logFilter})
 	m.logFollowSession++
 	m.logFollowCancel = cancel
 	m.logFollowCtx = ctx
@@ -190,6 +193,12 @@ func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
 		return m.toggleFollow()
 	case key.Matches(msg, overviewKeys.Wrap):
 		m.logs.toggleWrap()
+	case key.Matches(msg, overviewKeys.Filter):
+		agents := m.data.agents
+		filter := m.logFilter
+		return func() tea.Msg {
+			return logFilterRequest{agents: agents, filter: filter}
+		}
 	}
 	return nil
 }
@@ -330,7 +339,7 @@ func (m *overviewModel) view(totalW, totalH int) string {
 	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top,
 		renderTitledPanel("Status", m.statusVP.View(),
 			m.styles.LeftPanel, panelLeftW, innerBotH, border, m.borderColor(focusStatus)),
-		renderTitledPanel("Logs", m.logs.view(),
+		renderTitledPanel(logFilterTitle(m.logFilter), m.logs.view(),
 			m.styles.RightPanel, panelRightW, innerBotH, border, m.borderColor(focusLog)),
 	)
 
