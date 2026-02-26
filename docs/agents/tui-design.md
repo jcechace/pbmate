@@ -188,6 +188,7 @@ global `readonly` config field > `false` (default).
 - `space` / `enter` — expand/collapse RS group (when cluster panel focused)
 - `f` — toggle log follow mode
 - `w` — toggle log word-wrap
+- `l` — open log filter form (severity, replica set, event type)
 
 ### Backups-specific
 - `tab` — toggle between Backups and Restores list

@@ -140,6 +140,9 @@ SDK: Replaced `DeletePITRAll` with `DeletePITROlderThan` (takes `time.Duration`;
 
 TUI: Backups-tab `D` key opens a bulk delete form overlay; `d` on a PITR timeline opens it with PITR preselected. Target selector (Backups/PITR), preset durations (Now, 1d, 3d, 1w, 2w, 1m, Custom), custom date input (YYYY-MM-DD or YYYY-MM-DD HH:MM), backup type filter (All/Logical/Physical/Incremental), and profile selector (Main + named profiles). Dynamic form rebuild on target/preset changes. Tests cover date parsing, preset resolution, command conversion, and confirm titles.
 
+### Log Filtering
+Overview tab `l` key opens a log filter form overlay with severity (Debug/Info/Warning/Error/Fatal), replica set (populated from cluster agents), and event type (backup/restore/cancelBackup/resync/pitr/delete) selectors. Filters persist across poll/follow cycles — changing filters during follow restarts the stream. Panel title shows active filters (e.g. "Logs (W, rs0, backup)"). Log entries enriched with `[rs/port]` source prefix from structured attributes. Apply/Reset buttons in the form.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |
