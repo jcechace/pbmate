@@ -4,7 +4,8 @@ import "github.com/charmbracelet/bubbles/key"
 
 // globalKeyMap defines keybindings available in all views.
 type globalKeyMap struct {
-	Quit      key.Binding
+	Quit      key.Binding // q — double-press to quit
+	ForceQuit key.Binding // ctrl+c — immediate quit
 	Tab1      key.Binding
 	Tab2      key.Binding
 	Tab3      key.Binding
@@ -19,8 +20,11 @@ type globalKeyMap struct {
 
 var globalKeys = globalKeyMap{
 	Quit: key.NewBinding(
-		key.WithKeys("q", "ctrl+c"),
-		key.WithHelp("q", "quit"),
+		key.WithKeys("q"),
+		key.WithHelp("q", "quit (2x)"),
+	),
+	ForceQuit: key.NewBinding(
+		key.WithKeys("ctrl+c"),
 	),
 	Tab1: key.NewBinding(
 		key.WithKeys("1"),

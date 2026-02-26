@@ -69,6 +69,10 @@ type Model struct {
 	// Help overlay — when true, the ? help panel is shown.
 	showHelp bool
 
+	// quitPending is true after the first q press. A second q within
+	// quitTimeout actually quits. The timer auto-clears the state.
+	quitPending bool
+
 	// Sub-models.
 	overview overviewModel
 	backups  backupsModel
@@ -352,6 +356,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.overview.stopFollow()
 		return m, tea.Quit
 
+	case quitTimeoutMsg:
+		m.quitPending = false
+		return m, nil
+
 	}
 
 	// Route to the active overlay if one is open.
@@ -381,9 +389,16 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	var newTab tab = -1
 	switch {
-	case key.Matches(msg, m.keys.Quit):
+	case key.Matches(msg, m.keys.ForceQuit):
 		m.overview.stopFollow()
 		return m, tea.Quit
+	case key.Matches(msg, m.keys.Quit):
+		if m.quitPending {
+			m.overview.stopFollow()
+			return m, tea.Quit
+		}
+		m.quitPending = true
+		return m, quitTimeoutCmd()
 	case key.Matches(msg, m.keys.Help):
 		m.showHelp = true
 		return m, nil
@@ -526,6 +541,8 @@ func (m Model) bottomBarView() string {
 		statusParts = append(statusParts, m.styles.StatusWarning.Bold(true).Render("READONLY"))
 	}
 	switch {
+	case m.quitPending:
+		statusParts = append(statusParts, m.styles.StatusWarning.Render("Press q again to quit"))
 	case m.flashErr != "":
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
 	case m.connecting && m.connectAttempt > 0:

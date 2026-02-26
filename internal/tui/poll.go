@@ -22,6 +22,10 @@ const (
 
 	// connectRetryMax is the maximum delay between connection retry attempts.
 	connectRetryMax = 30 * time.Second
+
+	// quitTimeout is how long the "press q again" hint stays active before
+	// reverting to normal state.
+	quitTimeout = 2 * time.Second
 )
 
 // connectBackoff returns the retry delay for the given attempt number (1-based).
@@ -35,6 +39,16 @@ func connectBackoff(attempt int) time.Duration {
 		}
 	}
 	return d
+}
+
+// quitTimeoutMsg signals that the quit-pending window has expired without a
+// second q press. The Model clears quitPending and resumes normal operation.
+type quitTimeoutMsg struct{}
+
+// quitTimeoutCmd returns a tea.Cmd that sends a quitTimeoutMsg after the
+// quit confirmation window elapses.
+func quitTimeoutCmd() tea.Cmd {
+	return tea.Tick(quitTimeout, func(time.Time) tea.Msg { return quitTimeoutMsg{} })
 }
 
 // tickMsg signals that it is time to fetch fresh data.
