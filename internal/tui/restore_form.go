@@ -391,12 +391,34 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup, initial *resto
 		result.insertionWorkers = initial.insertionWorkers
 	}
 
-	// Scope options: incremental backups only support full restore.
+	isPhysicalType := bk.IsPhysical() || bk.IsIncremental()
+
+	// Physical/incremental restores operate at the file level — scope,
+	// namespace filtering, and tuning knobs don't apply. Show only the
+	// backup context and confirmation.
+	if isPhysicalType {
+		groups := []*huh.Group{
+			huh.NewGroup(
+				huh.NewNote().
+					Title(bk.Name).
+					Description(backupContextDescription(bk)),
+
+				huh.NewConfirm().
+					Title("Restore snapshot?").
+					WithButtonAlignment(lipgloss.Left).
+					Affirmative("Restore").
+					Negative("Cancel").
+					Value(&result.confirmed),
+			),
+		}
+		form := newStandardForm(groups, formTheme)
+		return form, result
+	}
+
+	// Logical backups support scope selection and tuning.
 	scopeOpts := []huh.Option[string]{
 		huh.NewOption("Full", restoreScopeFull),
-	}
-	if !bk.IsIncremental() {
-		scopeOpts = append(scopeOpts, huh.NewOption("Selective", restoreScopeSelective))
+		huh.NewOption("Selective", restoreScopeSelective),
 	}
 
 	// Build groups dynamically based on scope.

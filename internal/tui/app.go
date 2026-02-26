@@ -62,6 +62,10 @@ type Model struct {
 	// backup forms, file pickers, profile name forms, and confirm dialogs.
 	activeOverlay formOverlay
 
+	// exitMessage is printed to stdout after the TUI exits. Used by
+	// physical/incremental restore to inform the user after dispatch.
+	exitMessage string
+
 	// Help overlay — when true, the ? help panel is shown.
 	showHelp bool
 
@@ -114,6 +118,13 @@ func (m Model) Close() {
 	if m.client != nil {
 		_ = m.client.Close(context.Background())
 	}
+}
+
+// ExitMessage returns a message to print to stdout after the TUI exits.
+// Empty string means no message. Used by physical/incremental restores
+// to inform the user after dispatch triggers a clean exit.
+func (m Model) ExitMessage() string {
+	return m.exitMessage
 }
 
 // Init implements tea.Model.
@@ -320,6 +331,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.activeOverlay = overlay
 		return m, cmd
+
+	case physicalRestoreConfirmRequest:
+		if m.client == nil {
+			return m, nil
+		}
+		desc := physicalRestoreWarning(msg)
+		overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+			"Physical Restore", desc, "Restore", "Cancel",
+			startPhysicalRestoreCmd(m.ctx, m.client, msg.cmd))
+		m.activeOverlay = overlay
+		return m, cmd
+
+	case physicalRestoreResultMsg:
+		if msg.err != nil {
+			m.flashErr = msg.err.Error()
+			return m, nil
+		}
+		m.exitMessage = "Physical restore dispatched. Monitor progress with: pbm status"
+		m.overview.stopFollow()
+		return m, tea.Quit
 
 	}
 

@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -255,10 +256,17 @@ func (o *restoreFormOverlay) rebuildPITRForm(scopeChanged bool) (formOverlay, te
 
 // dispatchRestore builds the SDK command and dispatches it. For PITR mode
 // this includes auto-selecting the base backup from the cached backup list.
+//
+// When the target backup (or PITR base) is physical or incremental, the
+// dispatch is deferred: a physicalRestoreConfirmRequest is emitted instead,
+// prompting the root model to show a final warning before dispatching.
 func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
 	switch o.mode {
 	case restoreModeSnapshot:
 		cmd := o.result.toSnapshotCommand(o.backupName)
+		if o.backup != nil && (o.backup.IsPhysical() || o.backup.IsIncremental()) {
+			return physicalRestoreConfirmCmd(cmd, o.backup.Name, o.backup.Type.String(), false)
+		}
 		return startRestoreCmd(o.ctx, o.client, cmd)
 
 	case restoreModePITR:
@@ -274,10 +282,36 @@ func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
 		if err != nil {
 			return restoreErrorCmd(err)
 		}
+		// Check if the auto-selected base backup is physical/incremental.
+		if base := findBackupByName(o.backups, baseName); base != nil && (base.IsPhysical() || base.IsIncremental()) {
+			return physicalRestoreConfirmCmd(pitrCmd, base.Name, base.Type.String(), true)
+		}
 		return startRestoreCmd(o.ctx, o.client, pitrCmd)
 
 	default:
 		panic("unreachable: unknown restoreMode")
+	}
+}
+
+// findBackupByName looks up a backup by name from a slice.
+func findBackupByName(backups []sdk.Backup, name string) *sdk.Backup {
+	for i := range backups {
+		if backups[i].Name == name {
+			return &backups[i]
+		}
+	}
+	return nil
+}
+
+// physicalRestoreConfirmCmd emits a physicalRestoreConfirmRequest message.
+func physicalRestoreConfirmCmd(cmd sdk.StartRestoreCommand, backupName, backupType string, isPITR bool) tea.Cmd {
+	return func() tea.Msg {
+		return physicalRestoreConfirmRequest{
+			cmd:        cmd,
+			backupName: backupName,
+			backupType: backupType,
+			isPITR:     isPITR,
+		}
 	}
 }
 
@@ -294,4 +328,27 @@ func restoreErrorCmd(err error) tea.Cmd {
 	return func() tea.Msg {
 		return actionResultMsg{action: "restore", err: err}
 	}
+}
+
+// physicalRestoreWarning builds the warning description shown in the
+// confirmation overlay before dispatching a physical/incremental restore.
+func physicalRestoreWarning(req physicalRestoreConfirmRequest) string {
+	if req.isPITR {
+		return fmt.Sprintf(
+			"The base backup for this PITR restore is %s.\n"+
+				"This will shut down mongod on all nodes\n"+
+				"in the cluster.\n\n"+
+				"The TUI will exit after dispatching the command.\n"+
+				"Monitor progress with: pbm status\n\n"+
+				"Base: %s (%s)",
+			req.backupType, req.backupName, req.backupType)
+	}
+
+	return fmt.Sprintf(
+		"This is a %s restore that will shut down mongod\n"+
+			"on all nodes in the cluster.\n\n"+
+			"The TUI will exit after dispatching the command.\n"+
+			"Monitor progress with: pbm status\n\n"+
+			"Base: %s (%s)",
+		req.backupType, req.backupName, req.backupType)
 }

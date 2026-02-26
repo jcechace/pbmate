@@ -67,6 +67,9 @@ func (cmd *tuiCmd) Run(cfg *config.AppConfig) error {
 	}
 	if m, ok := result.(tui.Model); ok {
 		m.Close()
+		if msg := m.ExitMessage(); msg != "" {
+			fmt.Println(msg)
+		}
 	}
 	return nil
 }

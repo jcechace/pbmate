@@ -19,7 +19,6 @@ Prioritized next items:
 - [ ] Homebrew tap for binary distribution
 
 Deferred (add when needed):
-- [ ] Physical/incremental restore with TUI exit/block on command dispatch
 - [ ] `/` filter in list views (backups, maybe logs search)
 
 ## Completed Milestones
@@ -113,6 +112,9 @@ Extracted `newStandardForm`/`newBorderlessForm` helpers — 8 identical form con
 
 ### Physical Backup Support
 SDK `StartPhysicalBackup` command type added (ConfigName, Compression, CompressionLevel only — no Namespaces, NumParallelColls, or IncrBase since PBM ignores them for physical backups). Removed dead `NumParallelColls` field from `StartIncrementalBackup` (PBM's `doPhysical` never reads it). Added `IsPhysical()` and `IsLogical()` domain methods on `Backup`. TUI backup form now offers three types: Logical, Physical, Incremental. "Parallel Collections" input moved to logical-only (was incorrectly shown for all types). Form dynamically rebuilds on type change — Physical shows only Compression + Profile + Confirm.
+
+### Physical/Incremental Restore Safety
+Physical and incremental restores shut down mongod on all nodes (including PITR restores with a physical/incremental base). TUI now intercepts these restores with an explicit final warning confirmation overlay before dispatch. On confirm, the restore command is dispatched and the TUI exits cleanly, printing a farewell message to stdout ("Monitor progress with: pbm status"). On dispatch error, the TUI stays open with the error in the flash bar. The `R` wizard includes physical/incremental backups in its selector — the warning overlay is the safety gate.
 
 ## Deferred Features
 

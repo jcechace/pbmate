@@ -379,6 +379,34 @@ func startRestoreCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartResto
 	}
 }
 
+// physicalRestoreConfirmRequest is emitted when a restore targets a physical
+// or incremental backup (including PITR with a physical/incremental base).
+// Instead of dispatching immediately, the root model opens a final warning
+// overlay because physical restores shut down mongod on all nodes.
+type physicalRestoreConfirmRequest struct {
+	cmd        sdk.StartRestoreCommand
+	backupName string // base backup name (for display)
+	backupType string // "physical" or "incremental" (for display)
+	isPITR     bool   // true when this is a PITR restore with physical base
+}
+
+// physicalRestoreResultMsg carries the result of a physical restore dispatch.
+// On success the TUI exits; on error the flash bar shows the error.
+type physicalRestoreResultMsg struct {
+	err error
+}
+
+// startPhysicalRestoreCmd dispatches a restore command and returns a
+// physicalRestoreResultMsg instead of the normal actionResultMsg. This
+// allows the root model to distinguish physical restores and trigger
+// a clean TUI exit on success.
+func startPhysicalRestoreCmd(ctx context.Context, client *sdk.Client, cmd sdk.StartRestoreCommand) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.Restores.Start(ctx, cmd)
+		return physicalRestoreResultMsg{err: err}
+	}
+}
+
 // restoresData holds the result of a single restores poll cycle.
 type restoresData struct {
 	restores []sdk.Restore
