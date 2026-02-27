@@ -99,7 +99,7 @@ backups, _ := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 5})
 result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
 
 // Wait for completion.
-bk, _ := client.Backups.Wait(ctx, result.Name, sdk.BackupWaitOptions{})
+bk, _ := result.Wait(ctx, sdk.BackupWaitOptions{})
 ```
 
 ## Project Structure
@@ -113,6 +113,25 @@ pbmate/
 ```
 
 The SDK is a separate Go module with its own `go.mod`. The TUI depends on the SDK via a `replace` directive for local development. Consumers import the SDK independently — no dependency on the TUI.
+
+## Installation
+
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap jcechace/tap
+brew install pbmate
+```
+
+### Binary Download
+
+Download pre-built binaries from the [GitHub Releases](https://github.com/jcechace/pbmate/releases) page.
+
+### From Source
+
+```bash
+go install github.com/jcechace/pbmate@latest
+```
 
 ## Building
 
