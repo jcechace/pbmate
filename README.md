@@ -1,122 +1,65 @@
-# PBMate
+<p align="center">
+  <h1 align="center">PBMate</h1>
+  <p align="center">A terminal UI and Go SDK for <a href="https://github.com/percona/percona-backup-mongodb">Percona Backup for MongoDB</a></p>
+</p>
 
-A companion toolkit for [Percona Backup for MongoDB (PBM)](https://github.com/percona/percona-backup-mongodb).
+<p align="center">
+  <a href="https://github.com/jcechace/pbmate/releases"><img src="https://img.shields.io/github/v/release/jcechace/pbmate?style=flat-square" alt="Release"></a>
+  <a href="https://github.com/jcechace/pbmate/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/jcechace/pbmate/ci.yml?style=flat-square&label=CI" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/jcechace/pbmate?style=flat-square" alt="License"></a>
+  <a href="https://pkg.go.dev/github.com/jcechace/pbmate/sdk/v2"><img src="https://img.shields.io/badge/go.dev-reference-blue?style=flat-square" alt="Go Reference"></a>
+</p>
 
-PBMate provides a **Go SDK** with stable public interfaces and a **terminal UI** for monitoring and managing PBM clusters. The SDK wraps PBM's internal packages behind a conversion boundary, so consumers are insulated from internal changes.
+<p align="center">
+  <img src="docs/tapes/demo.gif" alt="PBMate demo" width="800">
+</p>
 
-## Why
+---
 
-PBM is a distributed backup tool for MongoDB. The SDK provides a stable programmatic interface for PBM operations — clean domain types, service interfaces, and a conversion layer that decouples consumers from PBM's internal package structure.
+**PBMate** gives you a real-time terminal dashboard for monitoring and managing PBM clusters, plus a standalone Go SDK for building your own tooling.
 
-PBMate provides:
+> A personal project by [Jakub Cechacek](https://github.com/jcechace), member of the PBM development team at Percona. Not an official Percona product.
 
-- **SDK** — a stable Go API with domain-typed services, sealed command interfaces, and a conversion layer that absorbs internal changes
-- **TUI** — a real-time terminal dashboard for monitoring and operating PBM clusters
+## Features
 
-## TUI
+**Monitor** — Cluster topology, agent health, PITR status, running operations, and live-streamed logs in a single view.
 
-The terminal UI provides a real-time dashboard with three tabs:
+**Operate** — Start backups (logical, physical, incremental), restore snapshots or to a point in time, manage storage profiles, toggle PITR, and bulk-delete old data — all through guided forms.
 
-- **Overview** — cluster topology, agent health, PITR status, running operations, live logs
-- **Backups** — backup list grouped by storage profile, incremental chain display, restore history
-- **Config** — configuration viewer, storage profile management, YAML editor
+**Configure** — View and edit PBM configuration with syntax-highlighted YAML, manage storage profiles, and resync agents.
+
+**Stay safe** — Physical restore warnings before mongod shutdown, confirmation dialogs for destructive actions, readonly mode for production dashboards.
 
 ![Overview tab](docs/screens/overview.png)
 
-### Usage
+<details>
+<summary>More screenshots</summary>
 
-```
-pbmate                              # start TUI with current context
-pbmate --uri <mongodb-uri>          # start TUI with explicit URI
-pbmate --theme mocha --readonly     # theme and readonly overrides
-```
+### Backups
 
-| Flag | Description | Default |
-|---|---|---|
-| `--uri` | MongoDB connection URI (overrides context) | — |
-| `--context` | Use a named context (overrides current-context) | — |
-| `--theme` | Color theme: `default`, `mocha`, `latte`, `frappe`, `macchiato` | `default` |
-| `--readonly` | Disable mutation actions in the TUI | `false` |
-| `--config` | Config file path (or set `PBMATE_CONFIG`) | `~/.config/pbmate/config.yaml` |
+![Backups tab](docs/screens/backups.png)
 
-### Context Management
+### Config
 
-Named connection contexts avoid repeating URIs:
+![Config tab](docs/screens/config.png)
 
-```
-pbmate context add prod --uri=mongodb://prod:27017 --theme=mocha
-pbmate context use prod
-pbmate context list
-```
+### Backup Form
 
-### Configuration
+![Configure Backup](docs/screens/backup-form.png)
 
-View and modify settings from the command line:
+### Restore Wizard
 
-```
-pbmate config show                          # print full config as YAML
-pbmate config set theme mocha               # set global theme
-pbmate config set readonly true --context=prod  # per-context override
-pbmate config unset readonly --context=prod # remove override (inherit global)
-pbmate config path                          # print config file path
-```
+![Restore wizard](docs/screens/restore-wizard.png)
 
-### Keybindings
+### Point-in-Time Restore
 
-| Key | Action |
-|---|---|
-| `1` `2` `3` | Switch tabs |
-| `]` `[` | Cycle panel focus |
-| `j`/`k` or arrows | Navigate lists |
-| `s` / `S` | Start backup (quick / configure) |
-| `X` | Cancel running backup |
-| `d` | Delete selected item (backup or profile) |
-| `R` / `r` | Restore (wizard / from cursor) |
-| `C` / `c` | Set config (wizard / on Config tab) |
-| `R` / `r` | Resync (on Config tab) |
-| `x` | Delete profile (Config tab) |
-| `f` | Toggle log follow mode |
-| `w` | Toggle log word wrap |
-| `tab` | Toggle backups / restores |
-| `esc` | Back / dismiss overlay |
-| `?` | Help overlay |
-| `q` | Quit |
+![PITR restore](docs/screens/pitr-restore.png)
 
-## SDK
-
-The SDK is a standalone Go module for programmatic access to PBM operations. See the [SDK README](sdk/README.md) for API documentation, examples, and design details.
-
-```go
-import sdk "github.com/jcechace/pbmate/sdk/v2"
-
-client, err := sdk.NewClient(ctx, sdk.WithMongoURI("mongodb://localhost:27017"))
-defer client.Close(ctx)
-
-// List recent backups.
-backups, _ := client.Backups.List(ctx, sdk.ListBackupsOptions{Limit: 5})
-
-// Start a logical backup.
-result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
-
-// Wait for completion.
-bk, _ := result.Wait(ctx, sdk.BackupWaitOptions{})
-```
-
-## Project Structure
-
-```
-pbmate/
-  sdk/              Standalone SDK module (github.com/jcechace/pbmate/sdk/v2)
-  internal/tui/     Terminal UI (BubbleTea)
-  internal/config/  App configuration (Load/Save, contexts, field helpers)
-  main.go           CLI entry point (kong): TUI + context + config commands
-```
-
-The SDK is a separate Go module with its own `go.mod`. The TUI depends on the SDK via a `replace` directive for local development. Consumers import the SDK independently — no dependency on the TUI.
+</details>
 
 ## Installation
 
-### Homebrew (macOS / Linux)
+### Homebrew
 
 ```bash
 brew tap jcechace/tap
@@ -125,7 +68,7 @@ brew install pbmate
 
 ### Binary Download
 
-Download pre-built binaries from the [GitHub Releases](https://github.com/jcechace/pbmate/releases) page.
+Grab a pre-built binary from [GitHub Releases](https://github.com/jcechace/pbmate/releases).
 
 ### From Source
 
@@ -133,18 +76,91 @@ Download pre-built binaries from the [GitHub Releases](https://github.com/jcecha
 go install github.com/jcechace/pbmate@latest
 ```
 
-## Building
-
-PBMate uses [Task](https://taskfile.dev) as its build runner.
+## Quick Start
 
 ```bash
-task build    # build all modules; produces ./pbmate binary
-task test     # run all tests
+# Connect directly
+pbmate --uri mongodb://localhost:27017
+
+# Or save a named context and reuse it
+pbmate context add dev --uri mongodb://localhost:27017
+pbmate context use dev
+pbmate
+```
+
+## What You Can Do
+
+| Action | Key | Description |
+|---|---|---|
+| Start backup | `s` / `S` | Quick (one key) or fully configured (type, profile, compression, namespaces) |
+| Restore | `r` / `R` | From selected backup, or wizard with snapshot/PITR picker |
+| Cancel backup | `X` | Cancel a running backup |
+| Delete | `d` | Delete selected backup or storage profile |
+| Bulk delete | `D` | Delete backups or PITR chunks older than a threshold |
+| Toggle PITR | `p` | Enable or disable point-in-time recovery |
+| Set config | `C` / `c` | Upload YAML config to main or a named profile |
+| Resync | `R` / `r` | Resync agents (on Config tab) |
+| Filter logs | `l` | Filter by severity, replica set, or event type |
+| Follow logs | `f` | Stream logs in real time |
+| Help | `?` | Show all keybindings |
+
+## CLI
+
+```bash
+pbmate                                     # launch TUI (current context)
+pbmate --uri <uri> --theme mocha           # explicit connection + theme
+pbmate --readonly                          # monitoring only, no mutations
+
+pbmate context list                        # show saved contexts
+pbmate context add prod --uri <uri>        # save a connection
+pbmate context use prod                    # switch active context
+
+pbmate config show                         # print config as YAML
+pbmate config set theme mocha              # global setting
+pbmate config set readonly true --context=prod  # per-context override
+```
+
+| Flag | Description | Default |
+|---|---|---|
+| `--uri` | MongoDB connection URI | — |
+| `--context` | Named context override | — |
+| `--theme` | `default`, `mocha`, `latte`, `frappe`, `macchiato` | `default` |
+| `--readonly` | Disable all mutation actions | `false` |
+| `--config` | Config file path (or set `PBMATE_CONFIG`) | `~/.config/pbmate/config.yaml` |
+
+## SDK
+
+PBMate includes a standalone Go SDK for programmatic access to PBM. It wraps PBM internals behind stable, domain-typed interfaces — your code won't break when PBM changes.
+
+```go
+import sdk "github.com/jcechace/pbmate/sdk/v2"
+
+client, err := sdk.NewClient(ctx, sdk.WithMongoURI("mongodb://localhost:27017"))
+defer client.Close(ctx)
+
+// Start a backup and wait for it.
+result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
+bk, _ := result.Wait(ctx, sdk.BackupWaitOptions{})
+fmt.Printf("backup %s: %s\n", bk.Name, bk.Status)
+
+// Point-in-time restore.
+res, _ := client.Restores.Start(ctx, sdk.StartPITRRestore{
+    BackupName: "2026-02-19T20:28:16Z",
+    Target:     sdk.Timestamp{T: 1740000000},
+})
+```
+
+See the [SDK README](sdk/README.md) for full API docs, examples, and design details.
+
+## Building
+
+```bash
+task build    # build all modules
 task check    # build + vet + lint + test
 ```
 
-## Requirements
+Requires Go 1.26+ and a PBM-configured MongoDB cluster.
 
-- Go 1.26+
-- A running MongoDB cluster with PBM configured
-- Network access to the MongoDB cluster from the machine running PBMate
+## License
+
+[Apache-2.0](LICENSE)
