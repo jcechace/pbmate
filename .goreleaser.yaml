@@ -28,6 +28,19 @@ archives:
 checksum:
   name_template: checksums.txt
 
+brews:
+  - repository:
+      owner: jcechace
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: https://github.com/jcechace/pbmate
+    description: "TUI companion for Percona Backup for MongoDB"
+    license: "Apache-2.0"
+    install: |
+      bin.install "pbmate"
+    test: |
+      system "#{bin}/pbmate", "--version"
+
 changelog:
   sort: asc
   filters:
