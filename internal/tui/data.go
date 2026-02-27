@@ -200,18 +200,21 @@ func canDeleteCmd(ctx context.Context, client *sdk.Client, baseName, title, desc
 	}
 }
 
-// backupFormReadyMsg carries fetched profiles so the backup form can be created.
+// backupFormReadyMsg carries fetched profiles and existing backups so the
+// backup form can be created with chain-awareness for incremental backups.
 type backupFormReadyMsg struct {
 	profiles []sdk.StorageProfile
+	backups  []sdk.Backup
 	kind     backupFormKind
 }
 
-// fetchProfilesCmd returns a tea.Cmd that fetches storage profiles for the
-// backup form. Errors are silently ignored — the form will just show "Main".
-func fetchProfilesCmd(ctx context.Context, client *sdk.Client, kind backupFormKind) tea.Cmd {
+// fetchBackupFormDataCmd returns a tea.Cmd that fetches storage profiles for
+// the backup form. Errors are silently ignored — the form will just show "Main".
+// backups is the already-fetched backup list (passed through, no extra call).
+func fetchBackupFormDataCmd(ctx context.Context, client *sdk.Client, kind backupFormKind, backups []sdk.Backup) tea.Cmd {
 	return func() tea.Msg {
 		profiles, _ := client.Config.ListProfiles(ctx)
-		return backupFormReadyMsg{profiles: profiles, kind: kind}
+		return backupFormReadyMsg{profiles: profiles, backups: backups, kind: kind}
 	}
 }
 

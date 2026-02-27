@@ -16,22 +16,29 @@ type backupFormOverlay struct {
 	result         *backupFormResult
 	kind           backupFormKind
 	lastBackupType string // tracks backupType for dynamic rebuild
+	lastConfigName string // tracks configName for dynamic rebuild
 	ctx            context.Context
 	client         *sdk.Client
 	formTheme      *huh.Theme
 }
 
-func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, kind backupFormKind, profiles []sdk.StorageProfile) (*backupFormOverlay, tea.Cmd) {
+func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, kind backupFormKind, profiles []sdk.StorageProfile, backups []sdk.Backup) (*backupFormOverlay, tea.Cmd) {
 	var form *huh.Form
 	var result *backupFormResult
 	switch kind {
 	case backupFormQuick:
 		form, result = newQuickBackupForm(formTheme)
 	case backupFormFull:
-		form, result = newFullBackupForm(formTheme, profiles, nil)
+		form, result = newFullBackupForm(formTheme, profiles, backups, nil)
 	}
 	result.profiles = profiles
-	o := &backupFormOverlay{form: form, result: result, kind: kind, lastBackupType: result.backupType, ctx: ctx, client: client, formTheme: formTheme}
+	result.backups = backups
+	o := &backupFormOverlay{
+		form: form, result: result, kind: kind,
+		lastBackupType: result.backupType,
+		lastConfigName: result.configName,
+		ctx:            ctx, client: client, formTheme: formTheme,
+	}
 	return o, o.form.Init()
 }
 
@@ -61,9 +68,10 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 		return nil, nil
 	}
 
-	// Rebuild the form when backup type changes so that only relevant
-	// fields are shown (e.g. namespaces for logical, chain toggle for incremental).
-	if o.kind == backupFormFull && o.result.backupType != o.lastBackupType {
+	// Rebuild the form when backup type or profile changes so that only
+	// relevant fields are shown (e.g. namespaces for logical, chain toggle
+	// for incremental). Profile changes affect chain existence detection.
+	if o.kind == backupFormFull && (o.result.backupType != o.lastBackupType || o.result.configName != o.lastConfigName) {
 		return o.rebuildForm()
 	}
 
@@ -71,12 +79,13 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 }
 
 func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
-	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result)
+	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result.backups, o.result)
 	next := &backupFormOverlay{
 		form:           form,
 		result:         result,
 		kind:           backupFormFull,
 		lastBackupType: result.backupType,
+		lastConfigName: result.configName,
 		ctx:            o.ctx,
 		client:         o.client,
 		formTheme:      o.formTheme,
@@ -84,14 +93,15 @@ func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
 	return next, next.form.Init()
 }
 
-// rebuildForm reconstructs the full backup form when the backup type changes,
-// preserving current field values. This swaps conditional groups (e.g.
-// namespaces for logical vs chain toggle for incremental).
+// rebuildForm reconstructs the full backup form when the backup type or
+// profile changes, preserving current field values. This swaps conditional
+// groups (e.g. namespaces for logical vs chain toggle for incremental).
 func (o *backupFormOverlay) rebuildForm() (formOverlay, tea.Cmd) {
-	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result)
+	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result.backups, o.result)
 	o.form = form
 	o.result = result
 	o.lastBackupType = result.backupType
+	o.lastConfigName = result.configName
 	return o, o.form.Init()
 }
 

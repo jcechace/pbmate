@@ -63,8 +63,9 @@ type backupFormResult struct {
 	incrBase      bool
 	confirmed     bool // true = start, false = customize (quick form only)
 
-	// Profiles are stored for handoff from quick → full form.
+	// Profiles and backups are stored for handoff from quick → full form.
 	profiles []sdk.StorageProfile
+	backups  []sdk.Backup
 }
 
 // toCommand converts the form result into a sealed SDK StartBackupCommand.
@@ -110,11 +111,7 @@ func (r backupFormResult) toCommand() sdk.StartBackupCommand {
 	}
 
 	if r.namespaces != "" && r.namespaces != "*.*" {
-		nss := strings.Split(r.namespaces, ",")
-		for i := range nss {
-			nss[i] = strings.TrimSpace(nss[i])
-		}
-		cmd.Namespaces = nss
+		cmd.Namespaces = splitNamespaces(r.namespaces)
 	}
 
 	return cmd
@@ -132,6 +129,25 @@ func parseOptionalInt(s string) *int {
 		return nil
 	}
 	return &n
+}
+
+// hasIncrementalChain reports whether any completed incremental backup exists
+// for the given profile. configName uses the TUI's profile naming convention
+// (defaultConfigName for main, profile name string for named profiles).
+// This works because sdk.MainConfig.String() == "main" == defaultConfigName.
+func hasIncrementalChain(backups []sdk.Backup, configName string) bool {
+	for _, b := range backups {
+		if !b.IsIncremental() {
+			continue
+		}
+		if !b.Status.Equal(sdk.StatusDone) {
+			continue
+		}
+		if b.ConfigName.String() == configName {
+			return true
+		}
+	}
+	return false
 }
 
 // --- Quick backup form ---
@@ -167,14 +183,16 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 // newFullBackupForm creates a single-screen form for configuring a backup.
 // All essential fields are visible at once — no multi-step wizard.
 // initialResult carries values from the quick form (or defaults if opened
-// directly via S). profiles is the list of named storage profiles.
-func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *backupFormResult) (*huh.Form, *backupFormResult) {
+// directly via S). profiles is the list of named storage profiles. backups
+// is the already-fetched backup list used for incremental chain detection.
+func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, backups []sdk.Backup, initial *backupFormResult) (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
 		configName:  defaultConfigName,
 		confirmed:   true,
 		profiles:    profiles,
+		backups:     backups,
 	}
 	if initial != nil {
 		result.backupType = initial.backupType
@@ -247,15 +265,24 @@ func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 	}
 
 	if result.backupType == "incremental" {
-		groups = append(groups, huh.NewGroup(
-			huh.NewConfirm().
-				Title("Start new chain?").
-				Inline(true).
-				WithButtonAlignment(lipgloss.Right).
-				Affirmative("Yes").
-				Negative("No").
-				Value(&result.incrBase),
-		))
+		if hasIncrementalChain(backups, result.configName) {
+			groups = append(groups, huh.NewGroup(
+				huh.NewConfirm().
+					Title("Start new chain?").
+					Inline(true).
+					WithButtonAlignment(lipgloss.Right).
+					Affirmative("Yes").
+					Negative("No").
+					Value(&result.incrBase),
+			))
+		} else {
+			result.incrBase = true
+			groups = append(groups, huh.NewGroup(
+				huh.NewNote().
+					Title("Base backup").
+					Description("No existing chain — this will start a new one."),
+			))
+		}
 	}
 
 	groups = append(groups,

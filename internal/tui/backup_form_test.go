@@ -179,6 +179,129 @@ func TestBackupFormResultToCommandPhysical(t *testing.T) {
 	})
 }
 
+// --- hasIncrementalChain ---
+
+func TestHasIncrementalChain(t *testing.T) {
+	profileCN, _ := sdk.NewConfigName("my-profile")
+
+	mainIncrDone := sdk.Backup{
+		Name:       "2026-01-01T00:00:00Z",
+		Type:       sdk.BackupTypeIncremental,
+		Status:     sdk.StatusDone,
+		ConfigName: sdk.MainConfig,
+	}
+	profileIncrDone := sdk.Backup{
+		Name:       "2026-01-02T00:00:00Z",
+		Type:       sdk.BackupTypeIncremental,
+		Status:     sdk.StatusDone,
+		ConfigName: profileCN,
+	}
+	mainLogicalDone := sdk.Backup{
+		Name:       "2026-01-03T00:00:00Z",
+		Type:       sdk.BackupTypeLogical,
+		Status:     sdk.StatusDone,
+		ConfigName: sdk.MainConfig,
+	}
+	mainIncrError := sdk.Backup{
+		Name:       "2026-01-04T00:00:00Z",
+		Type:       sdk.BackupTypeIncremental,
+		Status:     sdk.StatusError,
+		ConfigName: sdk.MainConfig,
+	}
+
+	tests := []struct {
+		name       string
+		backups    []sdk.Backup
+		configName string
+		want       bool
+	}{
+		{
+			name:       "no backups",
+			backups:    nil,
+			configName: defaultConfigName,
+			want:       false,
+		},
+		{
+			name:       "incremental on main profile",
+			backups:    []sdk.Backup{mainIncrDone},
+			configName: defaultConfigName,
+			want:       true,
+		},
+		{
+			name:       "incremental on named profile",
+			backups:    []sdk.Backup{profileIncrDone},
+			configName: "my-profile",
+			want:       true,
+		},
+		{
+			name:       "incremental on wrong profile",
+			backups:    []sdk.Backup{profileIncrDone},
+			configName: defaultConfigName,
+			want:       false,
+		},
+		{
+			name:       "main profile no match on named",
+			backups:    []sdk.Backup{mainIncrDone},
+			configName: "my-profile",
+			want:       false,
+		},
+		{
+			name:       "only logical on main",
+			backups:    []sdk.Backup{mainLogicalDone},
+			configName: defaultConfigName,
+			want:       false,
+		},
+		{
+			name:       "only errored incremental",
+			backups:    []sdk.Backup{mainIncrError},
+			configName: defaultConfigName,
+			want:       false,
+		},
+		{
+			name:       "mixed backups finds incremental",
+			backups:    []sdk.Backup{mainLogicalDone, mainIncrError, mainIncrDone},
+			configName: defaultConfigName,
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasIncrementalChain(tt.backups, tt.configName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+// --- newFullBackupForm chain awareness ---
+
+func TestFullBackupFormIncrementalNoChain(t *testing.T) {
+	// When no incremental chain exists, the form should force incrBase = true.
+	_, result := newFullBackupForm(nil, nil, nil, &backupFormResult{
+		backupType:  "incremental",
+		compression: "default",
+		configName:  defaultConfigName,
+	})
+	assert.True(t, result.incrBase, "incrBase should be forced true when no chain exists")
+}
+
+func TestFullBackupFormIncrementalWithChain(t *testing.T) {
+	// When a chain exists, the form should preserve the user's incrBase choice.
+	backups := []sdk.Backup{{
+		Name:       "2026-01-01T00:00:00Z",
+		Type:       sdk.BackupTypeIncremental,
+		Status:     sdk.StatusDone,
+		ConfigName: sdk.MainConfig,
+	}}
+	_, result := newFullBackupForm(nil, nil, backups, &backupFormResult{
+		backupType:  "incremental",
+		compression: "default",
+		configName:  defaultConfigName,
+		incrBase:    false,
+	})
+	assert.False(t, result.incrBase, "incrBase should remain false when chain exists")
+}
+
 // --- formOverlayInnerWidth ---
 
 func TestFormOverlayInnerWidth(t *testing.T) {
