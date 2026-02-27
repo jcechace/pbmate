@@ -8,9 +8,6 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 (none)
 
-### Test Coverage Gaps (branch: `test-coverage-gaps`)
-`Backup.Elapsed()` and `Restore.Elapsed()` (3 branches each), `Timestamp.IsZero()`, `Timestamp.Time()`, `ConcurrentOperationError.Error()`, `OperationError.Error()`, and `errors.As` unwrapping. Pure unit tests, no MongoDB dependency.
-
 ## Backlog
 
 Prioritized next items:
@@ -18,12 +15,10 @@ Prioritized next items:
 - [x] Refine error messages (follow context canceled, double prefixes, config ErrNotFound, connect verbosity)
 - [x] CI/CD: GitHub Actions (test/lint/vulncheck), Dependabot, GoReleaser, `--version` flag
 - [x] Result Type Redesign: `BackupResult.Wait()`, `RestoreResult` interface, `ErrRestoreUnwaitable` (see `docs/agents/sdk-storage-design.md`)
-- [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 - [x] Homebrew tap for binary distribution
 
 Deferred (add when needed):
-- [ ] `/` filter in list views (backups, maybe logs search)
 - [ ] Codecov integration for coverage tracking
 
 ## Completed Milestones
@@ -152,6 +147,12 @@ Overview tab `l` key opens a log filter form overlay with severity (Debug/Info/W
 
 ### Release Preparation
 Apache-2.0 license added (compatible with all dependencies — PBM is Apache-2.0, all others MIT/Apache-2.0). CI golangci-lint bumped from v2.6 to v2.9 (Go 1.26 compatibility). Local builds (`task tui:build`, `task tui:install`) now inject version from `git describe` via ldflags. GoReleaser configured with `brews:` section targeting `jcechace/homebrew-tap`. Release workflow passes `HOMEBREW_TAP_TOKEN` secret. Install flow: `brew tap jcechace/tap && brew install pbmate`.
+
+### Incremental Backup Chain Guard
+TUI backup form now prevents starting a non-base incremental backup when no incremental chain exists for the selected storage profile. When no chain is found, the "Start new chain?" toggle is hidden and `Base` is forced to `true`, with a note explaining this will start a new chain. Chain detection is per-profile and reacts to profile changes (form rebuilds on profile switch). The backup list is passed through from already-fetched data (no extra SDK call). Tests cover `hasIncrementalChain` (8 scenarios) and form behavior with/without chains.
+
+### External Editor Support
+Config tab `e` key opens the selected config or profile in `$EDITOR` (kubectl-style edit flow). Editor resolution chain: `PBMATE_EDITOR` env → `config.editor` → `VISUAL` env → `EDITOR` env → `vi` fallback. Compound editor commands supported (e.g. `"code -w"`). Readonly mode guards the `e` key. Temp file lifecycle: preserved on apply failure (path shown in error for recovery), deleted on success or no changes. SDK `cleanParseError` unwraps `yaml.TypeError` to produce user-friendly validation messages (strips PBM internal type names). Tests cover `cleanParseError` (4 scenarios).
 
 ## Deferred Features
 
