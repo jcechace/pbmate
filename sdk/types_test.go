@@ -226,6 +226,42 @@ func TestConfigNameNewEmpty(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestTimestampIsZero(t *testing.T) {
+	tests := []struct {
+		name string
+		ts   Timestamp
+		want bool
+	}{
+		{"both zero", Timestamp{T: 0, I: 0}, true},
+		{"T nonzero", Timestamp{T: 1, I: 0}, false},
+		{"I nonzero", Timestamp{T: 0, I: 1}, false},
+		{"both nonzero", Timestamp{T: 1, I: 1}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.ts.IsZero())
+		})
+	}
+}
+
+func TestTimestampTime(t *testing.T) {
+	tests := []struct {
+		name string
+		ts   Timestamp
+		want int64 // expected Unix seconds
+	}{
+		{"zero", Timestamp{}, 0},
+		{"epoch", Timestamp{T: 0}, 0},
+		{"specific time", Timestamp{T: 1740000000}, 1740000000},
+		{"ordinal ignored", Timestamp{T: 1740000000, I: 42}, 1740000000},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.ts.Time().Unix())
+		})
+	}
+}
+
 func TestTimestampBefore(t *testing.T) {
 	tests := []struct {
 		name string

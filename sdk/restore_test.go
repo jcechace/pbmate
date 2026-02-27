@@ -135,3 +135,49 @@ func TestRestoreDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestRestoreElapsed(t *testing.T) {
+	start := time.Date(2026, 2, 19, 20, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name    string
+		restore Restore
+		check   func(t *testing.T, d time.Duration)
+	}{
+		{
+			name:    "zero start returns zero",
+			restore: Restore{Status: StatusRunning},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Equal(t, time.Duration(0), d)
+			},
+		},
+		{
+			name: "terminal status returns final duration",
+			restore: Restore{
+				Status:           StatusDone,
+				StartTS:          start,
+				LastTransitionTS: start.Add(10 * time.Minute),
+			},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Equal(t, 10*time.Minute, d)
+			},
+		},
+		{
+			name: "in-progress returns positive live elapsed",
+			restore: Restore{
+				Status:  StatusRunning,
+				StartTS: time.Now().Add(-3 * time.Second),
+			},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Greater(t, d, 2*time.Second)
+				assert.Less(t, d, 10*time.Second)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.check(t, tt.restore.Elapsed())
+		})
+	}
+}
