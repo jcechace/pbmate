@@ -152,3 +152,4 @@ so SDK and MCP tags do not produce binary releases.
 | `docs/agents/progress.md` | Work tracking, backlog, completed | Start of any task |
 | `docs/agents/tui-design.md` | TUI layout spec, message flow, keybindings | Changing TUI behavior |
 | `sdk/README.md` | SDK API docs and examples | Understanding SDK public API |
+| `docs/agents/sdk-storage-design.md` | Storage-aware SDK design, result types, future directions | Working on storage or result types |

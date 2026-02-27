@@ -14,6 +14,7 @@ Prioritized next items:
 - [x] Connection reconnect on failure (auto-retry with exponential backoff)
 - [x] Refine error messages (follow context canceled, double prefixes, config ErrNotFound, connect verbosity)
 - [x] CI/CD: GitHub Actions (test/lint/vulncheck), Dependabot, GoReleaser, `--version` flag
+- [ ] Result Type Redesign: `BackupResult.Wait()`, `RestoreResult` interface, `ErrRestoreUnwaitable` (see `docs/agents/sdk-storage-design.md`)
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 - [ ] Homebrew tap for binary distribution
@@ -160,6 +161,12 @@ Overview tab `l` key opens a log filter form overlay with severity (Debug/Info/W
 | Timeline.Size | Storage cost insight. | Low |
 | Status filter on list | Client-side filtering works given small data volumes. | Low |
 | Convenience queries | `GetLastBackup` etc. — trivial wrappers. | Low |
+| Physical restore Wait (storage) | Requires storage handle creation in `Start()`. Design ready in `sdk-storage-design.md`. | Medium |
+| BackupService.ListFiles | List backup contents from storage. | Medium |
+| BackupService.Verify | Check backup file integrity on storage. | Medium |
+| Storage-only client | SDK client from config file, no MongoDB needed. | Low |
+| ConfigService.SetVar/GetVar | Per-key config changes via PBM's `config.SetConfigVar`. | Low |
+| ConfigService.CheckStorage | Verify storage accessibility. | Low |
 
 ## SDK Architecture Notes
 
