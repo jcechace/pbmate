@@ -4,8 +4,6 @@ A Go client library for [Percona Backup for MongoDB (PBM)](https://github.com/pe
 
 The SDK wraps PBM's internal packages behind stable, domain-typed interfaces. PBM internals can change freely — the SDK's conversion layer absorbs the changes, and consumer code doesn't break.
 
-> **PBM version:** The SDK is built against PBM v2.9.x internals. Check `sdk/go.mod` for the exact pinned version. Running against a different PBM version may produce `slog.Warn` messages for unknown enum values but will not crash.
-
 ```go
 import sdk "github.com/jcechace/pbmate/sdk/v2"
 ```
