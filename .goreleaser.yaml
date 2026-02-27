@@ -33,6 +33,7 @@ brews:
       owner: jcechace
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
     homepage: https://github.com/jcechace/pbmate
     description: "TUI companion for Percona Backup for MongoDB"
     license: "Apache-2.0"
