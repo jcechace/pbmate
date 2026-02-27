@@ -110,10 +110,11 @@ func (s *backupServiceImpl) Start(ctx context.Context, cmd StartBackupCommand) (
 	return BackupResult{
 		CommandResult: result,
 		Name:          name,
+		svc:           s,
 	}, nil
 }
 
-func (s *backupServiceImpl) Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error) {
+func (s *backupServiceImpl) wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error) {
 	return waitForTerminal(ctx, name, opts.PollInterval, waitParams[*Backup]{
 		get:        s.Get,
 		status:     func(b *Backup) Status { return b.Status },

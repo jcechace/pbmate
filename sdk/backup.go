@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// BackupWaitOptions controls the polling behavior of BackupService.Wait.
+// BackupWaitOptions controls the polling behavior of [BackupResult.Wait].
 type BackupWaitOptions struct {
 	// PollInterval is the duration between status checks. Defaults to 1s.
 	PollInterval time.Duration
@@ -89,27 +89,9 @@ type BackupService interface {
 	//	result, err := client.Backups.Start(ctx, sdk.StartIncrementalBackup{
 	//	    Base: true,
 	//	})
+	//
+	// Call [BackupResult.Wait] on the returned result to poll until completion.
 	Start(ctx context.Context, cmd StartBackupCommand) (BackupResult, error)
-
-	// Wait polls until the named backup reaches a terminal status or the
-	// context is cancelled. Context cancellation stops waiting but does NOT
-	// cancel the running backup — use [BackupService.Cancel] for that.
-	//
-	// Returns the final Backup and nil on success ([StatusDone], [StatusCancelled]).
-	// Returns the Backup and an [*OperationError] on failure ([StatusError],
-	// [StatusPartlyDone]). On context cancellation, returns the last observed
-	// Backup (may be nil) and ctx.Err().
-	//
-	// Example:
-	//
-	//	result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
-	//	bk, err := client.Backups.Wait(ctx, result.Name, sdk.BackupWaitOptions{
-	//	    PollInterval: 2 * time.Second,
-	//	    OnProgress: func(b *sdk.Backup) {
-	//	        fmt.Printf("status: %s\n", b.Status)
-	//	    },
-	//	})
-	Wait(ctx context.Context, name string, opts BackupWaitOptions) (*Backup, error)
 
 	// Delete requests deletion of one or more backups. The deletion is
 	// processed asynchronously by PBM agents — the command returns

@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -495,22 +496,66 @@ type CancelBackupCommand struct{}
 
 func (c CancelBackupCommand) Validate() error { return nil }
 
-// BackupResult is returned by [BackupService.Start].
+// BackupResult is returned by [BackupService.Start]. Call [BackupResult.Wait]
+// to poll until the backup reaches a terminal status.
 type BackupResult struct {
 	CommandResult
 
 	// Name is the auto-generated backup name (RFC 3339 UTC timestamp).
-	// Use it with [BackupService.Get] or [BackupService.Wait] to track progress.
+	// Use it with [BackupService.Get] to inspect the backup, or call
+	// [BackupResult.Wait] to poll until completion.
 	Name string
+
+	svc *backupServiceImpl // set by Start; used by Wait
 }
 
-// RestoreResult is returned by [RestoreService.Start].
-type RestoreResult struct {
-	CommandResult
+// Wait polls until this backup reaches a terminal status or the context is
+// cancelled. Context cancellation stops waiting but does NOT cancel the
+// running backup — use [BackupService.Cancel] for that.
+//
+// Returns the final Backup and nil on success ([StatusDone], [StatusCancelled]).
+// Returns the Backup and an [*OperationError] on failure ([StatusError],
+// [StatusPartlyDone]). On context cancellation, returns the last observed
+// Backup (may be nil) and ctx.Err().
+//
+// Example:
+//
+//	result, _ := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
+//	bk, err := result.Wait(ctx, sdk.BackupWaitOptions{
+//	    PollInterval: 2 * time.Second,
+//	    OnProgress: func(b *sdk.Backup) {
+//	        fmt.Printf("status: %s\n", b.Status)
+//	    },
+//	})
+func (r BackupResult) Wait(ctx context.Context, opts BackupWaitOptions) (*Backup, error) {
+	return r.svc.wait(ctx, r.Name, opts)
+}
 
-	// Name is the auto-generated restore name (RFC 3339 UTC timestamp).
-	// Use it with [RestoreService.Get] or [RestoreService.Wait] to track progress.
-	Name string
+// RestoreResult is returned by [RestoreService.Start]. Call Wait to poll until
+// the restore reaches a terminal status.
+//
+// The concrete implementation depends on the restore type:
+//   - Logical restores (and PITR with a logical base) are waitable and poll
+//     via MongoDB.
+//   - Physical/incremental-based restores are not waitable — [Wait] returns
+//     [ErrRestoreUnwaitable] because mongod shuts down during the restore.
+//
+// Use [RestoreResult.Waitable] to check before calling [RestoreResult.Wait].
+type RestoreResult interface {
+	// Name returns the auto-generated restore name (RFC 3339Nano UTC timestamp).
+	Name() string
+
+	// OPID returns the operation ID assigned by PBM.
+	OPID() string
+
+	// Waitable reports whether Wait can monitor this restore to completion.
+	// Returns false for restores based on physical or incremental backups.
+	Waitable() bool
+
+	// Wait polls until this restore reaches a terminal status or the context
+	// is cancelled. Returns [ErrRestoreUnwaitable] if the restore cannot be
+	// monitored (physical/incremental base).
+	Wait(ctx context.Context, opts RestoreWaitOptions) (*Restore, error)
 }
 
 // validateUsersAndRoles checks that UsersAndRoles is only set when

@@ -24,6 +24,14 @@ var ErrDeleteProtectedByPITR = errors.New("backup is the last PITR base snapshot
 // name (via [BackupChain.Base] or [FindChainBase]) and retry.
 var ErrNotChainBase = errors.New("backup is not the base of its incremental chain; delete the chain base instead")
 
+// ErrRestoreUnwaitable is returned by [RestoreResult.Wait] when the restore
+// cannot be monitored programmatically. This occurs for restores based on
+// physical or incremental backups, which shut down mongod on all cluster
+// nodes during the restore process. For PITR restores with a physical base,
+// an additional manual agent restart is required between the physical copy
+// and oplog replay phases.
+var ErrRestoreUnwaitable = errors.New("restore cannot be waited on: based on a physical/incremental backup that shuts down mongod")
+
 // ConcurrentOperationError is returned when a command cannot be dispatched
 // because another PBM operation is already running.
 type ConcurrentOperationError struct {

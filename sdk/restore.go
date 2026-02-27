@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// RestoreWaitOptions controls the polling behavior of RestoreService.Wait.
+// RestoreWaitOptions controls the polling behavior of [RestoreResult.Wait].
 type RestoreWaitOptions struct {
 	// PollInterval is the duration between status checks. Defaults to 1s.
 	PollInterval time.Duration
@@ -26,7 +26,7 @@ type RestoreWaitOptions struct {
 //	if err != nil {
 //	    return err
 //	}
-//	restore, err := client.Restores.Wait(ctx, result.Name, sdk.RestoreWaitOptions{})
+//	restore, err := result.Wait(ctx, sdk.RestoreWaitOptions{})
 type RestoreService interface {
 	// List returns restores matching the given options, ordered by start time
 	// (most recent first). Returns an empty slice when no restores match.
@@ -44,9 +44,16 @@ type RestoreService interface {
 	// if no restore matches.
 	GetByOpID(ctx context.Context, opid string) (*Restore, error)
 
-	// Start initiates a new restore and returns the result. The restore name
-	// is auto-generated from the current timestamp. Returns a
+	// Start initiates a new restore and returns a [RestoreResult]. The
+	// restore name is auto-generated from the current timestamp. Returns a
 	// [*ConcurrentOperationError] if another PBM operation is already running.
+	//
+	// The returned [RestoreResult] implementation depends on the backup type:
+	//   - Logical backups produce a waitable result (polls MongoDB).
+	//   - Physical/incremental backups produce an unwaitable result — calling
+	//     [RestoreResult.Wait] returns [ErrRestoreUnwaitable].
+	//
+	// Use [RestoreResult.Waitable] to check before calling Wait.
 	//
 	// The cmd parameter is a sealed [StartRestoreCommand] with variants:
 	//   - [StartSnapshotRestore] for restoring a backup as-is.
@@ -64,27 +71,9 @@ type RestoreService interface {
 	//	    BackupName: "2026-02-19T20:28:16Z",
 	//	    Target:     sdk.Timestamp{T: 1740000000},
 	//	})
+	//
+	// Call [RestoreResult.Wait] on the returned result to poll until completion.
 	Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error)
-
-	// Wait polls until the named restore reaches a terminal status or the
-	// context is cancelled. Context cancellation stops waiting but does NOT
-	// cancel the running restore.
-	// TODO(pbm-fix): PBM does not support restore cancellation.
-	//
-	// Returns the final Restore and nil on success ([StatusDone], [StatusCancelled]).
-	// Returns the Restore and an [*OperationError] on failure ([StatusError],
-	// [StatusPartlyDone]). On context cancellation, returns the last observed
-	// Restore (may be nil) and ctx.Err().
-	//
-	// Example:
-	//
-	//	restore, err := client.Restores.Wait(ctx, result.Name, sdk.RestoreWaitOptions{
-	//	    PollInterval: 5 * time.Second,
-	//	    OnProgress: func(r *sdk.Restore) {
-	//	        fmt.Printf("restore %s: %s\n", r.Name, r.Status)
-	//	    },
-	//	})
-	Wait(ctx context.Context, name string, opts RestoreWaitOptions) (*Restore, error)
 }
 
 // ListRestoresOptions controls filtering and pagination for restore listing.

@@ -122,8 +122,9 @@ func newMongoClient(ctx context.Context, o *options) (*Client, error) {
 	cmds := &commandServiceImpl{conn: conn, log: log.With("service", "command")}
 
 	c := &Client{conn: conn}
-	c.Backups = &backupServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "backup")}
-	c.Restores = &restoreServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "restore")}
+	backups := &backupServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "backup")}
+	c.Backups = backups
+	c.Restores = &restoreServiceImpl{conn: conn, cmds: cmds, backups: backups, log: log.With("service", "restore")}
 	c.Config = &configServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "config")}
 	c.Cluster = &clusterServiceImpl{conn: conn, log: log.With("service", "cluster")}
 	c.PITR = &pitrServiceImpl{conn: conn, cmds: cmds, log: log.With("service", "pitr")}

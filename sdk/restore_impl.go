@@ -14,9 +14,10 @@ import (
 )
 
 type restoreServiceImpl struct {
-	conn connect.Client
-	cmds *commandServiceImpl
-	log  *slog.Logger
+	conn    connect.Client
+	cmds    *commandServiceImpl
+	backups *backupServiceImpl
+	log     *slog.Logger
 }
 
 var _ RestoreService = (*restoreServiceImpl)(nil)
@@ -64,8 +65,11 @@ func (s *restoreServiceImpl) GetByOpID(ctx context.Context, opid string) (*Resto
 
 func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand) (RestoreResult, error) {
 	if err := s.cmds.validateAndCheckLock(ctx, cmd); err != nil {
-		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
+		return nil, fmt.Errorf("start restore: %w", err)
 	}
+
+	// Extract the backup name from the command to determine result type.
+	backupName := restoreCommandBackupName(cmd)
 
 	// PBM uses RFC 3339 Nano (sub-second precision) for restore names,
 	// unlike backup names which use second-precision RFC 3339.
@@ -87,22 +91,83 @@ func (s *restoreServiceImpl) Start(ctx context.Context, cmd StartRestoreCommand)
 	s.log.InfoContext(ctx, "starting restore", "name", name, "type", fmt.Sprintf("%T", cmd))
 	result, err := s.cmds.dispatch(ctx, pbmCmd)
 	if err != nil {
-		return RestoreResult{}, fmt.Errorf("start restore: %w", err)
+		return nil, fmt.Errorf("start restore: %w", err)
 	}
 
-	return RestoreResult{
-		CommandResult: result,
-		Name:          name,
-	}, nil
+	return s.newRestoreResult(ctx, name, result.OPID, backupName), nil
 }
 
-func (s *restoreServiceImpl) Wait(ctx context.Context, name string, opts RestoreWaitOptions) (*Restore, error) {
-	return waitForTerminal(ctx, name, opts.PollInterval, waitParams[*Restore]{
-		get:        s.Get,
-		status:     func(r *Restore) Status { return r.Status },
-		errMsg:     func(r *Restore) string { return r.Error },
+// newRestoreResult creates the appropriate RestoreResult implementation based
+// on the backup type. Physical and incremental backups produce an unwaitable
+// result because mongod shuts down during the restore. If the backup type
+// cannot be determined, falls back to a waitable result (MongoDB polling).
+func (s *restoreServiceImpl) newRestoreResult(ctx context.Context, name, opid, backupName string) RestoreResult {
+	bk, err := s.backups.Get(ctx, backupName)
+	if err != nil {
+		// Backup lookup failed — fall back to waitable (MongoDB polling).
+		// This shouldn't happen since we just validated the command, but
+		// if it does, waitable is the safer default.
+		s.log.WarnContext(ctx, "failed to look up backup type for restore result, defaulting to waitable",
+			"backup", backupName, "error", err)
+		return &waitableRestoreResult{name: name, opid: opid, svc: s}
+	}
+
+	if bk.IsPhysical() || bk.IsIncremental() {
+		return &unwaitableRestoreResult{name: name, opid: opid}
+	}
+
+	return &waitableRestoreResult{name: name, opid: opid, svc: s}
+}
+
+// restoreCommandBackupName extracts the backup name from a StartRestoreCommand.
+func restoreCommandBackupName(cmd StartRestoreCommand) string {
+	switch c := cmd.(type) {
+	case StartSnapshotRestore:
+		return c.BackupName
+	case StartPITRRestore:
+		return c.BackupName
+	default:
+		panic(fmt.Sprintf("unreachable: unknown StartRestoreCommand type %T", cmd))
+	}
+}
+
+// --- RestoreResult implementations ---
+
+// waitableRestoreResult polls MongoDB for restore status. Used for logical
+// restores where mongod stays up throughout the operation.
+type waitableRestoreResult struct {
+	name string
+	opid string
+	svc  *restoreServiceImpl
+}
+
+func (r *waitableRestoreResult) Name() string   { return r.name }
+func (r *waitableRestoreResult) OPID() string   { return r.opid }
+func (r *waitableRestoreResult) Waitable() bool { return true }
+
+func (r *waitableRestoreResult) Wait(ctx context.Context, opts RestoreWaitOptions) (*Restore, error) {
+	return waitForTerminal(ctx, r.name, opts.PollInterval, waitParams[*Restore]{
+		get:        r.svc.Get,
+		status:     func(rs *Restore) Status { return rs.Status },
+		errMsg:     func(rs *Restore) string { return rs.Error },
 		onProgress: opts.OnProgress,
-		log:        s.log,
+		log:        r.svc.log,
 		entity:     "restore",
 	})
+}
+
+// unwaitableRestoreResult is returned for restores based on physical or
+// incremental backups. These restores shut down mongod, making MongoDB-based
+// polling impossible. Wait always returns ErrRestoreUnwaitable.
+type unwaitableRestoreResult struct {
+	name string
+	opid string
+}
+
+func (r *unwaitableRestoreResult) Name() string   { return r.name }
+func (r *unwaitableRestoreResult) OPID() string   { return r.opid }
+func (r *unwaitableRestoreResult) Waitable() bool { return false }
+
+func (r *unwaitableRestoreResult) Wait(_ context.Context, _ RestoreWaitOptions) (*Restore, error) {
+	return nil, ErrRestoreUnwaitable
 }
