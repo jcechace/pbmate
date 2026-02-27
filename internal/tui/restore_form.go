@@ -95,20 +95,26 @@ func (r *restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRResto
 	return cmd, nil
 }
 
-// parseNamespaces splits the comma-separated namespace string into a slice.
-// Returns nil for empty input or when scope is not selective.
-// Empty entries after trimming are filtered out (e.g. trailing commas,
-// whitespace-only entries, or empty input which yields [""] from Split).
+// parseNamespaces returns the selective namespaces for a restore form.
+// Returns nil when scope is not selective.
 func (r *restoreFormResult) parseNamespaces() []string {
 	if !r.isSelective() {
 		return nil
 	}
-	parts := strings.Split(r.namespaces, ",")
+	return splitNamespaces(r.namespaces)
+}
+
+// splitNamespaces splits a comma-separated namespace string into a slice,
+// trimming whitespace and filtering empty entries (e.g. trailing commas,
+// whitespace-only entries, or empty input which yields [""] from Split).
+// Returns nil when no non-empty entries remain.
+func splitNamespaces(s string) []string {
+	parts := strings.Split(s, ",")
 	var nss []string
-	for _, s := range parts {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			nss = append(nss, s)
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			nss = append(nss, p)
 		}
 	}
 	if len(nss) == 0 {
