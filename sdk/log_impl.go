@@ -33,7 +33,7 @@ func (s *logServiceImpl) Get(ctx context.Context, opts GetLogsOptions) ([]LogEnt
 }
 
 func (s *logServiceImpl) Follow(ctx context.Context, opts FollowOptions) (<-chan LogEntry, <-chan error) {
-	req := convertLogRequest(&opts.LogFilter, time.Time{}, time.Time{})
+	req := convertLogRequest(&opts.LogFilter, opts.TimeMin, time.Time{})
 
 	pbmEntries, pbmErrs := log.Follow(ctx, s.conn, req, false)
 

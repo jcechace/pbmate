@@ -115,6 +115,13 @@ type GetLogsOptions struct {
 // FollowOptions controls filtering for log streaming.
 type FollowOptions struct {
 	LogFilter
+
+	// TimeMin limits the tailable cursor to entries at or after this time.
+	// When set, historical entries older than TimeMin are skipped — only
+	// entries created at or after this timestamp are delivered. This is
+	// useful to avoid replaying entries the caller already has.
+	// Zero value means no lower bound (all matching entries are delivered).
+	TimeMin time.Time
 }
 
 // LogEntry represents a single PBM log entry from the centralized log
