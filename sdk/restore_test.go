@@ -1,11 +1,58 @@
 package sdk
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestUnwaitableRestoreResult(t *testing.T) {
+	r := &unwaitableRestoreResult{name: "test-restore", opid: "abc123"}
+
+	assert.Equal(t, "test-restore", r.Name())
+	assert.Equal(t, "abc123", r.OPID())
+	assert.False(t, r.Waitable())
+
+	restore, err := r.Wait(context.Background(), RestoreWaitOptions{})
+	require.ErrorIs(t, err, ErrRestoreUnwaitable)
+	assert.Nil(t, restore)
+}
+
+func TestWaitableRestoreResult(t *testing.T) {
+	r := &waitableRestoreResult{name: "test-restore", opid: "abc123"}
+
+	assert.Equal(t, "test-restore", r.Name())
+	assert.Equal(t, "abc123", r.OPID())
+	assert.True(t, r.Waitable())
+}
+
+func TestRestoreCommandBackupName(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  StartRestoreCommand
+		want string
+	}{
+		{
+			name: "snapshot restore",
+			cmd:  StartSnapshotRestore{BackupName: "2026-02-19T20:28:16Z"},
+			want: "2026-02-19T20:28:16Z",
+		},
+		{
+			name: "PITR restore",
+			cmd:  StartPITRRestore{BackupName: "2026-02-19T20:28:16Z", Target: Timestamp{T: 1}},
+			want: "2026-02-19T20:28:16Z",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, restoreCommandBackupName(tt.cmd))
+		})
+	}
+}
 
 func TestRestoreInProgress(t *testing.T) {
 	tests := []struct {

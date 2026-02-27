@@ -221,3 +221,16 @@ func TestBackupDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestBackupResultFields(t *testing.T) {
+	r := BackupResult{
+		CommandResult: CommandResult{OPID: "abc123"},
+		Name:          "2026-02-19T20:28:16Z",
+	}
+
+	assert.Equal(t, "abc123", r.OPID)
+	assert.Equal(t, "2026-02-19T20:28:16Z", r.Name)
+	// svc is nil — calling Wait would panic. This test verifies the
+	// struct layout and field access, not Wait behavior (which requires
+	// a live MongoDB connection).
+}
