@@ -38,8 +38,8 @@ Shared helpers: `convert.go` / `convert_test.go`, `wait.go` / `wait_test.go`.
 
 | Service | Interface | Key Methods |
 |---------|-----------|-------------|
-| BackupService | `backup.go` | List, Get, Start, Wait, Cancel, Delete, CanDelete |
-| RestoreService | `restore.go` | List, Get, Start, Wait |
+| BackupService | `backup.go` | List, Get, Start, Cancel, Delete, CanDelete |
+| RestoreService | `restore.go` | List, Get, Start |
 | ConfigService | `config.go` | Get, GetYAML, ListProfiles, GetProfile, SetProfile, Resync |
 | ClusterService | `cluster.go` | Members, Agents, RunningOperations, CheckLock, ServerInfo |
 | PITRService | `pitr.go` | Status, Timelines, Bases, Enable, Disable, Delete |
@@ -60,6 +60,18 @@ Operations with distinct variants use sealed interfaces (unexported marker metho
 All commands implement `Validate() error`. Service methods call Validate before lock checks or dispatch. Type switches in `Start`/`Delete`/`Resync` methods use `default: panic("unreachable: ...")` to catch missing branches at development time.
 
 Standalone commands (not part of any sealed interface): `AddProfileCommand`, `RemoveProfileCommand`, `CancelBackupCommand`. These are simple single-variant types with their own `Validate()` methods.
+
+## Result Types
+
+`Start()` methods return result types with `Wait()` methods. Waiting lives on the result, not the service interface.
+
+**`BackupResult`** — concrete struct with exported fields (`Name`, `CommandResult`) and a `Wait()` method. All backup types are waitable (mongod stays up).
+
+**`RestoreResult`** — interface with `Name()`, `OPID()`, `Waitable()`, `Wait()`. Two unexported implementations:
+- `waitableRestoreResult` — polls MongoDB. Used for logical restores.
+- `unwaitableRestoreResult` — returns `ErrRestoreUnwaitable`. Used for any restore based on a physical/incremental backup (mongod shuts down).
+
+`Start()` looks up the backup type to determine which implementation to return. See `docs/agents/sdk-storage-design.md` for full design rationale.
 
 ## Enum Types (Value Objects)
 

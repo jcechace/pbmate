@@ -31,7 +31,7 @@ result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{})
 if err != nil {
     log.Fatal(err)
 }
-bk, err := client.Backups.Wait(ctx, result.Name, sdk.BackupWaitOptions{
+bk, err := result.Wait(ctx, sdk.BackupWaitOptions{
     OnProgress: func(b *sdk.Backup) {
         fmt.Printf("  %s elapsed...\n", b.Elapsed().Truncate(time.Second))
     },
@@ -98,8 +98,11 @@ result, err := client.Restores.Start(ctx, sdk.StartPITRRestore{
     Target:     sdk.Timestamp{T: 1740000000},
 })
 
-// Wait for completion.
-restore, err := client.Restores.Wait(ctx, result.Name, sdk.RestoreWaitOptions{})
+// Wait for completion (only works for logical restores — physical/incremental
+// restores return ErrRestoreUnwaitable).
+if result.Waitable() {
+    restore, err := result.Wait(ctx, sdk.RestoreWaitOptions{})
+}
 ```
 
 ### Override Performance Tuning

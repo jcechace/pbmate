@@ -14,7 +14,7 @@ Prioritized next items:
 - [x] Connection reconnect on failure (auto-retry with exponential backoff)
 - [x] Refine error messages (follow context canceled, double prefixes, config ErrNotFound, connect verbosity)
 - [x] CI/CD: GitHub Actions (test/lint/vulncheck), Dependabot, GoReleaser, `--version` flag
-- [ ] Result Type Redesign: `BackupResult.Wait()`, `RestoreResult` interface, `ErrRestoreUnwaitable` (see `docs/agents/sdk-storage-design.md`)
+- [x] Result Type Redesign: `BackupResult.Wait()`, `RestoreResult` interface, `ErrRestoreUnwaitable` (see `docs/agents/sdk-storage-design.md`)
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
 - [ ] Homebrew tap for binary distribution
@@ -143,6 +143,9 @@ TUI: Backups-tab `D` key opens a bulk delete form overlay; `d` on a PITR timelin
 
 ### Log Filtering
 Overview tab `l` key opens a log filter form overlay with severity (Debug/Info/Warning/Error/Fatal), replica set (populated from cluster agents), and event type (backup/restore/cancelBackup/resync/pitr/delete) selectors. Filters persist across poll/follow cycles — changing filters during follow restarts the stream. Panel title shows active filters (e.g. "Logs (W, rs0, backup)"). Log entries enriched with `[rs/port]` source prefix from structured attributes. Apply/Reset buttons in the form.
+
+### Result Type Redesign
+`BackupResult` gains `Wait()` method (concrete struct, exported fields preserved). `RestoreResult` becomes an interface with `Name()`, `OPID()`, `Waitable()`, `Wait()`. Two implementations: `waitableRestoreResult` (polls MongoDB, for logical restores) and `unwaitableRestoreResult` (returns `ErrRestoreUnwaitable`, for physical/incremental-based restores). `Wait()` removed from both `BackupService` and `RestoreService` interfaces — waiting lives on the result types. `Start()` looks up backup type to determine result implementation. See `docs/agents/sdk-storage-design.md` for full design rationale and exploratory future directions (storage-based physical restore Wait, ListFiles, Verify).
 
 ## Deferred Features
 
