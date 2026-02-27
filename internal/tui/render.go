@@ -163,6 +163,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 		right = append(right, helpSection{"3:Config", []helpEntry{
 			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),
 			helpCombined(configKeys.ResyncSelected, configKeys.Resync, "resync"),
+			helpFromBinding(configKeys.Edit),
 		}})
 	}
 	return

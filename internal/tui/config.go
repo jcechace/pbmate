@@ -171,6 +171,8 @@ func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) t
 		return m.emitResyncRequest(nil)
 	case key.Matches(msg, configKeys.ResyncSelected) && !readonly:
 		return m.emitResyncRequest(m.resyncPresetFromSelection())
+	case key.Matches(msg, configKeys.Edit) && !readonly:
+		return m.emitEditRequest()
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)
 	case key.Matches(msg, keys.PrevPanel):
@@ -576,6 +578,20 @@ func (m *configModel) emitResyncRequest(initial *resyncFormResult) tea.Cmd {
 	profiles := m.profiles
 	return func() tea.Msg {
 		return resyncFormRequest{initial: initial, profiles: profiles}
+	}
+}
+
+// --- Edit in $EDITOR ---
+
+// emitEditRequest returns a command that emits an editConfigRequest for the
+// currently selected config/profile. Returns nil if nothing is selected.
+func (m *configModel) emitEditRequest() tea.Cmd {
+	if m.itemCount() == 0 {
+		return nil
+	}
+	profileName := m.selectedProfileName()
+	return func() tea.Msg {
+		return editConfigRequest{profileName: profileName}
 	}
 }
 

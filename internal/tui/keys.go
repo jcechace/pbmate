@@ -117,6 +117,7 @@ type configKeyMap struct {
 	SetConfigSelected key.Binding
 	Resync            key.Binding
 	ResyncSelected    key.Binding
+	Edit              key.Binding
 }
 
 var configKeys = configKeyMap{
@@ -135,6 +136,10 @@ var configKeys = configKeyMap{
 	ResyncSelected: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "resync selected"),
+	),
+	Edit: key.NewBinding(
+		key.WithKeys("e"),
+		key.WithHelp("e", "edit in $EDITOR"),
 	),
 }
 

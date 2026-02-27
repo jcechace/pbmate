@@ -27,6 +27,11 @@ type AppConfig struct {
 	// Readonly disables all mutation actions in the TUI when true.
 	Readonly bool `yaml:"readonly,omitempty"`
 
+	// Editor is the external editor command for config editing (e.g. "vim",
+	// "code -w"). Compound commands with flags are supported. Resolution
+	// order: PBMATE_EDITOR env → this field → VISUAL env → EDITOR env → vi.
+	Editor string `yaml:"editor,omitempty"`
+
 	// CurrentContext is the name of the active connection context.
 	CurrentContext string `yaml:"current-context,omitempty"`
 
@@ -186,6 +191,25 @@ func (c *AppConfig) ResolveReadonly(flagReadonly *bool, flagContext string) bool
 	}
 
 	return c.Readonly
+}
+
+// ResolveEditor returns the effective editor command by applying the
+// resolution chain: PBMATE_EDITOR env → config.editor → VISUAL env →
+// EDITOR env → "vi". The result may contain flags (e.g. "code -w").
+func (c *AppConfig) ResolveEditor() string {
+	if v := os.Getenv("PBMATE_EDITOR"); v != "" {
+		return v
+	}
+	if c.Editor != "" {
+		return c.Editor
+	}
+	if v := os.Getenv("VISUAL"); v != "" {
+		return v
+	}
+	if v := os.Getenv("EDITOR"); v != "" {
+		return v
+	}
+	return "vi"
 }
 
 // FormatYAML marshals v to YAML and returns it as a string. This avoids

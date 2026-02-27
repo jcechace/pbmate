@@ -314,3 +314,65 @@ func TestValidateURI(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveEditor(t *testing.T) {
+	tests := []struct {
+		name   string
+		editor string // config.editor value
+		envs   map[string]string
+		want   string
+	}{
+		{
+			name: "PBMATE_EDITOR takes priority",
+			envs: map[string]string{
+				"PBMATE_EDITOR": "nano",
+				"VISUAL":        "emacs",
+				"EDITOR":        "vim",
+			},
+			editor: "code -w",
+			want:   "nano",
+		},
+		{
+			name:   "config.editor second priority",
+			editor: "code -w",
+			envs: map[string]string{
+				"VISUAL": "emacs",
+				"EDITOR": "vim",
+			},
+			want: "code -w",
+		},
+		{
+			name: "VISUAL third priority",
+			envs: map[string]string{
+				"VISUAL": "emacs",
+				"EDITOR": "vim",
+			},
+			want: "emacs",
+		},
+		{
+			name: "EDITOR fourth priority",
+			envs: map[string]string{
+				"EDITOR": "vim",
+			},
+			want: "vim",
+		},
+		{
+			name: "fallback to vi",
+			want: "vi",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear all editor env vars to avoid host contamination.
+			t.Setenv("PBMATE_EDITOR", "")
+			t.Setenv("VISUAL", "")
+			t.Setenv("EDITOR", "")
+			for k, v := range tt.envs {
+				t.Setenv(k, v)
+			}
+			cfg := &AppConfig{Editor: tt.editor}
+			assert.Equal(t, tt.want, cfg.ResolveEditor())
+		})
+	}
+}
