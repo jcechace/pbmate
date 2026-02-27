@@ -3,6 +3,8 @@ version: "3"
 vars:
   SDK_DIR: ./sdk
   MCP_DIR: ./mcp
+  VERSION:
+    sh: git describe --tags --always --dirty
 
 tasks:
   default:
@@ -57,7 +59,7 @@ tasks:
   tui:build:
     desc: Build the TUI binary
     cmds:
-      - go build -o pbmate .
+      - go build -ldflags "-X main.version={{.VERSION}}" -o pbmate .
 
   tui:vet:
     desc: Run go vet on the TUI module
@@ -92,7 +94,7 @@ tasks:
     deps:
       - tui:check
     cmds:
-      - go install .
+      - go install -ldflags "-X main.version={{.VERSION}}" .
 
   # ---------------------------------------------------------------------------
   # All modules
