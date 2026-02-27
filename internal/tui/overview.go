@@ -92,12 +92,13 @@ func (m *overviewModel) PITRStatusText() string {
 }
 
 // RunningOpText returns a short running operation summary for the status bar.
-func (m *overviewModel) RunningOpText() string {
+// spinnerFrame is the current spinner animation frame (raw character, no style).
+func (m *overviewModel) RunningOpText(spinnerFrame string) string {
 	if len(m.data.operations) == 0 {
 		return "Op:none"
 	}
 	op := m.data.operations[0]
-	text := fmt.Sprintf("Op:%s", op.Type)
+	text := fmt.Sprintf("Op:%s %s", spinnerFrame, op.Type)
 	if len(m.data.operations) > 1 {
 		text += fmt.Sprintf("(+%d)", len(m.data.operations)-1)
 	}
@@ -218,13 +219,13 @@ func (m *overviewModel) nextLogCmd() tea.Cmd {
 // setData rebuilds all panels from fresh overview data.
 // During follow mode the poll skips log fetching (logEntries will be nil),
 // so we preserve the existing follow-accumulated entries.
-func (m *overviewModel) setData(d overviewData) {
+func (m *overviewModel) setData(d overviewData, spinnerFrame string) {
 	if m.isFollowing() && d.logEntries == nil {
 		d.logEntries = m.data.logEntries
 	}
 	m.data = d
 	m.cluster.setAgents(d.agents)
-	m.rebuildStatusContent()
+	m.rebuildStatusContent(spinnerFrame)
 	m.logs.setEntries(d.logEntries)
 }
 
@@ -282,7 +283,8 @@ func (m *overviewModel) handleVertical(delta int) {
 }
 
 // statusContent builds the bottom-left status panel content string.
-func (m *overviewModel) statusContent() string {
+// spinnerFrame is the current spinner animation frame (raw character, no style).
+func (m *overviewModel) statusContent(spinnerFrame string) string {
 	var b strings.Builder
 	label := m.styles.Bold.Width(statusLabelWidth)
 
@@ -304,8 +306,7 @@ func (m *overviewModel) statusContent() string {
 	}
 
 	// PITR range (latest timeline).
-	if len(m.data.timelines) > 0 {
-		latest := m.data.timelines[len(m.data.timelines)-1]
+	if latest := latestTimeline(m.data.timelines); latest != nil {
 		start := latest.Start.Time().UTC().Format("Jan 02 15:04")
 		end := latest.End.Time().UTC().Format("Jan 02 15:04")
 		rangeVal := fmt.Sprintf("%s → %s", start, end)
@@ -316,7 +317,7 @@ func (m *overviewModel) statusContent() string {
 	opVal := m.styles.StatusMuted.Render("none")
 	if len(m.data.operations) > 0 {
 		op := m.data.operations[0]
-		opVal = m.styles.StatusWarning.Render(fmt.Sprintf("%s %s", op.Type, m.styles.StatusWarning.Render("●")))
+		opVal = m.styles.StatusWarning.Render(fmt.Sprintf("%s %s", spinnerFrame, op.Type))
 		if len(m.data.operations) > 1 {
 			opVal += m.styles.StatusMuted.Render(fmt.Sprintf(" (+%d)", len(m.data.operations)-1))
 		}
@@ -351,8 +352,9 @@ func (m *overviewModel) statusContent() string {
 }
 
 // rebuildStatusContent reconstructs the status viewport content.
-func (m *overviewModel) rebuildStatusContent() {
-	m.statusVP.SetContent(m.statusContent())
+// spinnerFrame is the current spinner animation frame (raw character, no style).
+func (m *overviewModel) rebuildStatusContent(spinnerFrame string) {
+	m.statusVP.SetContent(m.statusContent(spinnerFrame))
 }
 
 // borderColor returns the border color for the given quadrant, highlighting

@@ -1,13 +1,16 @@
 package tui
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -37,6 +40,7 @@ type Options struct {
 	Theme       Theme  // Color theme
 	ContextName string // Named context (empty for direct --uri connections)
 	Readonly    bool   // Disable all mutation actions
+	Editor      string // External editor command (e.g. "vim", "code -w")
 }
 
 // Model is the root BubbleTea model for PBMate.
@@ -45,6 +49,7 @@ type Model struct {
 	mongoURI    string      // connection URI for background connect
 	contextName string      // named context, empty for direct URI
 	readonly    bool        // disable all mutation actions
+	editor      string      // resolved editor command (e.g. "vim", "code -w")
 	ctx         context.Context
 	cancel      context.CancelFunc
 
@@ -53,7 +58,6 @@ type Model struct {
 	activeTab      tab
 	width          int
 	height         int
-	pollInterval   time.Duration
 	connecting     bool   // true while initial connection is in progress (including retries)
 	connectAttempt int    // number of connection attempts (0 = first try, 1+ = retries)
 	flashErr       string // transient error message for the status bar
@@ -73,6 +77,9 @@ type Model struct {
 	// quitTimeout actually quits. The timer auto-clears the state.
 	quitPending bool
 
+	// Spinner for connecting and running operation indicators.
+	spinner spinner.Model
+
 	// Sub-models.
 	overview overviewModel
 	backups  backupsModel
@@ -87,20 +94,23 @@ type Model struct {
 func New(opts Options) Model {
 	s := NewStyles(opts.Theme)
 	ctx, cancel := context.WithCancel(context.Background())
+	sp := spinner.New()
+	sp.Spinner = spinner.MiniDot
 	return Model{
-		mongoURI:     opts.URI,
-		contextName:  opts.ContextName,
-		readonly:     opts.Readonly,
-		ctx:          ctx,
-		cancel:       cancel,
-		styles:       s,
-		activeTab:    tabOverview,
-		pollInterval: idleInterval,
-		connecting:   true,
-		overview:     newOverviewModel(&s),
-		backups:      newBackupsModel(&s),
-		config:       newConfigModel(&s),
-		keys:         globalKeys,
+		mongoURI:    opts.URI,
+		contextName: opts.ContextName,
+		readonly:    opts.Readonly,
+		editor:      opts.Editor,
+		ctx:         ctx,
+		cancel:      cancel,
+		styles:      s,
+		activeTab:   tabOverview,
+		connecting:  true,
+		spinner:     sp,
+		overview:    newOverviewModel(&s),
+		backups:     newBackupsModel(&s),
+		config:      newConfigModel(&s),
+		keys:        globalKeys,
 	}
 }
 
@@ -133,7 +143,7 @@ func (m Model) ExitMessage() string {
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.WindowSize(), connectCmd(m.mongoURI))
+	return tea.Batch(tea.WindowSize(), connectCmd(m.mongoURI), m.spinner.Tick)
 }
 
 // Update implements tea.Model.
@@ -166,6 +176,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.flashErr = ""
 		return m, connectCmd(m.mongoURI)
 
+	case spinner.TickMsg:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		// Keep spinning while connecting or running operations.
+		if m.connecting || m.overview.HasRunningOps() {
+			m.overview.rebuildStatusContent(m.spinner.View())
+			return m, cmd
+		}
+		return m, nil // stop the tick chain
+
 	case tickMsg:
 		if m.client == nil {
 			return m, nil
@@ -182,15 +202,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case overviewDataMsg:
-		m.overview.setData(msg.overviewData)
+		hadOps := m.overview.HasRunningOps()
+		m.overview.setData(msg.overviewData, m.spinner.View())
 		m.setFlash("fetch", msg.err)
 		// Adaptive polling: faster when operations are running.
+		cmds := []tea.Cmd{tickCmd(idleInterval)}
 		if m.overview.HasRunningOps() {
-			m.pollInterval = activeInterval
-		} else {
-			m.pollInterval = idleInterval
+			cmds[0] = tickCmd(activeInterval)
+			// Restart spinner if operations just appeared.
+			if !hadOps && !m.connecting {
+				cmds = append(cmds, m.spinner.Tick)
+			}
 		}
-		return m, tickCmd(m.pollInterval)
+		return m, tea.Batch(cmds...)
 
 	case backupsDataMsg:
 		m.backups.setBackupData(msg.backupsData)
@@ -214,9 +238,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.backups.mode = listRestores
 			m.backups.rebuildListContent()
 			m.backups.rebuildDetailContent()
-		case "apply config", "set profile", "create profile", "remove profile":
+		case "apply config", "set profile", "create profile", "remove profile", "edit config":
 			// Clear cached profile YAMLs so they are re-fetched.
 			m.config.profileYAMLs = make(map[string][]byte)
+		default:
+			// Match "edit profile <name>" actions.
+			if strings.HasPrefix(msg.action, "edit profile ") {
+				m.config.profileYAMLs = make(map[string][]byte)
+			}
 		}
 		return m, tickCmd(0)
 
@@ -277,7 +306,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case backupFormReadyMsg:
-		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.kind, msg.profiles)
+		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.kind, msg.profiles, msg.backups)
 		m.activeOverlay = overlay
 		return m, cmd
 
@@ -326,6 +355,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		overlay, cmd := newSetConfigOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.mainExists, msg.initial)
 		m.activeOverlay = overlay
 		return m, cmd
+
+	case editConfigRequest:
+		if m.client != nil {
+			return m, fetchEditYAMLCmd(m.ctx, m.client, msg.profileName)
+		}
+		return m, nil
+
+	case editConfigReadyMsg:
+		if msg.err != nil {
+			m.flashErr = msg.err.Error()
+			return m, nil
+		}
+		return m, openEditorCmd(m.editor, msg.yaml, msg.profileName)
+
+	case editorDoneMsg:
+		if msg.err != nil {
+			// Pre-editor errors (temp file creation, editor exit) — no
+			// temp file to preserve (already cleaned in openEditorCmd).
+			m.flashErr = msg.err.Error()
+			return m, nil
+		}
+		if bytes.Equal(msg.original, msg.edited) {
+			// No changes — clean up temp file.
+			_ = os.Remove(msg.tmpPath)
+			m.flashErr = ""
+			return m, nil
+		}
+		// Apply the edited config. applyEditedConfigCmd handles temp
+		// file cleanup: deletes on success, preserves on failure.
+		return m, applyEditedConfigCmd(m.ctx, m.client, msg.edited, msg.profileName, msg.tmpPath)
 
 	case deleteCheckRequest:
 		if m.client != nil {
@@ -597,14 +656,14 @@ func (m Model) bottomBarView() string {
 	case m.flashErr != "":
 		statusParts = append(statusParts, m.styles.StatusError.Render(m.flashErr))
 	case m.connecting && m.connectAttempt > 0:
-		label := fmt.Sprintf("Connecting... (attempt %d)", m.connectAttempt+1)
+		label := fmt.Sprintf("Connecting (attempt %d) %s", m.connectAttempt+1, m.spinner.View())
 		statusParts = append(statusParts, m.styles.StatusWarning.Render(label))
 	case m.connecting:
-		statusParts = append(statusParts, m.styles.StatusWarning.Render("Connecting..."))
+		statusParts = append(statusParts, m.styles.StatusWarning.Render("Connecting "+m.spinner.View()))
 	default:
 		statusParts = append(statusParts, m.overview.ClusterTimeText())
 		statusParts = append(statusParts, m.overview.PITRStatusText())
-		statusParts = append(statusParts, m.overview.RunningOpText())
+		statusParts = append(statusParts, m.overview.RunningOpText(m.spinner.View()))
 	}
 	leftZone := " " + strings.Join(statusParts, "  ")
 
@@ -690,6 +749,7 @@ func (m *Model) updateViewportDims() {
 
 // openBackupForm fetches storage profiles then creates the form overlay.
 // The form is created asynchronously when backupFormReadyMsg arrives.
+// The already-fetched backup list is passed through for chain detection.
 func (m *Model) openBackupForm(kind backupFormKind) tea.Cmd {
-	return fetchProfilesCmd(m.ctx, m.client, kind)
+	return fetchBackupFormDataCmd(m.ctx, m.client, kind, m.backups.allBackups())
 }
