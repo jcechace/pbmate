@@ -8,6 +8,9 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 (none)
 
+### Test Coverage Gaps (branch: `test-coverage-gaps`)
+`Backup.Elapsed()` and `Restore.Elapsed()` (3 branches each), `Timestamp.IsZero()`, `Timestamp.Time()`, `ConcurrentOperationError.Error()`, `OperationError.Error()`, and `errors.As` unwrapping. Pure unit tests, no MongoDB dependency.
+
 ## Backlog
 
 Prioritized next items:
