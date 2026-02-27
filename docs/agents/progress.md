@@ -17,7 +17,7 @@ Prioritized next items:
 - [x] Result Type Redesign: `BackupResult.Wait()`, `RestoreResult` interface, `ErrRestoreUnwaitable` (see `docs/agents/sdk-storage-design.md`)
 - [ ] `/` filter in list views
 - [ ] MCP server implementation (Phase 4 — scope TBD)
-- [ ] Homebrew tap for binary distribution
+- [x] Homebrew tap for binary distribution
 
 Deferred (add when needed):
 - [ ] `/` filter in list views (backups, maybe logs search)
@@ -146,6 +146,9 @@ Overview tab `l` key opens a log filter form overlay with severity (Debug/Info/W
 
 ### Result Type Redesign
 `BackupResult` gains `Wait()` method (concrete struct, exported fields preserved). `RestoreResult` becomes an interface with `Name()`, `OPID()`, `Waitable()`, `Wait()`. Two implementations: `waitableRestoreResult` (polls MongoDB, for logical restores) and `unwaitableRestoreResult` (returns `ErrRestoreUnwaitable`, for physical/incremental-based restores). `Wait()` removed from both `BackupService` and `RestoreService` interfaces — waiting lives on the result types. `Start()` looks up backup type to determine result implementation. See `docs/agents/sdk-storage-design.md` for full design rationale and exploratory future directions (storage-based physical restore Wait, ListFiles, Verify).
+
+### Release Preparation
+Apache-2.0 license added (compatible with all dependencies — PBM is Apache-2.0, all others MIT/Apache-2.0). CI golangci-lint bumped from v2.6 to v2.9 (Go 1.26 compatibility). Local builds (`task tui:build`, `task tui:install`) now inject version from `git describe` via ldflags. GoReleaser configured with `brews:` section targeting `jcechace/homebrew-tap`. Release workflow passes `HOMEBREW_TAP_TOKEN` secret. Install flow: `brew tap jcechace/tap && brew install pbmate`.
 
 ## Deferred Features
 
