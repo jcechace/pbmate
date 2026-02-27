@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 
@@ -42,7 +43,7 @@ func (s *configServiceImpl) SetYAML(ctx context.Context, r io.Reader) error {
 
 	cfg, err := config.Parse(r)
 	if err != nil {
-		return fmt.Errorf("parse config: %w", err)
+		return cleanParseError("invalid config", err)
 	}
 
 	s.log.InfoContext(ctx, "setting config")
@@ -117,7 +118,7 @@ func (s *configServiceImpl) SetProfile(ctx context.Context, name string, r io.Re
 
 	cfg, err := config.Parse(r)
 	if err != nil {
-		return CommandResult{}, fmt.Errorf("parse profile config: %w", err)
+		return CommandResult{}, cleanParseError("invalid profile config", err)
 	}
 
 	cmd := AddProfileCommand{Name: name, storage: cfg.Storage}
@@ -171,4 +172,27 @@ func (s *configServiceImpl) Resync(ctx context.Context, cmd ResyncCommand) (Comm
 		return CommandResult{}, fmt.Errorf("resync: %w", err)
 	}
 	return result, nil
+}
+
+// cleanParseError unwraps a yaml.TypeError from config.Parse errors and
+// builds a user-friendly message. The raw yaml.TypeError.Errors entries
+// contain Go type names (e.g. "in type config.Config") which are PBM
+// internals — we strip those before exposing to consumers.
+// TODO(pbm-fix): PBM's config.Parse wraps yaml errors with pkg/errors;
+// if that changes, this unwrap may need updating.
+func cleanParseError(prefix string, err error) error {
+	var typeErr *yaml.TypeError
+	if !errors.As(err, &typeErr) {
+		return fmt.Errorf("%s: %w", prefix, err)
+	}
+
+	cleaned := make([]string, len(typeErr.Errors))
+	for i, e := range typeErr.Errors {
+		// Strip " in type <package.Type>" suffix added by yaml.v2.
+		if idx := strings.LastIndex(e, " in type "); idx >= 0 {
+			e = e[:idx]
+		}
+		cleaned[i] = e
+	}
+	return fmt.Errorf("%s: %s", prefix, strings.Join(cleaned, "; "))
 }
