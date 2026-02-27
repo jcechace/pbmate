@@ -222,6 +222,52 @@ func TestBackupDuration(t *testing.T) {
 	}
 }
 
+func TestBackupElapsed(t *testing.T) {
+	start := time.Date(2026, 2, 19, 20, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name   string
+		backup Backup
+		check  func(t *testing.T, d time.Duration)
+	}{
+		{
+			name:   "zero start returns zero",
+			backup: Backup{Status: StatusRunning},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Equal(t, time.Duration(0), d)
+			},
+		},
+		{
+			name: "terminal status returns final duration",
+			backup: Backup{
+				Status:           StatusDone,
+				StartTS:          start,
+				LastTransitionTS: start.Add(5 * time.Minute),
+			},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Equal(t, 5*time.Minute, d)
+			},
+		},
+		{
+			name: "in-progress returns positive live elapsed",
+			backup: Backup{
+				Status:  StatusRunning,
+				StartTS: time.Now().Add(-3 * time.Second),
+			},
+			check: func(t *testing.T, d time.Duration) {
+				assert.Greater(t, d, 2*time.Second)
+				assert.Less(t, d, 10*time.Second)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.check(t, tt.backup.Elapsed())
+		})
+	}
+}
+
 func TestBackupResultFields(t *testing.T) {
 	r := BackupResult{
 		CommandResult: CommandResult{OPID: "abc123"},
