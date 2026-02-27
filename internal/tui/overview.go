@@ -122,8 +122,14 @@ func (m *overviewModel) toggleFollow() tea.Cmd {
 	}
 
 	// Start following — pin to bottom so new entries auto-scroll.
+	// Use the latest entry's timestamp as a lower bound so the tailable
+	// cursor skips history the user already sees, avoiding a visual jump.
+	followOpts := sdk.FollowOptions{LogFilter: m.logFilter}
+	if n := len(m.data.logEntries); n > 0 {
+		followOpts.TimeMin = m.data.logEntries[n-1].Timestamp
+	}
 	ctx, cancel := context.WithCancel(m.ctx)
-	entries, errs := m.client.Logs.Follow(ctx, sdk.FollowOptions{LogFilter: m.logFilter})
+	entries, errs := m.client.Logs.Follow(ctx, followOpts)
 	m.logFollowSession++
 	m.logFollowCancel = cancel
 	m.logFollowCtx = ctx
@@ -148,13 +154,60 @@ func (m *overviewModel) stopFollow() {
 }
 
 // appendLogEntries adds streamed log entries from follow mode, trims to
-// maxLogEntries, and updates the log panel.
+// maxLogEntries, and updates the log panel. Entries that duplicate the
+// tail of the existing buffer are skipped — this handles the boundary
+// overlap from using TimeMin ($gte) when starting the tailable cursor.
 func (m *overviewModel) appendLogEntries(entries []sdk.LogEntry) {
-	m.data.logEntries = append(m.data.logEntries, entries...)
+	filtered := deduplicateLogEntries(m.data.logEntries, entries)
+	if len(filtered) == 0 {
+		return
+	}
+	m.data.logEntries = append(m.data.logEntries, filtered...)
 	if len(m.data.logEntries) > maxLogEntries {
 		m.data.logEntries = m.data.logEntries[len(m.data.logEntries)-maxLogEntries:]
 	}
 	m.logs.setEntries(m.data.logEntries)
+}
+
+// deduplicateLogEntries filters out entries from incoming that already
+// exist in the tail of existing. Only entries at the boundary timestamp
+// are checked — once an incoming entry has a timestamp strictly after
+// all existing entries, it and all subsequent entries are passed through.
+func deduplicateLogEntries(existing, incoming []sdk.LogEntry) []sdk.LogEntry {
+	if len(existing) == 0 || len(incoming) == 0 {
+		return incoming
+	}
+
+	// Find the latest timestamp in existing entries.
+	lastTS := existing[len(existing)-1].Timestamp
+
+	// Collect entries at the boundary timestamp for comparison.
+	type logKey struct {
+		ts  int64
+		msg string
+	}
+	seen := make(map[logKey]struct{})
+	for i := len(existing) - 1; i >= 0; i-- {
+		if existing[i].Timestamp.Before(lastTS) {
+			break
+		}
+		seen[logKey{ts: existing[i].Timestamp.UnixNano(), msg: existing[i].Message}] = struct{}{}
+	}
+
+	// Filter incoming: skip duplicates at the boundary, keep everything after.
+	result := make([]sdk.LogEntry, 0, len(incoming))
+	for _, e := range incoming {
+		if e.Timestamp.After(lastTS) {
+			// Past the boundary — this and all subsequent entries are new.
+			result = append(result, e)
+			continue
+		}
+		k := logKey{ts: e.Timestamp.UnixNano(), msg: e.Message}
+		if _, dup := seen[k]; !dup {
+			result = append(result, e)
+		}
+	}
+	return result
 }
 
 // nextLogCmd returns a command that waits for the next follow log batch.

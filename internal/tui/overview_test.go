@@ -2,11 +2,97 @@ package tui
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
+
+func TestDeduplicateLogEntries(t *testing.T) {
+	makeEntry := func(ts time.Time, msg string) sdk.LogEntry {
+		return sdk.LogEntry{Timestamp: ts, Message: msg, Severity: sdk.LogSeverityInfo}
+	}
+
+	t0 := time.Date(2026, 2, 27, 12, 0, 0, 0, time.UTC)
+	t1 := t0.Add(1 * time.Second)
+	t2 := t0.Add(2 * time.Second)
+
+	tests := []struct {
+		name     string
+		existing []sdk.LogEntry
+		incoming []sdk.LogEntry
+		want     []sdk.LogEntry
+	}{
+		{
+			name:     "both empty",
+			existing: nil,
+			incoming: nil,
+			want:     nil,
+		},
+		{
+			name:     "no existing passes all through",
+			existing: nil,
+			incoming: []sdk.LogEntry{makeEntry(t0, "a"), makeEntry(t1, "b")},
+			want:     []sdk.LogEntry{makeEntry(t0, "a"), makeEntry(t1, "b")},
+		},
+		{
+			name:     "no incoming returns nil",
+			existing: []sdk.LogEntry{makeEntry(t0, "a")},
+			incoming: nil,
+			want:     nil,
+		},
+		{
+			name:     "all new past boundary",
+			existing: []sdk.LogEntry{makeEntry(t0, "a")},
+			incoming: []sdk.LogEntry{makeEntry(t1, "b"), makeEntry(t2, "c")},
+			want:     []sdk.LogEntry{makeEntry(t1, "b"), makeEntry(t2, "c")},
+		},
+		{
+			name:     "exact duplicate filtered",
+			existing: []sdk.LogEntry{makeEntry(t0, "a")},
+			incoming: []sdk.LogEntry{makeEntry(t0, "a")},
+			want:     nil,
+		},
+		{
+			name:     "same timestamp different message passes",
+			existing: []sdk.LogEntry{makeEntry(t0, "a")},
+			incoming: []sdk.LogEntry{makeEntry(t0, "b")},
+			want:     []sdk.LogEntry{makeEntry(t0, "b")},
+		},
+		{
+			name:     "mixed dups and new",
+			existing: []sdk.LogEntry{makeEntry(t0, "a"), makeEntry(t1, "b")},
+			incoming: []sdk.LogEntry{makeEntry(t1, "b"), makeEntry(t2, "c")},
+			want:     []sdk.LogEntry{makeEntry(t2, "c")},
+		},
+		{
+			name: "multiple entries at boundary",
+			existing: []sdk.LogEntry{
+				makeEntry(t0, "early"),
+				makeEntry(t1, "x"),
+				makeEntry(t1, "y"),
+			},
+			incoming: []sdk.LogEntry{
+				makeEntry(t1, "x"),
+				makeEntry(t1, "y"),
+				makeEntry(t2, "z"),
+			},
+			want: []sdk.LogEntry{makeEntry(t2, "z")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deduplicateLogEntries(tt.existing, tt.incoming)
+			if tt.want == nil {
+				assert.Empty(t, got)
+			} else {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
+}
 
 func TestAppendLogEntries(t *testing.T) {
 	makeEntry := func(msg string) sdk.LogEntry {
