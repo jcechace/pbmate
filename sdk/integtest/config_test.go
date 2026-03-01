@@ -263,3 +263,63 @@ func TestConfigGetProfileYAMLNotFound(t *testing.T) {
 	_, err := h.client.Config.GetProfileYAML(ctx, "ghost")
 	require.ErrorIs(t, err, sdk.ErrNotFound)
 }
+
+// --- GetYAML / GetProfileYAML credential masking ---
+
+func TestConfigGetYAMLMasked(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	h.seedConfig(t, newMainConfig(
+		withConfigS3Storage("my-bucket", "us-east-1"),
+		withConfigS3Credentials("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+	))
+
+	yamlBytes, err := h.client.Config.GetYAML(ctx)
+	require.NoError(t, err)
+
+	yaml := string(yamlBytes)
+	// Default (masked): credentials should be "***", not the real values.
+	assert.Contains(t, yaml, "access-key-id: '***'")
+	assert.Contains(t, yaml, "secret-access-key: '***'")
+	assert.NotContains(t, yaml, "AKIAIOSFODNN7EXAMPLE")
+	assert.NotContains(t, yaml, "wJalrXUtnFEMI")
+}
+
+func TestConfigGetYAMLUnmasked(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	h.seedConfig(t, newMainConfig(
+		withConfigS3Storage("my-bucket", "us-east-1"),
+		withConfigS3Credentials("AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+	))
+
+	yamlBytes, err := h.client.Config.GetYAML(ctx, sdk.WithUnmasked())
+	require.NoError(t, err)
+
+	yaml := string(yamlBytes)
+	// Unmasked: real credential values should appear.
+	assert.Contains(t, yaml, "AKIAIOSFODNN7EXAMPLE")
+	assert.Contains(t, yaml, "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
+	assert.NotContains(t, yaml, "'***'")
+}
+
+func TestConfigGetProfileYAMLUnmasked(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	h.seedConfig(t, newMainConfig(
+		withConfigProfile("s3-profile"),
+		withConfigS3Storage("profile-bucket", "eu-west-1"),
+		withConfigS3Credentials("PROFILEKEY123", "PROFILESECRET456"),
+	))
+
+	yamlBytes, err := h.client.Config.GetProfileYAML(ctx, "s3-profile", sdk.WithUnmasked())
+	require.NoError(t, err)
+
+	yaml := string(yamlBytes)
+	assert.Contains(t, yaml, "PROFILEKEY123")
+	assert.Contains(t, yaml, "PROFILESECRET456")
+	assert.NotContains(t, yaml, "'***'")
+}

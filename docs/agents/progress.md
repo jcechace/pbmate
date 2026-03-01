@@ -181,6 +181,8 @@ testcontainers-go with Percona Server for MongoDB 8.0 single-node replica set. P
 ### SDK Coverage Target
 `sdk:cover` runs all SDK tests (unit + integration) in a single `go test` pass with `-tags integration -coverpkg=./...` and prints a per-function coverage report. Uses `-coverpkg=./...` so integration tests in `sdk/integtest/` count toward `sdk/v2` coverage. Coverage output files (`*.out`) already ignored by `.gitignore`.
 
+### Coverage Gap Tests
+10 new tests filling meaningful coverage gaps, raising SDK coverage from 87.9% to 89.6%. Unit tests: `TestTranslateCanDeleteError` (4-case table test covering nil, ErrBackupInProgress, ErrBaseForPITR, generic error), `TestAddProfileCommandValidate`, `TestNewClientNoBackend`. Integration tests: `TestConfigGetYAMLMasked`/`TestConfigGetYAMLUnmasked`/`TestConfigGetProfileYAMLUnmasked` (credential masking roundtrip with `WithUnmasked()` option), `TestBackupStartAndWait`/`TestBackupStartAndWaitError` (seed terminal metadata before Wait, verify immediate return with correct status and OperationError), `TestRestoreStartAndWait`/`TestRestoreStartUnwaitableWait` (waitable vs unwaitable result paths), `TestClientClose` (second client lifecycle). Remaining 0% functions are sealed interface markers (empty method bodies) and `LogService.Follow` (requires capped collection).
 ## Deferred Features
 
 | Feature | Reason | Priority |

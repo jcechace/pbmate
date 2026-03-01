@@ -143,6 +143,62 @@ func TestRestoreStartIncrementalBackupUnwaitable(t *testing.T) {
 	assert.False(t, result.Waitable())
 }
 
+// --- RestoreResult.Wait ---
+
+func TestRestoreStartAndWait(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	// Seed a logical backup (produces a waitable result).
+	h.seedBackup(t, newBackupMeta("2024-06-15T10:30:00Z",
+		withBackupStartTS(100),
+	))
+
+	result, err := h.client.Restores.Start(ctx, sdk.StartSnapshotRestore{
+		BackupName: "2024-06-15T10:30:00Z",
+	})
+	require.NoError(t, err)
+	require.True(t, result.Waitable())
+
+	// Seed restore metadata with terminal status BEFORE calling Wait.
+	h.seedRestore(t, newRestoreMeta(result.Name(),
+		withRestoreBackup("2024-06-15T10:30:00Z"),
+		withRestoreStatus(defs.StatusDone),
+		withRestoreStartTS(200),
+		withRestoreLastTransitionTS(300),
+	))
+
+	rs, err := result.Wait(ctx, sdk.RestoreWaitOptions{
+		PollInterval: 100 * time.Millisecond,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, rs)
+	assert.Equal(t, result.Name(), rs.Name)
+	assert.True(t, rs.Status.Equal(sdk.StatusDone))
+}
+
+func TestRestoreStartUnwaitableWait(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	// Seed a physical backup (produces an unwaitable result).
+	h.seedBackup(t, newBackupMeta("2024-06-15T10:30:00Z",
+		withBackupType(defs.PhysicalBackup),
+		withBackupStartTS(100),
+	))
+
+	result, err := h.client.Restores.Start(ctx, sdk.StartSnapshotRestore{
+		BackupName: "2024-06-15T10:30:00Z",
+	})
+	require.NoError(t, err)
+	require.False(t, result.Waitable())
+
+	// Wait should return ErrRestoreUnwaitable immediately (no seed needed).
+	rs, err := result.Wait(ctx, sdk.RestoreWaitOptions{})
+	assert.ErrorIs(t, err, sdk.ErrRestoreUnwaitable)
+	assert.Nil(t, rs)
+}
+
 func TestRestoreStartMinimal(t *testing.T) {
 	h.cleanup(t)
 	ctx := context.Background()

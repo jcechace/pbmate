@@ -50,8 +50,9 @@ var pbmCollections = []string{
 // It provides an SDK client for testing the public API and a raw MongoDB handle
 // for seeding test data and verifying side effects.
 type testHarness struct {
-	client *sdk.Client     // SDK client under test (public API)
-	db     *mongo.Database // admin database for seeding and cleanup
+	client  *sdk.Client     // SDK client under test (public API)
+	db      *mongo.Database // admin database for seeding and cleanup
+	connStr string          // MongoDB connection string for creating additional clients
 }
 
 // h is the package-level harness initialized in TestMain.
@@ -99,8 +100,9 @@ func TestMain(m *testing.M) {
 	}()
 
 	h = &testHarness{
-		client: sdkClient,
-		db:     mongoClient.Database(adminDB),
+		client:  sdkClient,
+		db:      mongoClient.Database(adminDB),
+		connStr: connStr,
 	}
 
 	os.Exit(m.Run())
@@ -131,6 +133,17 @@ func TestHarnessConnected(t *testing.T) {
 	// expected state, confirming the SDK is connected and querying MongoDB.
 	_, err := h.client.Config.Get(context.Background())
 	require.ErrorIs(t, err, sdk.ErrNotFound)
+}
+
+// TestClientClose creates a second SDK client and verifies Close returns no error.
+func TestClientClose(t *testing.T) {
+	ctx := context.Background()
+
+	client, err := sdk.NewClient(ctx, sdk.WithMongoURI(h.connStr))
+	require.NoError(t, err)
+
+	err = client.Close(ctx)
+	require.NoError(t, err)
 }
 
 // TestCleanupDropsCollections verifies that cleanup actually removes seeded data.

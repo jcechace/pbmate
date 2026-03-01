@@ -274,6 +274,64 @@ func TestBackupCanDeleteInProgress(t *testing.T) {
 	assert.ErrorIs(t, err, sdk.ErrBackupInProgress)
 }
 
+// --- BackupResult.Wait ---
+
+func TestBackupStartAndWait(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	result, err := h.client.Backups.Start(ctx, sdk.StartLogicalBackup{})
+	require.NoError(t, err)
+
+	// Seed backup metadata with terminal status BEFORE calling Wait.
+	// The first poll will find it immediately — no goroutines or sleeps needed.
+	h.seedBackup(t, newBackupMeta(result.Name,
+		withBackupStatus(defs.StatusDone),
+		withBackupStartTS(100),
+		withBackupSize(1024, 2048),
+	))
+
+	bk, err := result.Wait(ctx, sdk.BackupWaitOptions{
+		PollInterval: 100 * time.Millisecond,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, bk)
+	assert.Equal(t, result.Name, bk.Name)
+	assert.True(t, bk.Status.Equal(sdk.StatusDone))
+	assert.Equal(t, int64(1024), bk.Size)
+}
+
+func TestBackupStartAndWaitError(t *testing.T) {
+	h.cleanup(t)
+	ctx := context.Background()
+
+	result, err := h.client.Backups.Start(ctx, sdk.StartLogicalBackup{})
+	require.NoError(t, err)
+
+	// Seed backup metadata with error status.
+	h.seedBackup(t, newBackupMeta(result.Name,
+		withBackupStatus(defs.StatusError),
+		withBackupStartTS(100),
+		withBackupError("storage connection failed"),
+	))
+
+	bk, err := result.Wait(ctx, sdk.BackupWaitOptions{
+		PollInterval: 100 * time.Millisecond,
+	})
+
+	// Wait returns both the backup and an OperationError on failure.
+	require.Error(t, err)
+	var opErr *sdk.OperationError
+	require.ErrorAs(t, err, &opErr)
+	assert.Equal(t, result.Name, opErr.Name)
+	assert.Contains(t, opErr.Message, "storage connection failed")
+
+	// The backup is still returned so callers can inspect metadata.
+	require.NotNil(t, bk)
+	assert.True(t, bk.Status.Equal(sdk.StatusError))
+	assert.Equal(t, "storage connection failed", bk.Error)
+}
+
 func TestBackupCanDeleteIncrementalNonBase(t *testing.T) {
 	h.cleanup(t)
 	ctx := context.Background()

@@ -92,6 +92,10 @@ func withBackupSize(size, uncompressed int64) func(*backup.BackupMeta) {
 	}
 }
 
+func withBackupError(msg string) func(*backup.BackupMeta) {
+	return func(m *backup.BackupMeta) { m.Err = msg }
+}
+
 // --- Restore fixtures ---
 
 // newRestoreMeta creates a minimal valid RestoreMeta.
@@ -256,6 +260,19 @@ func withConfigS3Storage(bucket, region string) func(*config.Config) {
 				Region: region,
 				Bucket: bucket,
 			},
+		}
+	}
+}
+
+func withConfigS3Credentials(accessKey, secretKey string) func(*config.Config) {
+	return func(c *config.Config) {
+		if c.Storage.S3 == nil {
+			c.Storage.Type = storage.S3
+			c.Storage.S3 = &s3storage.Config{}
+		}
+		c.Storage.S3.Credentials = s3storage.Credentials{
+			AccessKeyID:     storage.MaskedString(accessKey),
+			SecretAccessKey: storage.MaskedString(secretKey),
 		}
 	}
 }

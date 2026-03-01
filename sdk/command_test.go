@@ -371,6 +371,11 @@ func TestRemoveProfileCommandValidate(t *testing.T) {
 	})
 }
 
+func TestAddProfileCommandValidate(t *testing.T) {
+	cmd := AddProfileCommand{Name: "my-s3"}
+	assert.NoError(t, cmd.Validate())
+}
+
 func TestCancelBackupCommandValidate(t *testing.T) {
 	cmd := CancelBackupCommand{}
 	assert.NoError(t, cmd.Validate())
