@@ -53,6 +53,12 @@ tasks:
       - task: sdk:lint
       - task: sdk:test
 
+  sdk:integration:
+    desc: Run SDK integration tests (requires Docker)
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go test -tags integration -v -count=1 ./...
+
   # ---------------------------------------------------------------------------
   # TUI (root module)
   # ---------------------------------------------------------------------------

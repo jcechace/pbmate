@@ -10,6 +10,8 @@ import (
 
 	"gopkg.in/yaml.v2"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
 	"github.com/percona/percona-backup-mongodb/pbm/config"
 	"github.com/percona/percona-backup-mongodb/pbm/connect"
 	"github.com/percona/percona-backup-mongodb/pbm/ctrl"
@@ -26,7 +28,10 @@ var _ ConfigService = (*configServiceImpl)(nil)
 func (s *configServiceImpl) Get(ctx context.Context) (*Config, error) {
 	cfg, err := config.GetConfig(ctx, s.conn)
 	if err != nil {
-		if errors.Is(err, config.ErrMissedConfig) {
+		// TODO(pbm-fix): GetConfig wraps mongo.ErrNoDocuments directly
+		// instead of translating to config.ErrMissedConfig (unlike GetProfile
+		// which does the translation). Check both until PBM fixes this.
+		if errors.Is(err, config.ErrMissedConfig) || errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get config: %w", err)
@@ -56,7 +61,8 @@ func (s *configServiceImpl) SetYAML(ctx context.Context, r io.Reader) error {
 func (s *configServiceImpl) GetYAML(ctx context.Context, opts ...MarshalOption) ([]byte, error) {
 	cfg, err := config.GetConfig(ctx, s.conn)
 	if err != nil {
-		if errors.Is(err, config.ErrMissedConfig) {
+		// TODO(pbm-fix): see Get() for why both checks are needed.
+		if errors.Is(err, config.ErrMissedConfig) || errors.Is(err, mongo.ErrNoDocuments) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("get config yaml: %w", err)

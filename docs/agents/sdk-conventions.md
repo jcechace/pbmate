@@ -186,7 +186,8 @@ pbmate/
 │   ├── log.go              # LogService interface + types
 │   ├── log_impl.go         # Implementation
 │   ├── log_convert.go      # PBM -> SDK conversion
-│   └── cmd/smoketest/      # Manual smoke test binary
+│   ├── cmd/smoketest/      # Manual smoke test binary
+│   └── integtest/          # Integration tests (//go:build integration, testcontainers)
 ├── internal/
 │   ├── config/             # App config: XDG path, Load/Save, context resolution, field helpers
 │   └── tui/                # TUI implementation (see docs/tui-conventions.md)
