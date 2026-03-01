@@ -59,6 +59,13 @@ tasks:
     cmds:
       - go test -tags integration -v -count=1 ./...
 
+  sdk:cover:
+    desc: Run SDK tests with coverage report (unit + integration)
+    dir: "{{.SDK_DIR}}"
+    cmds:
+      - go test -tags integration -v -count=1 -coverprofile=coverage.out -covermode=atomic -coverpkg=./... ./...
+      - go tool cover -func coverage.out
+
   # ---------------------------------------------------------------------------
   # TUI (root module)
   # ---------------------------------------------------------------------------
