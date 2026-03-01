@@ -724,8 +724,11 @@ func (m Model) contextBindings() []key.Binding {
 		m.keys.NextPanel, m.keys.PrevPanel,
 		m.keys.Up, m.keys.Down,
 	}
-	if m.activeTab == tabBackups {
+	switch m.activeTab {
+	case tabBackups:
 		bindings = append(bindings, backupKeys.Toggle)
+	case tabConfig:
+		bindings = append(bindings, configKeys.Toggle)
 	}
 	bindings = append(bindings, m.keys.Help, m.keys.Quit)
 	return bindings

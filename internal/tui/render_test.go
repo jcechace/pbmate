@@ -136,14 +136,19 @@ func TestHelpColumns(t *testing.T) {
 		assert.Equal(t, "Navigation", left[0].title)
 		assert.Equal(t, "General", left[1].title)
 
-		// Right column: Overview + Backups (toggle only), no Config section.
-		require.Len(t, right, 2, "right column should have 2 sections in readonly")
+		// Right column: Overview + Backups (toggle only) + Config (toggle only).
+		require.Len(t, right, 3, "right column should have 3 sections in readonly")
 		assert.Equal(t, "1:Overview", right[0].title)
 		assert.Equal(t, "2:Backups", right[1].title)
+		assert.Equal(t, "3:Config", right[2].title)
 
 		// Backups section should only have the toggle entry (no restore).
 		require.Len(t, right[1].entries, 1, "Backups section should have 1 entry in readonly")
 		assert.Equal(t, "tab", right[1].entries[0].key)
+
+		// Config section should only have the toggle entry (no mutations).
+		require.Len(t, right[2].entries, 1, "Config section should have 1 entry in readonly")
+		assert.Equal(t, "tab", right[2].entries[0].key)
 	})
 }
 

@@ -118,6 +118,7 @@ type configKeyMap struct {
 	Resync            key.Binding
 	ResyncSelected    key.Binding
 	Edit              key.Binding
+	Toggle            key.Binding
 }
 
 var configKeys = configKeyMap{
@@ -140,6 +141,10 @@ var configKeys = configKeyMap{
 	Edit: key.NewBinding(
 		key.WithKeys("e"),
 		key.WithHelp("e", "edit in $EDITOR"),
+	),
+	Toggle: key.NewBinding(
+		key.WithKeys("tab"),
+		key.WithHelp("tab", "preview/yaml"),
 	),
 }
 

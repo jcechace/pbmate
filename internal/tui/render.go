@@ -153,7 +153,10 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 		right = append(right, helpSection{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
 		}})
-		// Config tab: no mutation bindings, section omitted entirely.
+		// Config tab: toggle only, no mutation bindings.
+		right = append(right, helpSection{"3:Config", []helpEntry{
+			helpFromBinding(configKeys.Toggle),
+		}})
 	} else {
 		right = append(right, helpSection{"2:Backups", []helpEntry{
 			helpFromBinding(backupKeys.Toggle),
@@ -161,6 +164,7 @@ func helpColumns(readonly bool) (left, right []helpSection) {
 			helpFromBinding(backupKeys.BulkDelete),
 		}})
 		right = append(right, helpSection{"3:Config", []helpEntry{
+			helpFromBinding(configKeys.Toggle),
 			helpCombined(configKeys.SetConfigSelected, configKeys.SetConfig, "set config"),
 			helpCombined(configKeys.ResyncSelected, configKeys.Resync, "resync"),
 			helpFromBinding(configKeys.Edit),

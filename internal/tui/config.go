@@ -18,6 +18,14 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
+// detailMode selects which view is shown in the right panel.
+type detailMode int
+
+const (
+	detailPreview detailMode = iota // structured field view
+	detailYAML                      // raw syntax-highlighted YAML
+)
+
 // configModel is the sub-model for the Config tab.
 type configModel struct {
 	// Data from the SDK.
@@ -29,8 +37,9 @@ type configModel struct {
 	profileYAMLs map[string][]byte
 
 	// UI state.
-	cursor int   // 0 = main config, 1..N = profiles[cursor-1]
-	focus  panel // panelLeft or panelRight
+	cursor int        // 0 = main config, 1..N = profiles[cursor-1]
+	focus  panel      // panelLeft or panelRight
+	detail detailMode // preview or yaml
 	styles *Styles
 
 	// Panel viewports.
@@ -173,6 +182,13 @@ func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) t
 		return m.emitResyncRequest(m.resyncPresetFromSelection())
 	case key.Matches(msg, configKeys.Edit) && !readonly:
 		return m.emitEditRequest()
+	case key.Matches(msg, configKeys.Toggle):
+		if m.detail == detailPreview {
+			m.detail = detailYAML
+		} else {
+			m.detail = detailPreview
+		}
+		m.rebuildDetailContent()
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)
 	case key.Matches(msg, keys.PrevPanel):
@@ -254,8 +270,12 @@ func (m *configModel) view(totalW, totalH int) string {
 
 	left := renderTitledPanel("Config", m.listVP.View(),
 		m.styles.LeftPanel, panelLeftW, innerH, border, m.borderColor(panelLeft))
-	right := renderTitledPanel("Detail", m.detailVP.View(),
-		m.styles.RightPanel, panelRightW, innerH, border, m.borderColor(panelRight))
+
+	rightColor := m.borderColor(panelRight)
+	right := renderTitledPanel("", m.detailVP.View(),
+		m.styles.RightPanel, panelRightW, innerH, border, rightColor)
+	right = replaceStyledTitleBorder(right, m.segmentedDetailTitle(rightColor),
+		panelRightW+panelBorderH, border, rightColor)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }
@@ -335,7 +355,10 @@ func (m *configModel) detailContent() string {
 	}
 
 	if m.config != nil && m.cursor == 0 {
-		return m.mainConfigDetail()
+		if m.detail == detailYAML {
+			return m.mainConfigYAML()
+		}
+		return m.mainConfigPreview()
 	}
 
 	// Profile index: offset by 1 when main config exists (cursor 0 = main).
@@ -344,14 +367,17 @@ func (m *configModel) detailContent() string {
 		idx = m.cursor - 1
 	}
 	if idx >= 0 && idx < len(m.profiles) {
-		return m.profileDetail(&m.profiles[idx])
+		if m.detail == detailYAML {
+			return m.profileYAMLView(&m.profiles[idx])
+		}
+		return m.profilePreview(&m.profiles[idx])
 	}
 
 	return m.styles.StatusMuted.Render("No selection")
 }
 
-// mainConfigDetail renders the main config detail view.
-func (m *configModel) mainConfigDetail() string {
+// mainConfigPreview renders the structured detail view for the main config.
+func (m *configModel) mainConfigPreview() string {
 	var b strings.Builder
 
 	m.renderStorageSection(&b, &m.config.Storage)
@@ -359,16 +385,19 @@ func (m *configModel) mainConfigDetail() string {
 	m.renderBackupSection(&b, m.config.Backup)
 	m.renderRestoreSection(&b, m.config.Restore)
 
-	if len(m.configYAML) > 0 {
-		b.WriteByte('\n')
-		m.renderYAMLSection(&b, m.configYAML)
-	}
-
 	return b.String()
 }
 
-// profileDetail renders a storage profile detail view.
-func (m *configModel) profileDetail(p *sdk.StorageProfile) string {
+// mainConfigYAML renders the syntax-highlighted YAML for the main config.
+func (m *configModel) mainConfigYAML() string {
+	if len(m.configYAML) == 0 {
+		return m.styles.StatusMuted.Render("No YAML available")
+	}
+	return highlightYAML(m.configYAML, m.styles.ChromaStyle)
+}
+
+// profilePreview renders the structured detail view for a storage profile.
+func (m *configModel) profilePreview(p *sdk.StorageProfile) string {
 	var b strings.Builder
 
 	b.WriteString(m.styles.SectionHeader.Render("Profile"))
@@ -378,29 +407,41 @@ func (m *configModel) profileDetail(p *sdk.StorageProfile) string {
 
 	m.renderStorageSection(&b, &p.Storage)
 
-	yaml, ok := m.profileYAMLs[p.Name.String()]
-	if ok && len(yaml) > 0 {
-		b.WriteByte('\n')
-		m.renderYAMLSection(&b, yaml)
-	} else if !ok {
-		b.WriteByte('\n')
-		b.WriteString(m.styles.StatusMuted.Render("Loading YAML..."))
-	}
-
 	return b.String()
 }
 
-// --- Detail section renderers ---
-
-// yamlDividerWidth is the character width of the divider line above the YAML section.
-const yamlDividerWidth = 40
-
-func (m *configModel) renderYAMLSection(b *strings.Builder, yaml []byte) {
-	divider := m.styles.StatusMuted.Render(strings.Repeat("─", yamlDividerWidth))
-	b.WriteString(divider)
-	b.WriteByte('\n')
-	b.WriteString(highlightYAML(yaml, m.styles.ChromaStyle))
+// profileYAMLView renders the syntax-highlighted YAML for a storage profile.
+func (m *configModel) profileYAMLView(p *sdk.StorageProfile) string {
+	yaml, ok := m.profileYAMLs[p.Name.String()]
+	if ok && len(yaml) > 0 {
+		return highlightYAML(yaml, m.styles.ChromaStyle)
+	}
+	if !ok {
+		return m.styles.StatusMuted.Render("Loading YAML...")
+	}
+	return m.styles.StatusMuted.Render("No YAML available")
 }
+
+// segmentedDetailTitle renders the [Preview] YAML / Preview [YAML] toggle
+// label for the right panel border, matching the Backups tab pattern.
+func (m *configModel) segmentedDetailTitle(borderColor lipgloss.TerminalColor) string {
+	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	inactiveStyle := m.styles.StatusMuted
+	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+
+	renderLabel := func(label string, active bool) string {
+		if active {
+			return bracketStyle.Render("[") + activeStyle.Render(label) + bracketStyle.Render("]")
+		}
+		return inactiveStyle.Render(label)
+	}
+
+	return renderLabel("Preview", m.detail == detailPreview) +
+		" " +
+		renderLabel("YAML", m.detail == detailYAML)
+}
+
+// --- Detail section renderers ---
 
 func (m *configModel) renderStorageSection(b *strings.Builder, s *sdk.StorageConfig) {
 	b.WriteString(m.styles.SectionHeader.Render("Storage"))
