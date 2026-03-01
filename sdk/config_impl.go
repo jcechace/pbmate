@@ -53,7 +53,7 @@ func (s *configServiceImpl) SetYAML(ctx context.Context, r io.Reader) error {
 	return nil
 }
 
-func (s *configServiceImpl) GetYAML(ctx context.Context) ([]byte, error) {
+func (s *configServiceImpl) GetYAML(ctx context.Context, opts ...MarshalOption) ([]byte, error) {
 	cfg, err := config.GetConfig(ctx, s.conn)
 	if err != nil {
 		if errors.Is(err, config.ErrMissedConfig) {
@@ -62,7 +62,7 @@ func (s *configServiceImpl) GetYAML(ctx context.Context) ([]byte, error) {
 		return nil, fmt.Errorf("get config yaml: %w", err)
 	}
 
-	b, err := yaml.Marshal(cfg)
+	b, err := marshalConfig(cfg, opts)
 	if err != nil {
 		return nil, fmt.Errorf("marshal config yaml: %w", err)
 	}
@@ -95,7 +95,7 @@ func (s *configServiceImpl) GetProfile(ctx context.Context, name string) (*Stora
 	return &result, nil
 }
 
-func (s *configServiceImpl) GetProfileYAML(ctx context.Context, name string) ([]byte, error) {
+func (s *configServiceImpl) GetProfileYAML(ctx context.Context, name string, opts ...MarshalOption) ([]byte, error) {
 	profile, err := config.GetProfile(ctx, s.conn, name)
 	if err != nil {
 		if errors.Is(err, config.ErrMissedConfigProfile) {
@@ -104,7 +104,7 @@ func (s *configServiceImpl) GetProfileYAML(ctx context.Context, name string) ([]
 		return nil, fmt.Errorf("get profile yaml %q: %w", name, err)
 	}
 
-	b, err := yaml.Marshal(profile)
+	b, err := marshalConfig(profile, opts)
 	if err != nil {
 		return nil, fmt.Errorf("marshal profile yaml: %w", err)
 	}
@@ -172,6 +172,21 @@ func (s *configServiceImpl) Resync(ctx context.Context, cmd ResyncCommand) (Comm
 		return CommandResult{}, fmt.Errorf("resync: %w", err)
 	}
 	return result, nil
+}
+
+// marshalConfig marshals a PBM config to YAML, applying the given options.
+// By default credentials are masked (via yaml.Marshal which triggers
+// MaskedString.MarshalYAML). With [WithUnmasked], uses the BSON roundtrip
+// to preserve real credential values.
+func marshalConfig(cfg any, opts []MarshalOption) ([]byte, error) {
+	var o MarshalOptions
+	for _, fn := range opts {
+		fn(&o)
+	}
+	if o.unmasked {
+		return unmaskYAML(cfg)
+	}
+	return yaml.Marshal(cfg)
 }
 
 // cleanParseError unwraps a yaml.TypeError from config.Parse errors and

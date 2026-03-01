@@ -47,9 +47,9 @@ func fetchEditYAMLCmd(ctx context.Context, client *sdk.Client, profileName strin
 			err  error
 		)
 		if profileName == "" {
-			yaml, err = client.Config.GetYAML(ctx)
+			yaml, err = client.Config.GetYAML(ctx, sdk.WithUnmasked())
 		} else {
-			yaml, err = client.Config.GetProfileYAML(ctx, profileName)
+			yaml, err = client.Config.GetProfileYAML(ctx, profileName, sdk.WithUnmasked())
 		}
 		return editConfigReadyMsg{yaml: yaml, profileName: profileName, err: err}
 	}

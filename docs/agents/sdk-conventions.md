@@ -126,6 +126,7 @@ Key PBM internal packages:
 - Prefer PBM's exported internal APIs over direct MongoDB queries. If it means fetching more data and filtering in memory, do that — data volumes (backups, restores, agents) are always small.
 - Direct DB interaction only when no reasonable PBM API exists (currently: command dispatch, since `ctrl.sendCommand` is unexported).
 - Mark PBM workarounds with `TODO(pbm-fix)`.
+- **`unmaskYAML` workaround**: `GetYAML`/`GetProfileYAML` use a BSON roundtrip (`config_unmask.go`) to bypass `MaskedString.MarshalYAML` which unconditionally masks credentials. BSON preserves real values (no `MarshalBSON` on `MaskedString`), then converts to ordered `yaml.MapSlice` for output. If PBM adds `MaskedString` fields outside `StorageConf`, this workaround covers them automatically. Callers opt in via `WithUnmasked()` functional option; the default is masked (safe for display).
 - Unknown PBM enum values in conversions: log `slog.Warn`, do not crash. The SDK pins to a specific PBM version; unknown enums appear only on version mismatch.
 - `nil`-means-default for optional fields: `*int` and `*bool` for tuning knobs.
 - Interface compliance guards on every impl: `var _ BackupService = (*backupServiceImpl)(nil)`.

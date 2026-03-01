@@ -5,6 +5,22 @@ import (
 	"io"
 )
 
+// MarshalOptions controls YAML marshaling behavior for configuration output.
+type MarshalOptions struct {
+	unmasked bool
+}
+
+// MarshalOption is a functional option for configuring YAML marshal behavior.
+type MarshalOption func(*MarshalOptions)
+
+// WithUnmasked returns a [MarshalOption] that produces YAML with real
+// credential values instead of the default masked "***" output. Use this
+// when the YAML will be roundtripped (e.g. opened in an editor and re-applied).
+// The default (no option) returns masked YAML safe for display.
+func WithUnmasked() MarshalOption {
+	return func(o *MarshalOptions) { o.unmasked = true }
+}
+
 // ConfigService provides access to PBM configuration and storage profiles.
 //
 // PBM uses a main configuration (identified by [MainConfig]) for the default
@@ -26,7 +42,9 @@ type ConfigService interface {
 	Get(ctx context.Context) (*Config, error)
 
 	// GetYAML returns the main PBM configuration as raw YAML bytes.
-	GetYAML(ctx context.Context) ([]byte, error)
+	// By default, credential values are masked ("***") for safe display.
+	// Pass [WithUnmasked] to get real credential values for roundtripping.
+	GetYAML(ctx context.Context, opts ...MarshalOption) ([]byte, error)
 
 	// SetYAML replaces the main PBM configuration from YAML read from r.
 	// This is a direct write — no command dispatch or agent involvement.
@@ -42,7 +60,9 @@ type ConfigService interface {
 
 	// GetProfileYAML returns a storage profile as raw YAML bytes. Returns
 	// [ErrNotFound] if the profile does not exist.
-	GetProfileYAML(ctx context.Context, name string) ([]byte, error)
+	// By default, credential values are masked ("***") for safe display.
+	// Pass [WithUnmasked] to get real credential values for roundtripping.
+	GetProfileYAML(ctx context.Context, name string, opts ...MarshalOption) ([]byte, error)
 
 	// SetProfile creates or replaces a named storage profile from YAML read
 	// from r. The name parameter identifies the profile; the YAML must contain

@@ -154,6 +154,9 @@ TUI backup form now prevents starting a non-base incremental backup when no incr
 ### External Editor Support
 Config tab `e` key opens the selected config or profile in `$EDITOR` (kubectl-style edit flow). Editor resolution chain: `PBMATE_EDITOR` env → `config.editor` → `VISUAL` env → `EDITOR` env → `vi` fallback. Compound editor commands supported (e.g. `"code -w"`). Readonly mode guards the `e` key. Temp file lifecycle: preserved on apply failure (path shown in error for recovery), deleted on success or no changes. SDK `cleanParseError` unwraps `yaml.TypeError` to produce user-friendly validation messages (strips PBM internal type names). Tests cover `cleanParseError` (4 scenarios).
 
+### Credential Unmasking in YAML Output
+SDK `GetYAML`/`GetProfileYAML` now support `WithUnmasked()` functional option to produce YAML with real credential values instead of the default masked `"***"`. PBM's `storage.MaskedString` type has `MarshalYAML` that unconditionally masks credentials — a design flaw where a presentation concern (CLI output safety) is baked into the serialization layer. The Percona Operator hit the same issue. Workaround uses BSON roundtrip (`config_unmask.go`): `bson.Marshal` preserves real values (no `MarshalBSON` on `MaskedString`), then converts ordered `bson.D` to `yaml.MapSlice` for output. Filters PBM metadata keys (`epoch`, `name`, `profile`). Default (no option) returns masked YAML safe for display; TUI editor flow passes `WithUnmasked()` for roundtripping. Tests cover unmasking, metadata filtering, field order, and BSON-to-YAML conversion.
+
 ## Deferred Features
 
 | Feature | Reason | Priority |
