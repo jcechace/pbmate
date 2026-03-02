@@ -407,6 +407,10 @@ func (m *backupsModel) backupTreeContent() string {
 			label := m.styles.StatusMuted.Render("── Backups ──")
 			lines[i] += fmt.Sprintf("\n\n  %s\n", label)
 		}
+		// Add visual spacing between profile groups.
+		if i+1 < len(m.items) && m.items[i+1].kind == itemProfileHeader && item.kind != itemPITR {
+			lines[i] += "\n"
+		}
 	}
 	return renderCursorList(lines, m.backupCursor, m.focus == panelLeft, m.styles)
 }
