@@ -45,7 +45,7 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	fmt.Fprintf(b, "  Type:        %s\n", bk.Type)
 
 	if bk.IsIncrementalBase() {
-		fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusWarning.Render("⌂"))
+		fmt.Fprintf(b, "  Source:      %s base\n", styles.StatusWarning.Render("▲"))
 	} else if bk.IsIncremental() {
 		fmt.Fprintf(b, "  Source:      %s\n", bk.SrcBackup)
 	}

@@ -14,7 +14,6 @@ import (
 )
 
 const backupTimeFormat = "2006-01-02 15:04" // display format for backup timestamps
-const backupTypeColWidth = 11               // pad type to widest value ("incremental")
 const backupSizeColWidth = 8                // pad size to fit "1234.5GB" with trailing space
 
 // listMode selects which list is shown in the Backups tab.
@@ -463,24 +462,29 @@ func (m *backupsModel) renderProfileHeader(profile string, count int) string {
 }
 
 // renderBackupLine renders a single backup line for the list.
-// Layout: status dot, name, padded type, flag column.
-// Flags: ⌂ = incremental base, ◇ = selective (namespace-filtered).
+// Layout: status dot, name, dimmed size, type marker.
+// Type markers: ■ = physical, ▲ = incremental base, ◇ = selective.
+// Logical backups with no special attributes get no marker.
 func (m *backupsModel) renderBackupLine(bk *sdk.Backup) string {
 	ind := statusIndicator(bk.Status, m.styles)
 
 	flag := ""
-	if bk.IsIncrementalBase() {
-		flag = m.styles.StatusWarning.Render("⌂")
-	} else if bk.IsSelective() {
+	switch {
+	case bk.IsPhysical():
+		flag = m.styles.StatusWarning.Render("■")
+	case bk.IsIncrementalBase():
+		flag = m.styles.StatusWarning.Render("▲")
+	case bk.IsSelective():
 		flag = m.styles.StatusWarning.Render("◇")
 	}
 
-	size := ""
+	sizeStr := ""
 	if bk.Size > 0 {
-		size = humanBytes(bk.Size)
+		sizeStr = humanBytes(bk.Size)
 	}
+	size := m.styles.StatusMuted.Render(fmt.Sprintf("%-*s", backupSizeColWidth, sizeStr))
 
-	return fmt.Sprintf("%s %s  %-*s %-*s %s", ind, bk.Name, backupTypeColWidth, bk.Type, backupSizeColWidth, size, flag)
+	return fmt.Sprintf("%s %s  %s %s", ind, bk.Name, size, flag)
 }
 
 // renderRestoreLine renders a single restore line for the list.
@@ -644,5 +648,5 @@ func (m *backupsModel) resolveDeleteTarget(bk *sdk.Backup) (baseName, title, des
 	baseName, count := resolveIncrChain(bk, backups)
 
 	return baseName, "Delete Incremental Chain",
-		fmt.Sprintf("⌂ %s\nand its increments (%d total)\nProfile: %s", baseName, count, profile)
+		fmt.Sprintf("▲ %s\nand its increments (%d total)\nProfile: %s", baseName, count, profile)
 }
