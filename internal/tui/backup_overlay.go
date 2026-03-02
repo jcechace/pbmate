@@ -71,8 +71,10 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 	// Rebuild the form when backup type or profile changes so that only
 	// relevant fields are shown (e.g. namespaces for logical, chain toggle
 	// for incremental). Profile changes affect chain existence detection.
-	if o.kind == backupFormFull && (o.result.backupType != o.lastBackupType || o.result.configName != o.lastConfigName) {
-		return o.rebuildForm()
+	typeChanged := o.result.backupType != o.lastBackupType
+	profileChanged := o.result.configName != o.lastConfigName
+	if o.kind == backupFormFull && (typeChanged || profileChanged) {
+		return o.rebuildForm(!typeChanged && profileChanged)
 	}
 
 	return o, cmd
@@ -96,13 +98,15 @@ func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
 // rebuildForm reconstructs the full backup form when the backup type or
 // profile changes, preserving current field values. This swaps conditional
 // groups (e.g. namespaces for logical vs chain toggle for incremental).
-func (o *backupFormOverlay) rebuildForm() (formOverlay, tea.Cmd) {
+// When profileOnly is true, focus is advanced past Type to the Profile
+// selector so the user doesn't jump back to the first field.
+func (o *backupFormOverlay) rebuildForm(profileOnly bool) (formOverlay, tea.Cmd) {
 	form, result := newFullBackupForm(o.formTheme, o.result.profiles, o.result.backups, o.result)
 	o.form = form
 	o.result = result
 	o.lastBackupType = result.backupType
 	o.lastConfigName = result.configName
-	return o, o.form.Init()
+	return o, initFormWithAdvance(o.form, profileOnly)
 }
 
 func (o *backupFormOverlay) View(styles *Styles, contentW, contentH int) string {
