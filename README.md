@@ -159,7 +159,15 @@ task build    # build all modules
 task check    # build + vet + lint + test
 ```
 
-Requires Go 1.26+ and a PBM-configured MongoDB cluster.
+Requires Go 1.26+. A PBM-configured MongoDB cluster is needed to run the TUI or integration tests.
+
+## Project Structure
+
+Monorepo with three Go modules:
+
+- **`sdk/`** — Standalone Go SDK (`github.com/jcechace/pbmate/sdk/v2`)
+- **`internal/tui/`** — Terminal UI (BubbleTea)
+- **`mcp/`** — MCP server (planned)
 
 ## License
 

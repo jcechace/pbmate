@@ -30,9 +30,9 @@
 //
 // Operations with distinct variants use sealed interfaces that prevent
 // invalid command construction at compile time. For example,
-// [BackupService.Start] accepts a [StartBackupCommand] which is either a
-// [StartLogicalBackup] or [StartIncrementalBackup] — each variant exposes
-// only the fields valid for that strategy.
+// [BackupService.Start] accepts a [StartBackupCommand] which is one of
+// [StartLogicalBackup], [StartPhysicalBackup], or [StartIncrementalBackup]
+// — each variant exposes only the fields valid for that strategy.
 //
 // # Value Objects
 //

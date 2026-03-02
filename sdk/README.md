@@ -186,7 +186,7 @@ if err != nil {
 }
 ```
 
-### Delete Backups
+### Delete Backups and PITR Chunks
 
 ```go
 // Delete a single backup by name.
@@ -199,6 +199,11 @@ cutoff := time.Now().Add(-30 * 24 * time.Hour)
 _, err := client.Backups.Delete(ctx, sdk.DeleteBackupsBefore{
     OlderThan: cutoff,
     Type:      sdk.BackupTypeLogical,
+})
+
+// Delete PITR oplog chunks older than 7 days.
+_, err := client.PITR.Delete(ctx, sdk.DeletePITROlderThan{
+    Duration: 7 * 24 * time.Hour,
 })
 ```
 
@@ -219,6 +224,21 @@ if err := client.Backups.CanDelete(ctx, bk.Name); err != nil {
 }
 _, err := client.Backups.Delete(ctx, sdk.DeleteBackupByName{Name: bk.Name})
 ```
+
+### Configuration YAML Roundtrip
+
+```go
+// Read config with real credentials (not masked with "***").
+yamlBytes, _ := client.Config.GetYAML(ctx, sdk.WithUnmasked())
+
+// ... edit yamlBytes in a text editor or programmatically ...
+
+// Apply the modified config.
+client.Config.SetYAML(ctx, bytes.NewReader(edited))
+```
+
+> By default `GetYAML()` masks credentials for safe display. Use
+> `WithUnmasked()` when the YAML will be edited and re-applied.
 
 ### Manage Storage Profiles
 
@@ -251,9 +271,10 @@ Consumer  <-->  SDK types  <-->  *_convert.go  <-->  PBM internals
 Operations that have distinct variants use sealed interfaces with unexported marker methods. This prevents invalid command construction at compile time:
 
 ```go
-// StartBackupCommand is sealed — only these two types implement it:
-//   - StartLogicalBackup    (has Namespaces field)
-//   - StartIncrementalBackup (has Base field)
+// StartBackupCommand is sealed — only these three types implement it:
+//   - StartLogicalBackup      (has Namespaces, UsersAndRoles, NumParallelColls)
+//   - StartPhysicalBackup     (has Compression, CompressionLevel, ConfigName)
+//   - StartIncrementalBackup  (has Base field)
 //
 // You can't mix fields from different strategies or pass an arbitrary struct.
 result, err := client.Backups.Start(ctx, sdk.StartLogicalBackup{
