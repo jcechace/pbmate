@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -237,6 +238,10 @@ func (m *overviewModel) nextLogCmd() tea.Cmd {
 func (m *overviewModel) setData(d overviewData, spinnerFrame string) {
 	if d.logEntries == nil {
 		d.logEntries = m.data.logEntries
+	} else {
+		// LogGet returns entries newest-first; reverse to chronological order
+		// so the viewport reads oldest-at-top, newest-at-bottom.
+		slices.Reverse(d.logEntries)
 	}
 	m.data = d
 	m.cluster.setAgents(d.agents)
