@@ -1,0 +1,40 @@
+# git-cliff configuration for PBMate TUI changelog.
+# Generates CHANGELOG.md from [tui]-scoped commits tagged with v*.
+# SDK has its own config: sdk/cliff.toml
+
+[changelog]
+header = """# Changelog
+
+All notable changes to PBMate TUI.\n
+"""
+body = """
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {{ commit.message | split(pat="\n") | first }}
+    {%- endfor %}
+{% endfor %}\n
+"""
+trim = true
+postprocessors = [
+    { pattern = "\\[tui\\] ?\\[sdk\\] ", replace = "" },
+    { pattern = "\\[sdk\\] ?\\[tui\\] ", replace = "" },
+    { pattern = "\\[tui\\] ", replace = "" },
+]
+
+[git]
+conventional_commits = false
+filter_unconventional = false
+filter_commits = true
+tag_pattern = "^v[0-9]"
+sort_commits = "newest"
+commit_parsers = [
+    { message = "^\\[tui\\] ?\\[sdk\\]", group = "Changes" },
+    { message = "^\\[sdk\\] ?\\[tui\\]", group = "Changes" },
+    { message = "^\\[tui\\]", group = "Changes" },
+]

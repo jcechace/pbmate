@@ -20,6 +20,9 @@ coverage/
 # Taskfile
 .task/
 
+# Generated changelogs
+CHANGELOG.md
+sdk/CHANGELOG.md
+
 # Local dev tools / scripts
 sdk/cmd/
-cloudecode.md

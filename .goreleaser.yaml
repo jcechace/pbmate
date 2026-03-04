@@ -46,8 +46,4 @@ homebrew_casks:
           end
 
 changelog:
-  sort: asc
-  filters:
-    exclude:
-      - "^docs:"
-      - "^test:"
+  disable: true

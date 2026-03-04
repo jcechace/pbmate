@@ -110,6 +110,19 @@ tasks:
       - go install -ldflags "-X main.version={{.VERSION}}" .
 
   # ---------------------------------------------------------------------------
+  # Changelog
+  # ---------------------------------------------------------------------------
+  tui:changelog:
+    desc: Generate TUI CHANGELOG.md from [tui]-scoped commits
+    cmds:
+      - git cliff --config cliff.toml --output CHANGELOG.md
+
+  sdk:changelog:
+    desc: Generate SDK CHANGELOG.md from [sdk]-scoped commits
+    cmds:
+      - git cliff --config sdk/cliff.toml --output sdk/CHANGELOG.md
+
+  # ---------------------------------------------------------------------------
   # All modules
   # ---------------------------------------------------------------------------
   build:
