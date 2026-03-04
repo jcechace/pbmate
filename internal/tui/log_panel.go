@@ -32,12 +32,20 @@ func newLogPanel(styles *Styles) logPanel {
 }
 
 // setEntries replaces the displayed log entries and rebuilds the viewport.
+// When the user has scrolled up (not pinned) the update is skipped — there
+// is no point refreshing content the user is actively reading. The viewport
+// resumes updating as soon as the user scrolls back to the bottom.
 func (p *logPanel) setEntries(entries []sdk.LogEntry) {
+	if !p.pinned {
+		return
+	}
 	p.entries = entries
 	p.rebuildContent()
 }
 
 // setFollowing updates the follow mode flag and rebuilds the mode indicator.
+// Pinning is set when starting follow so the viewport snaps to the bottom.
+// When stopping follow, the scroll position is preserved.
 func (p *logPanel) setFollowing(following bool) {
 	p.following = following
 	if following {

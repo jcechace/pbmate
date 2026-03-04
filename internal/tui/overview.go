@@ -72,6 +72,13 @@ func (m *overviewModel) isFollowing() bool {
 	return m.logs.following
 }
 
+// skipLogFetch reports whether log fetching should be skipped for the next
+// poll cycle. Logs are skipped during follow mode (entries stream separately)
+// and when the log panel is scrolled up (user is reading; no point updating).
+func (m *overviewModel) skipLogFetch() bool {
+	return m.logs.following || !m.logs.pinned
+}
+
 // HasRunningOps reports whether any operations are currently running.
 func (m *overviewModel) HasRunningOps() bool {
 	return len(m.data.operations) > 0
@@ -158,7 +165,13 @@ func (m *overviewModel) stopFollow() {
 // maxLogEntries, and updates the log panel. Entries that duplicate the
 // tail of the existing buffer are skipped — this handles the boundary
 // overlap from using TimeMin ($gte) when starting the tailable cursor.
+// When the panel is scrolled up (not pinned) the update is skipped entirely —
+// the user is reading and there is no value in accumulating entries that will
+// be discarded.
 func (m *overviewModel) appendLogEntries(entries []sdk.LogEntry) {
+	if !m.logs.pinned {
+		return
+	}
 	filtered := deduplicateLogEntries(m.data.logEntries, entries)
 	if len(filtered) == 0 {
 		return
@@ -217,10 +230,12 @@ func (m *overviewModel) nextLogCmd() tea.Cmd {
 }
 
 // setData rebuilds all panels from fresh overview data.
-// During follow mode the poll skips log fetching (logEntries will be nil),
-// so we preserve the existing follow-accumulated entries.
+// Log entries are preserved when nil — this covers both follow mode (where
+// the poll skips log fetching) and the scrolled-up case (where skipLogFetch
+// also returns true). Preserving the buffer ensures toggleFollow always has
+// a valid TimeMin anchor and deduplication has a non-empty baseline.
 func (m *overviewModel) setData(d overviewData, spinnerFrame string) {
-	if m.isFollowing() && d.logEntries == nil {
+	if d.logEntries == nil {
 		d.logEntries = m.data.logEntries
 	}
 	m.data = d
@@ -379,9 +394,6 @@ func (m *overviewModel) view(totalW, totalH int) string {
 	m.statusVP.Height = innerBotH
 	m.logs.vp.Width = contentRightW
 	m.logs.vp.Height = innerBotH
-	if m.logs.pinned {
-		m.logs.vp.GotoBottom()
-	}
 
 	// Render titled panels with focus-highlighted borders.
 	border := m.styles.PanelBorder

@@ -192,7 +192,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Always fetch overview data (needed for status bar).
 		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.isFollowing(), m.overview.logFilter)}
+		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.skipLogFetch(), m.overview.logFilter)}
 		if m.activeTab == tabBackups {
 			cmds = append(cmds, fetchBackupsCmd(m.ctx, m.client), fetchRestoresCmd(m.ctx, m.client))
 		}
