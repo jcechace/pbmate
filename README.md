@@ -76,6 +76,15 @@ Grab a pre-built binary from [GitHub Releases](https://github.com/jcechace/pbmat
 go install github.com/jcechace/pbmate@latest
 ```
 
+## Documentation
+
+| Guide | Audience |
+|-------|----------|
+| [Usage Guide](docs/usage.md) | TUI walkthrough — backups, restores, config, monitoring |
+| [Configuration](docs/configuration.md) | Config file, contexts, themes, editor, readonly mode |
+| [Troubleshooting](docs/troubleshooting.md) | Connection issues, PBM compatibility, common errors |
+| [SDK Reference](sdk/README.md) | Go SDK for programmatic PBM access |
+
 ## Quick Start
 
 ```bash
@@ -87,6 +96,8 @@ pbmate context add dev --uri mongodb://localhost:27017
 pbmate context use dev
 pbmate
 ```
+
+Press `?` inside the TUI to see all available keybindings.
 
 ## What You Can Do
 
@@ -102,7 +113,10 @@ pbmate
 | Resync | `R` / `r` | Resync agents (on Config tab) |
 | Filter logs | `l` | Filter by severity, replica set, or event type |
 | Follow logs | `f` | Stream logs in real time |
+| Edit config | `e` | Open config in external editor (Config tab) |
 | Help | `?` | Show all keybindings |
+
+See the [Usage Guide](docs/usage.md) for detailed workflows and the [full keybinding reference](docs/usage.md#keybinding-reference).
 
 ## CLI
 
@@ -120,13 +134,7 @@ pbmate config set theme mocha              # global setting
 pbmate config set readonly true --context=prod  # per-context override
 ```
 
-| Flag | Description | Default |
-|---|---|---|
-| `--uri` | MongoDB connection URI | — |
-| `--context` | Named context override | — |
-| `--theme` | `default`, `mocha`, `latte`, `frappe`, `macchiato` | `default` |
-| `--readonly` | Disable all mutation actions | `false` |
-| `--config` | Config file path (or set `PBMATE_CONFIG`) | `~/.config/pbmate/config.yaml` |
+See [Configuration](docs/configuration.md) for the full config file reference, CLI flags, and context management.
 
 ## SDK
 
@@ -159,7 +167,7 @@ task build    # build all modules
 task check    # build + vet + lint + test
 ```
 
-Requires Go 1.26+. A PBM-configured MongoDB cluster is needed to run the TUI or integration tests.
+Requires Go 1.26+. Running the TUI requires a PBM-configured MongoDB cluster. Integration tests only require Docker (they use testcontainers).
 
 ## Project Structure
 

@@ -51,7 +51,7 @@ The client exposes domain-specific services as interface-typed fields:
 | [RestoreService](restore.go) | `client.Restores` | List, get, start, wait for restores |
 | [ConfigService](config.go) | `client.Config` | Read/write configuration and storage profiles |
 | [ClusterService](cluster.go) | `client.Cluster` | Cluster topology, agent status, running operations, lock checks |
-| [PITRService](pitr.go) | `client.PITR` | PITR status, oplog timelines, chunk deletion |
+| [PITRService](pitr.go) | `client.PITR` | PITR status, oplog timelines, enable/disable, base backup filtering, chunk deletion |
 | [LogService](log.go) | `client.Logs` | Query and stream PBM logs |
 
 Every service is an interface — mock any of them in your tests.
@@ -139,7 +139,7 @@ for _, a := range agents {
 }
 ```
 
-### Monitor PITR Status
+### Monitor and Toggle PITR
 
 ```go
 status, _ := client.PITR.Status(ctx)
@@ -153,6 +153,10 @@ for _, tl := range timelines {
         tl.Start.Time().UTC().Format(time.RFC3339),
         tl.End.Time().UTC().Format(time.RFC3339))
 }
+
+// Enable or disable PITR (applies immediately, agents detect via epoch bump).
+err := client.PITR.Enable(ctx)
+err = client.PITR.Disable(ctx)
 ```
 
 ### Stream Logs
@@ -322,8 +326,24 @@ type myApp struct {
 }
 ```
 
+## PBM Compatibility
+
+The SDK wraps PBM's internal Go packages at a pinned version. It is tested
+against PBM clusters running the same major version. Older or newer PBM
+clusters generally work — unknown enum values are logged as warnings, not
+errors — but newly added PBM features won't be available until the SDK
+dependency is updated.
+
 ## Requirements
 
 - Go 1.26+
 - A running MongoDB cluster with PBM agents configured
 - Network access to the MongoDB cluster
+
+## See Also
+
+- [PBMate README](../README.md) — terminal UI, installation, quick start
+- [Usage Guide](../docs/usage.md) — TUI walkthrough and keybinding reference
+- [Configuration](../docs/configuration.md) — config file, contexts, themes
+- [Troubleshooting](../docs/troubleshooting.md) — connection issues, common errors
+- [PBM Documentation](https://docs.percona.com/percona-backup-mongodb/) — upstream PBM docs
