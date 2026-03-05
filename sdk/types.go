@@ -425,6 +425,13 @@ func NewConfigName(name string) (ConfigName, error) {
 	return ConfigName{name}, nil
 }
 
+// ParseConfigName parses a string into a ConfigName.
+// It is an alias for NewConfigName, provided for API consistency with other ParseX functions.
+// Returns an error if name is empty — use MainConfig for the main configuration.
+func ParseConfigName(name string) (ConfigName, error) {
+	return NewConfigName(name)
+}
+
 // String returns the string representation of the config name.
 func (c ConfigName) String() string { return c.value }
 

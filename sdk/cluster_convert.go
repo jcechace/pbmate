@@ -84,7 +84,7 @@ func agentNodeRole(a topo.AgentStat) NodeRole {
 
 // isStaleAgent checks if an agent's heartbeat is stale relative to cluster time.
 func isStaleAgent(a topo.AgentStat, clusterTime uint32) bool {
-	return a.Heartbeat.T+defs.StaleFrameSec < clusterTime
+	return isLockStale(a.Heartbeat.T, clusterTime)
 }
 
 // convertOperation converts a PBM LockData to an SDK Operation.
