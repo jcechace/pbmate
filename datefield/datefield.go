@@ -363,8 +363,8 @@ func (d *DateTimePicker) renderSegments() string {
 	styles := d.activeStyles()
 	textStyle := styles.TextInput.Text
 	activeStyle := lipgloss.NewStyle().
-		Foreground(styles.TextInput.CursorText.GetForeground()).
-		Background(styles.TextInput.Cursor.GetBackground()).
+		Foreground(styles.FocusedButton.GetForeground()).
+		Background(styles.FocusedButton.GetBackground()).
 		Bold(true)
 	sepStyle := styles.TextInput.Placeholder
 
