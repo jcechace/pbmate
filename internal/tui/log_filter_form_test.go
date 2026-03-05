@@ -129,9 +129,10 @@ func TestLogFilterRoundtrip(t *testing.T) {
 
 func TestLogFilterTitle(t *testing.T) {
 	tests := []struct {
-		name   string
-		filter sdk.LogFilter
-		want   string
+		name     string
+		filter   sdk.LogFilter
+		scrolled bool
+		want     string
 	}{
 		{
 			name:   "no filters",
@@ -163,11 +164,23 @@ func TestLogFilterTitle(t *testing.T) {
 			filter: sdk.LogFilter{Severity: sdk.LogSeverityDebug, ReplicaSet: "rs1", Event: "pitr"},
 			want:   "Logs (D, rs1, pitr)",
 		},
+		{
+			name:     "scrolled up — no filters",
+			filter:   sdk.LogFilter{},
+			scrolled: true,
+			want:     "Logs ▼",
+		},
+		{
+			name:     "scrolled up — with filters",
+			filter:   sdk.LogFilter{Severity: sdk.LogSeverityWarning, ReplicaSet: "rs0"},
+			scrolled: true,
+			want:     "Logs (W, rs0) ▼",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, logFilterTitle(tt.filter))
+			assert.Equal(t, tt.want, logFilterTitle(tt.filter, tt.scrolled))
 		})
 	}
 }

@@ -45,7 +45,7 @@ func (r *logFilterFormResult) toLogFilter() sdk.LogFilter {
 // logFilterTitle returns a title string for the log panel that includes
 // active filter indicators. Returns "Logs" when no filters are active
 // (severity=Info, no RS, no event).
-func logFilterTitle(f sdk.LogFilter) string {
+func logFilterTitle(f sdk.LogFilter, scrolled bool) string {
 	var parts []string
 
 	// Severity: only show if not the default (Info / zero).
@@ -61,10 +61,14 @@ func logFilterTitle(f sdk.LogFilter) string {
 		parts = append(parts, f.Event)
 	}
 
-	if len(parts) == 0 {
-		return "Logs"
+	title := "Logs"
+	if len(parts) > 0 {
+		title = "Logs (" + strings.Join(parts, ", ") + ")"
 	}
-	return "Logs (" + strings.Join(parts, ", ") + ")"
+	if scrolled {
+		title += " ▼"
+	}
+	return title
 }
 
 // fromLogFilter converts an SDK LogFilter into form result values for

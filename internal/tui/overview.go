@@ -411,7 +411,7 @@ func (m *overviewModel) view(totalW, totalH int) string {
 	bottomRow := lipgloss.JoinHorizontal(lipgloss.Top,
 		renderTitledPanel("Status", m.statusVP.View(),
 			m.styles.LeftPanel, panelLeftW, innerBotH, border, m.borderColor(focusStatus)),
-		renderTitledPanel(logFilterTitle(m.logFilter), m.logs.view(),
+		renderTitledPanel(logFilterTitle(m.logFilter, !m.logs.pinned), m.logs.view(),
 			m.styles.RightPanel, panelRightW, innerBotH, border, m.borderColor(focusLog)),
 	)
 
