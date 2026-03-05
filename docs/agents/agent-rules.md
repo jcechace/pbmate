@@ -84,6 +84,7 @@ Monorepo with multiple Go modules — each has its own tag namespace:
 |-----------|-----------|---------|-----------|
 | TUI binary | `v<semver>` | `v0.1.0`, `v1.0.0` | Binaries via GoReleaser |
 | SDK module | `sdk/v<semver>` | `sdk/v2.0.0`, `sdk/v2.1.0` | None (Go module only) |
+| datefield module | `datefield/v<semver>` | `datefield/v0.1.0` | None (Go module only) |
 | MCP (future) | `mcp/v<semver>` | `mcp/v0.1.0` | TBD |
 
 The Go toolchain requires subdirectory modules to use `<path>/v<version>` tags.

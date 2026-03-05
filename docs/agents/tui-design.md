@@ -199,6 +199,8 @@ global `readonly` config field > `false` (default).
 ### Config-specific
 - `C` / `c` — set config (generic / for selected item)
 - `R` / `r` — resync storage (generic / for selected item)
+- `e` — edit selected config/profile in `$EDITOR`
+- `tab` — toggle between preview and YAML view
 
 ## Bottom Bar
 

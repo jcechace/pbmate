@@ -2,12 +2,13 @@
 
 ## Module Layout
 
-PBMate is a monorepo with three Go modules:
+PBMate is a monorepo with four Go modules:
 
 ```
-sdk/  (github.com/jcechace/pbmate/sdk/v2)  — Standalone SDK wrapping PBM internals
-mcp/  (github.com/jcechace/pbmate/mcp)     — MCP server (placeholder)
-root  (github.com/jcechace/pbmate)          — TUI application (BubbleTea)
+sdk/        (github.com/jcechace/pbmate/sdk/v2)    — Standalone SDK wrapping PBM internals
+datefield/  (github.com/jcechace/pbmate/datefield) — huh.Field datetime picker
+mcp/        (github.com/jcechace/pbmate/mcp)       — MCP server (placeholder)
+root        (github.com/jcechace/pbmate)            — TUI application (BubbleTea)
 ```
 
 Dependency chain (strict — no cycles, no skipping):
@@ -19,7 +20,7 @@ MCP  -> SDK -> PBM internals
 
 The SDK exposes clean domain types. PBM types do not leak to consumers.
 
-The root module uses a `replace` directive (`replace github.com/jcechace/pbmate/sdk/v2 => ./sdk`) for local development. Agents doing dependency work should be aware of this.
+The root module uses `replace` directives (`replace github.com/jcechace/pbmate/sdk/v2 => ./sdk` and `replace github.com/jcechace/pbmate/datefield => ./datefield`) for local development. Agents doing dependency work should be aware of this.
 
 ## File Convention
 
@@ -38,10 +39,10 @@ Shared helpers: `convert.go` / `convert_test.go`, `wait.go` / `wait_test.go`.
 
 | Service | Interface | Key Methods |
 |---------|-----------|-------------|
-| BackupService | `backup.go` | List, Get, Start, Cancel, Delete, CanDelete |
-| RestoreService | `restore.go` | List, Get, Start |
-| ConfigService | `config.go` | Get, GetYAML, ListProfiles, GetProfile, SetProfile, Resync |
-| ClusterService | `cluster.go` | Members, Agents, RunningOperations, CheckLock, ServerInfo |
+| BackupService | `backup.go` | List, Get, GetByOpID, Start, Cancel, Delete, CanDelete |
+| RestoreService | `restore.go` | List, Get, GetByOpID, Start |
+| ConfigService | `config.go` | Get, GetYAML, ListProfiles, GetProfile, GetProfileYAML, SetProfile, SetYAML, RemoveProfile, Resync |
+| ClusterService | `cluster.go` | Members, Agents, RunningOperations, CheckLock, ServerInfo, ClusterTime |
 | PITRService | `pitr.go` | Status, Timelines, Bases, Enable, Disable, Delete |
 | LogService | `log.go` | Get, Follow |
 
@@ -177,6 +178,8 @@ pbmate/
 │   ├── config.go           # ConfigService interface + types
 │   ├── config_impl.go      # Implementation
 │   ├── config_convert.go   # PBM -> SDK conversion
+│   ├── config_unmask.go    # BSON roundtrip to bypass MaskedString.MarshalYAML
+│   ├── config_unmask_test.go # Tests for unmask roundtrip
 │   ├── cluster.go          # ClusterService interface + types
 │   ├── cluster_impl.go     # Implementation
 │   ├── cluster_convert.go  # PBM -> SDK conversion
@@ -188,6 +191,12 @@ pbmate/
 │   ├── log_convert.go      # PBM -> SDK conversion
 │   ├── cmd/smoketest/      # Manual smoke test binary
 │   └── integtest/          # Integration tests (//go:build integration, testcontainers)
+├── datefield/
+│   ├── go.mod              # datefield module: github.com/jcechace/pbmate/datefield
+│   ├── doc.go              # Package-level documentation (UTC contract, time zones)
+│   ├── datefield.go        # DateField huh.Field implementation
+│   ├── datefield_test.go   # Unit tests
+│   └── field_test.go       # View rendering tests
 ├── internal/
 │   ├── config/             # App config: XDG path, Load/Save, context resolution, field helpers
 │   └── tui/                # TUI implementation (see docs/tui-conventions.md)

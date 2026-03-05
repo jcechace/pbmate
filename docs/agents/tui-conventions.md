@@ -131,19 +131,29 @@ Shared overlay helpers in `backup_form.go` reduce boilerplate across all overlay
 
 ```
 internal/tui/
+├── doc.go              # Package-level documentation
 ├── app.go              # Root model: tab routing, bottom bar, global keys
 ├── overview.go         # Overview tab
 ├── cluster_panel.go    # Cluster tree + detail viewports
 ├── backups.go          # Backups tab (list + detail, tab toggles backups/restores)
 ├── backup_chain.go     # Chain grouping for display (separate from sdk/backup_chain.go which is domain logic)
 ├── backup_form.go      # Backup forms + shared overlay helpers (dismissOverlay, updateFormModel, initFormWithAdvance)
+├── backup_overlay.go   # Backup action overlays (quick confirm, full wizard)
 ├── restore_form.go     # Restore forms (snapshot, PITR, target wizard with profile filter)
+├── restore_overlay.go  # Restore action overlays (snapshot, PITR, two-step wizard)
 ├── resync_form.go      # Resync form (Main / Profile / All)
+├── resync_overlay.go   # Resync overlay
 ├── bulk_delete_form.go # Bulk delete form (Backups/PITR, preset/custom date, type/profile)
+├── bulk_delete_overlay.go # Bulk delete overlay
 ├── log_filter_form.go  # Log filter form (severity, replica set, event type)
+├── log_filter_overlay.go  # Log filter overlay
 ├── config.go           # Config tab
 ├── config_form.go      # Set config form (target → file picker → confirm)
-├── overlay.go          # formOverlay interface + all overlay types
+├── setconfig_overlay.go   # Set config overlay
+├── confirm_overlay.go  # Confirm overlays for destructive actions (delete, cancel)
+├── filepicker_overlay.go  # File picker overlay
+├── overlay.go          # formOverlay interface + shared overlay types
+├── editor.go           # External editor launch helper ($EDITOR integration)
 ├── log_panel.go        # Reusable log viewer component
 ├── data.go             # Data fetching commands, message types, actionResultMsg, firstErrCollector
 ├── render.go           # Shared rendering primitives (panels, cursor list, help, formatting)
