@@ -23,6 +23,9 @@ type pitrServiceImpl struct {
 
 var _ PITRService = (*pitrServiceImpl)(nil)
 
+// pitrEnabledKey is the PBM config key used to toggle PITR on and off.
+const pitrEnabledKey = "pitr.enabled"
+
 func (s *pitrServiceImpl) Status(ctx context.Context) (*PITRStatus, error) {
 	// Check if PITR is enabled in config.
 	enabled, _, err := config.IsPITREnabled(ctx, s.conn)
@@ -114,7 +117,7 @@ func (s *pitrServiceImpl) Bases(ctx context.Context, target Timestamp) ([]Backup
 
 func (s *pitrServiceImpl) Enable(ctx context.Context) error {
 	s.log.InfoContext(ctx, "enabling PITR")
-	if err := config.SetConfigVar(ctx, s.conn, "pitr.enabled", "true"); err != nil {
+	if err := config.SetConfigVar(ctx, s.conn, pitrEnabledKey, "true"); err != nil {
 		return fmt.Errorf("enable pitr: %w", err)
 	}
 	return nil
@@ -122,7 +125,7 @@ func (s *pitrServiceImpl) Enable(ctx context.Context) error {
 
 func (s *pitrServiceImpl) Disable(ctx context.Context) error {
 	s.log.InfoContext(ctx, "disabling PITR")
-	if err := config.SetConfigVar(ctx, s.conn, "pitr.enabled", "false"); err != nil {
+	if err := config.SetConfigVar(ctx, s.conn, pitrEnabledKey, "false"); err != nil {
 		return fmt.Errorf("disable pitr: %w", err)
 	}
 	return nil

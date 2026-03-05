@@ -133,6 +133,9 @@ func restoreCommandBackupName(cmd StartRestoreCommand) string {
 
 // --- RestoreResult implementations ---
 
+var _ RestoreResult = (*waitableRestoreResult)(nil)
+var _ RestoreResult = (*unwaitableRestoreResult)(nil)
+
 // waitableRestoreResult polls MongoDB for restore status. Used for logical
 // restores where mongod stays up throughout the operation.
 type waitableRestoreResult struct {
