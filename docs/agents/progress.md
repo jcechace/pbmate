@@ -8,6 +8,13 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 (none)
 
+## Recently Completed
+
+### datefield Module + TUI Integration
+Reusable `huh.Field` datetime picker (`datefield/` module). Three modes: `ModeDate`, `ModeDateTime`, `ModeDateTimeSec`. Implements the full `huh.Field` interface (18 methods). Full test coverage including `RunAccessible` fix (`bufio.Scanner` instead of `fmt.Fscan` for whitespace-safe input). Integrated into TUI:
+- `bulk_delete_form.go` — `customDate string` → `time.Time`, deleted `parseCustomDate`, `huh.NewInput` → `datefield.New(...).Mode(datefield.ModeDateTimeSec)`
+- `restore_form.go` — `pitrTarget string` → `time.Time` in both `restoreFormResult` and `restoreTargetResult`; `resolvePITRTarget` now returns `sdk.Timestamp` directly (parses preset string or uses custom `time.Time`); `pitrBaseGroup`/`pitrBaseOptions` accept `sdk.Timestamp` instead of string; `toPITRCommand` is now infallible (returns single value); deleted `parsePITRTarget`, `pitrTargetFormatAlt`; both `huh.NewInput` custom-target fields replaced with `datefield.New(...).Mode(datefield.ModeDateTimeSec)`. Tests updated to match all new signatures.
+
 ## Backlog
 
 Prioritized next items:
