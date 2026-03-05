@@ -23,6 +23,7 @@ coverage/
 # Generated changelogs
 CHANGELOG.md
 sdk/CHANGELOG.md
+RELEASE_NOTES.md
 
 # Local dev tools / scripts
 sdk/cmd/
