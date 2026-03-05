@@ -3,6 +3,7 @@ version: "3"
 vars:
   SDK_DIR: ./sdk
   MCP_DIR: ./mcp
+  DATEFIELD_DIR: ./datefield
   VERSION:
     sh: git describe --tags --always --dirty
 
@@ -110,6 +111,52 @@ tasks:
       - go install -ldflags "-X main.version={{.VERSION}}" .
 
   # ---------------------------------------------------------------------------
+  # Datefield
+  # ---------------------------------------------------------------------------
+  datefield:build:
+    desc: Build the datefield module
+    dir: "{{.DATEFIELD_DIR}}"
+    cmds:
+      - go build ./...
+
+  datefield:vet:
+    desc: Run go vet on the datefield module
+    dir: "{{.DATEFIELD_DIR}}"
+    cmds:
+      - go vet ./...
+
+  datefield:test:
+    desc: Run datefield tests
+    dir: "{{.DATEFIELD_DIR}}"
+    cmds:
+      - go test ./...
+
+  datefield:lint:
+    desc: Run golangci-lint on the datefield module
+    dir: "{{.DATEFIELD_DIR}}"
+    cmds:
+      - golangci-lint run ./...
+
+  datefield:fmt:
+    desc: Auto-fix formatting on the datefield module
+    dir: "{{.DATEFIELD_DIR}}"
+    cmds:
+      - go fmt ./...
+
+  datefield:check:
+    desc: Build, vet, lint, and test the datefield module
+    cmds:
+      - task: datefield:build
+      - task: datefield:vet
+      - task: datefield:lint
+      - task: datefield:test
+
+  datefield:changelog:
+    desc: Generate datefield CHANGELOG.md from [datefield]-scoped commits
+    cmds:
+      - git cliff --config datefield/cliff.toml --output datefield/CHANGELOG.md
+
+  # ---------------------------------------------------------------------------
   # Changelog
   # ---------------------------------------------------------------------------
   tui:changelog:
@@ -129,34 +176,40 @@ tasks:
     desc: Build all modules
     cmds:
       - task: sdk:build
+      - task: datefield:build
       - task: tui:build
 
   vet:
     desc: Run go vet on all modules
     cmds:
       - task: sdk:vet
+      - task: datefield:vet
       - task: tui:vet
 
   test:
     desc: Run tests for all modules
     cmds:
       - task: sdk:test
+      - task: datefield:test
       - task: tui:test
 
   lint:
     desc: Run golangci-lint on all modules
     cmds:
       - task: sdk:lint
+      - task: datefield:lint
       - task: tui:lint
 
   fmt:
     desc: Auto-fix formatting on all modules
     cmds:
       - task: sdk:fmt
+      - task: datefield:fmt
       - task: tui:fmt
 
   check:
     desc: Build, vet, lint, and test all modules
     cmds:
       - task: sdk:check
+      - task: datefield:check
       - task: tui:check
