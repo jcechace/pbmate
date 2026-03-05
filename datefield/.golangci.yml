@@ -10,9 +10,7 @@ linters:
     - revive
     - misspell
     - errorlint
-  disable:
-    # Phase 2: fields/methods used in phase 3 (huh.Field implementation) not yet wired up.
-    - unused
+
   settings:
     revive:
       rules:

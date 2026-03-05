@@ -19,11 +19,19 @@ package datefield
 
 import (
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/cellbuf"
 )
+
+// Compile-time interface guard.
+var _ huh.Field = (*DateTimePicker)(nil)
 
 // =============================================================================
 // Mode
@@ -134,11 +142,10 @@ type DateTimePicker struct {
 	digitBuf  string  // accumulated digit input for the current segment
 
 	// huh integration
-	keymap   KeyMap
-	theme    *huh.Theme
-	position huh.FieldPosition
-	width    int
-	height   int
+	keymap KeyMap
+	theme  *huh.Theme
+	width  int
+	height int
 }
 
 // New creates a DateTimePicker with the given initial time.
@@ -336,3 +343,295 @@ func formatSegment(s segment, v int) string {
 	}
 	return fmt.Sprintf("%02d", v)
 }
+
+// activeStyles returns focused or blurred FieldStyles from the theme.
+func (d *DateTimePicker) activeStyles() *huh.FieldStyles {
+	theme := d.theme
+	if theme == nil {
+		theme = huh.ThemeCharm()
+	}
+	if d.focused {
+		return &theme.Focused
+	}
+	return &theme.Blurred
+}
+
+// renderSegments renders the segmented date/time value string.
+// The active segment (when focused) is highlighted using theme cursor styles.
+func (d *DateTimePicker) renderSegments() string {
+	styles := d.activeStyles()
+	textStyle := styles.TextInput.Text
+	activeStyle := lipgloss.NewStyle().
+		Foreground(styles.TextInput.CursorText.GetForeground()).
+		Background(styles.TextInput.Cursor.GetBackground()).
+		Bold(true)
+	sepStyle := styles.TextInput.Placeholder
+
+	n := segCount(d.mode)
+	var sb strings.Builder
+
+	for i := 0; i < n; i++ {
+		s := segment(i)
+		val := d.segValue(s)
+
+		// Show digit buffer preview for the active focused segment.
+		var text string
+		if d.focused && s == d.activeSeg && d.digitBuf != "" {
+			w := segWidth(s)
+			text = fmt.Sprintf("%0*s", w, d.digitBuf)
+		} else {
+			text = formatSegment(s, val)
+		}
+
+		if d.focused && s == d.activeSeg {
+			sb.WriteString(activeStyle.Render(text))
+		} else {
+			sb.WriteString(textStyle.Render(text))
+		}
+
+		// Separators between segments.
+		switch s {
+		case segYear, segMonth:
+			sb.WriteString(sepStyle.Render("-"))
+		case segDay:
+			if n > 3 {
+				sb.WriteString(sepStyle.Render("  "))
+			}
+		case segHour:
+			sb.WriteString(sepStyle.Render(":"))
+		case segMinute:
+			if n > 5 {
+				sb.WriteString(sepStyle.Render(":"))
+			}
+		}
+	}
+
+	return sb.String()
+}
+
+// wrapText wraps s to limit display columns.
+func wrapText(s string, limit int) string {
+	return cellbuf.Wrap(s, limit, ",.-; ")
+}
+
+// =============================================================================
+// huh.Field interface
+// =============================================================================
+
+// Init implements huh.Field.
+func (d *DateTimePicker) Init() tea.Cmd { return nil }
+
+// Update implements huh.Field.
+func (d *DateTimePicker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return d, nil
+	}
+
+	// Clear validation error on any key press.
+	d.err = nil
+
+	switch {
+	case key.Matches(keyMsg, d.keymap.Prev):
+		d.flushDigitBuf()
+		d.accessor.Set(d.t)
+		return d, huh.PrevField
+
+	case key.Matches(keyMsg, d.keymap.Next):
+		d.flushDigitBuf()
+		d.accessor.Set(d.t)
+		d.err = d.validate(d.t)
+		if d.err != nil {
+			return d, nil
+		}
+		return d, huh.NextField
+
+	case key.Matches(keyMsg, d.keymap.Submit):
+		d.flushDigitBuf()
+		d.accessor.Set(d.t)
+		d.err = d.validate(d.t)
+		if d.err != nil {
+			return d, nil
+		}
+		return d, huh.NextField
+
+	case key.Matches(keyMsg, d.keymap.Left):
+		d.prevSeg()
+
+	case key.Matches(keyMsg, d.keymap.Right):
+		d.nextSeg()
+
+	case key.Matches(keyMsg, d.keymap.Up):
+		d.flushDigitBuf()
+		d.t = setSegValue(d.t, d.activeSeg, d.segValue(d.activeSeg)+1)
+
+	case key.Matches(keyMsg, d.keymap.Down):
+		d.flushDigitBuf()
+		d.t = setSegValue(d.t, d.activeSeg, d.segValue(d.activeSeg)-1)
+
+	default:
+		// Digit input.
+		if len(keyMsg.Runes) == 1 {
+			ch := keyMsg.Runes[0]
+			if ch >= '0' && ch <= '9' {
+				d.addDigit(byte(ch))
+			}
+		}
+	}
+
+	return d, nil
+}
+
+// View implements huh.Field.
+func (d *DateTimePicker) View() string {
+	styles := d.activeStyles()
+	maxWidth := d.width - styles.Base.GetHorizontalFrameSize()
+
+	var sb strings.Builder
+
+	if d.title != "" {
+		sb.WriteString(styles.Title.Render(wrapText(d.title, maxWidth)))
+		sb.WriteString("\n")
+	}
+	if d.desc != "" {
+		sb.WriteString(styles.Description.Render(wrapText(d.desc, maxWidth)))
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(d.renderSegments())
+
+	if d.err != nil {
+		sb.WriteString("\n")
+		sb.WriteString(styles.ErrorMessage.Render(d.err.Error()))
+	}
+
+	return styles.Base.
+		Width(d.width).
+		Height(d.height).
+		Render(sb.String())
+}
+
+// Focus implements huh.Field.
+func (d *DateTimePicker) Focus() tea.Cmd {
+	d.focused = true
+	return nil
+}
+
+// Blur implements huh.Field.
+func (d *DateTimePicker) Blur() tea.Cmd {
+	d.focused = false
+	d.flushDigitBuf()
+	d.accessor.Set(d.t)
+	d.err = d.validate(d.t)
+	return nil
+}
+
+// Error implements huh.Field.
+func (d *DateTimePicker) Error() error { return d.err }
+
+// Skip implements huh.Field.
+func (*DateTimePicker) Skip() bool { return false }
+
+// Zoom implements huh.Field.
+func (*DateTimePicker) Zoom() bool { return false }
+
+// KeyBinds implements huh.Field.
+func (d *DateTimePicker) KeyBinds() []key.Binding {
+	return []key.Binding{
+		d.keymap.Left,
+		d.keymap.Right,
+		d.keymap.Up,
+		d.keymap.Down,
+		d.keymap.Prev,
+		d.keymap.Submit,
+		d.keymap.Next,
+	}
+}
+
+// Run implements huh.Field.
+func (d *DateTimePicker) Run() error {
+	return huh.Run(d) //nolint:wrapcheck
+}
+
+// RunAccessible implements huh.Field.
+// Prompts the user to enter a date/time string in the format matching the mode.
+func (d *DateTimePicker) RunAccessible(w io.Writer, r io.Reader) error {
+	styles := d.activeStyles()
+
+	formats := map[Mode]string{
+		ModeDate:        "2006-01-02",
+		ModeDateTime:    "2006-01-02 15:04",
+		ModeDateTimeSec: "2006-01-02 15:04:05",
+	}
+	layout := formats[d.mode]
+
+	prompt := styles.Title.PaddingRight(1).Render(d.title)
+	if d.title == "" {
+		prompt = "Date/time: "
+	}
+	_, _ = fmt.Fprintf(w, "%s (format: %s): ", prompt, layout)
+
+	var input string
+	fmt.Fscan(r, &input) //nolint:errcheck
+
+	t, err := time.ParseInLocation(layout, input, time.UTC)
+	if err != nil {
+		return fmt.Errorf("invalid date/time %q (expected %s): %w", input, layout, err)
+	}
+	if err := d.validate(t); err != nil {
+		return err
+	}
+	d.t = t
+	d.accessor.Set(t)
+	return nil
+}
+
+// WithTheme implements huh.Field.
+func (d *DateTimePicker) WithTheme(theme *huh.Theme) huh.Field {
+	if d.theme != nil {
+		return d
+	}
+	d.theme = theme
+	return d
+}
+
+// WithAccessible implements huh.Field.
+//
+// Deprecated: call [DateTimePicker.RunAccessible] directly.
+func (d *DateTimePicker) WithAccessible(_ bool) huh.Field { return d }
+
+// WithKeyMap implements huh.Field.
+// Sets left/right/up/down bindings from the global huh keymap's navigation keys.
+// Tab/shift-tab/enter are taken from our own KeyMap and are not overridden.
+func (d *DateTimePicker) WithKeyMap(k *huh.KeyMap) huh.Field {
+	d.keymap.Next = k.Input.Next
+	d.keymap.Prev = k.Input.Prev
+	d.keymap.Submit = k.Input.Submit
+	return d
+}
+
+// WithWidth implements huh.Field.
+func (d *DateTimePicker) WithWidth(width int) huh.Field {
+	d.width = width
+	return d
+}
+
+// WithHeight implements huh.Field.
+func (d *DateTimePicker) WithHeight(height int) huh.Field {
+	d.height = height
+	return d
+}
+
+// WithPosition implements huh.Field.
+func (d *DateTimePicker) WithPosition(p huh.FieldPosition) huh.Field {
+	d.keymap.Prev.SetEnabled(!p.IsFirst())
+	d.keymap.Next.SetEnabled(!p.IsLast())
+	d.keymap.Submit.SetEnabled(p.IsLast())
+	return d
+}
+
+// GetKey implements huh.Field.
+func (d *DateTimePicker) GetKey() string { return d.fieldKey }
+
+// GetValue implements huh.Field.
+func (d *DateTimePicker) GetValue() any { return d.accessor.Get() }
