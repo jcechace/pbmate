@@ -8,14 +8,12 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jcechace/pbmate/datefield"
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// pitrTargetFormat is the datetime format for PITR target input/display.
+// pitrTargetFormat is the datetime format used to display PITR preset values.
 const pitrTargetFormat = "2006-01-02T15:04:05"
-
-// pitrTargetFormatAlt is an alternative format accepted for PITR target input.
-const pitrTargetFormatAlt = "2006-01-02 15:04:05"
 
 // pitrPresetCustom is the sentinel value for the "Custom..." PITR preset.
 const pitrPresetCustom = "custom"
@@ -36,11 +34,11 @@ const (
 
 // restoreFormResult holds the user's selections from the restore form.
 type restoreFormResult struct {
-	scope            string // "full" or "selective" (snapshot and logical PITR mode)
-	pitrPreset       string // selected PITR preset value (timestamp or "custom")
-	pitrTarget       string // human-readable datetime (PITR mode only)
-	pitrBaseName     string // selected base backup name (PITR mode only)
-	namespaces       string // comma-separated, optional
+	scope            string    // "full" or "selective" (snapshot and logical PITR mode)
+	pitrPreset       string    // selected PITR preset value (timestamp string or "custom")
+	pitrTarget       time.Time // user-selected datetime (PITR custom mode only)
+	pitrBaseName     string    // selected base backup name (PITR mode only)
+	namespaces       string    // comma-separated, optional
 	usersAndRoles    bool
 	parallelColls    string // "" = server default
 	insertionWorkers string // "" = server default
@@ -52,8 +50,8 @@ func (r *restoreFormResult) isSelective() bool {
 	return r.scope == restoreScopeSelective
 }
 
-// effectivePITRTarget returns the PITR target to use.
-func (r *restoreFormResult) effectivePITRTarget() string {
+// effectivePITRTarget returns the PITR target as an sdk.Timestamp.
+func (r *restoreFormResult) effectivePITRTarget() sdk.Timestamp {
 	return resolvePITRTarget(r.pitrPreset, r.pitrTarget)
 }
 
@@ -74,15 +72,10 @@ func (r *restoreFormResult) toSnapshotCommand(backupName string) sdk.StartSnapsh
 }
 
 // toPITRCommand converts the form result into a StartPITRRestore.
-// Returns an error if the PITR target cannot be parsed.
-func (r *restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRRestore, error) {
-	target, err := parsePITRTarget(r.effectivePITRTarget())
-	if err != nil {
-		return sdk.StartPITRRestore{}, err
-	}
+func (r *restoreFormResult) toPITRCommand(backupName string) sdk.StartPITRRestore {
 	cmd := sdk.StartPITRRestore{
 		BackupName:          backupName,
-		Target:              target,
+		Target:              r.effectivePITRTarget(),
 		NumParallelColls:    parseOptionalInt(r.parallelColls),
 		NumInsertionWorkers: parseOptionalInt(r.insertionWorkers),
 	}
@@ -92,7 +85,7 @@ func (r *restoreFormResult) toPITRCommand(backupName string) (sdk.StartPITRResto
 		cmd.Namespaces = r.parseNamespaces()
 		cmd.UsersAndRoles = r.usersAndRoles
 	}
-	return cmd, nil
+	return cmd
 }
 
 // parseNamespaces returns the selective namespaces for a restore form.
@@ -123,24 +116,6 @@ func splitNamespaces(s string) []string {
 	return nss
 }
 
-// parsePITRTarget parses a human-readable datetime string into an SDK Timestamp.
-// Accepts both "2006-01-02T15:04:05" and "2006-01-02 15:04:05" formats.
-// Input is interpreted as UTC.
-func parsePITRTarget(s string) (sdk.Timestamp, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return sdk.Timestamp{}, fmt.Errorf("PITR target is required")
-	}
-
-	for _, layout := range []string{pitrTargetFormat, pitrTargetFormatAlt} {
-		if t, err := time.Parse(layout, s); err == nil {
-			return sdk.Timestamp{T: uint32(t.UTC().Unix())}, nil
-		}
-	}
-
-	return sdk.Timestamp{}, fmt.Errorf("invalid PITR target %q: expected format %s", s, pitrTargetFormat)
-}
-
 // --- Restore target form (Step 1) ---
 
 // restoreTargetResult holds the user's selections from the restore target form.
@@ -151,24 +126,32 @@ type restoreTargetResult struct {
 	profileName  string      // selected profile filter (snapshot mode)
 	backupName   string      // selected backup name (snapshot mode)
 	pitrPreset   string      // selected PITR preset (pitr mode)
-	pitrTarget   string      // custom target datetime (pitr mode, when preset == "custom")
+	pitrTarget   time.Time   // custom target datetime (pitr mode, when preset == "custom")
 	pitrBaseName string      // selected base backup name (pitr mode)
 	confirmed    bool
 }
 
-// effectivePITRTarget returns the PITR target to use from Step 1.
-func (r *restoreTargetResult) effectivePITRTarget() string {
+// effectivePITRTarget returns the PITR target as an sdk.Timestamp from Step 1.
+func (r *restoreTargetResult) effectivePITRTarget() sdk.Timestamp {
 	return resolvePITRTarget(r.pitrPreset, r.pitrTarget)
 }
 
-// resolvePITRTarget returns the effective PITR target string. If the preset
-// is not "custom", the preset value is the target; otherwise the custom
-// input string is used.
-func resolvePITRTarget(preset, customTarget string) string {
-	if preset != pitrPresetCustom {
-		return preset
+// resolvePITRTarget returns the effective PITR target as an sdk.Timestamp.
+// If the preset is not "custom", the preset string (a formatted timestamp) is
+// parsed and returned; otherwise the custom time.Time value is used.
+// Returns zero Timestamp when the preset is empty.
+func resolvePITRTarget(preset string, customTarget time.Time) sdk.Timestamp {
+	if preset == pitrPresetCustom {
+		return sdk.Timestamp{T: uint32(customTarget.UTC().Unix())}
 	}
-	return customTarget
+	if preset == "" {
+		return sdk.Timestamp{}
+	}
+	// Preset values are formatted timestamps (pitrTargetFormat).
+	if t, err := time.Parse(pitrTargetFormat, preset); err == nil {
+		return sdk.Timestamp{T: uint32(t.UTC().Unix())}
+	}
+	return sdk.Timestamp{}
 }
 
 // newRestoreTargetForm creates the restore target form (Step 1 of the wizard).
@@ -248,7 +231,6 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 			// Default pitrPreset to latest.
 			if result.pitrPreset == "" {
 				result.pitrPreset = timeline.End.Time().UTC().Format(pitrTargetFormat)
-				result.pitrTarget = result.pitrPreset
 			}
 
 			start := timeline.Start.Time().UTC()
@@ -270,15 +252,15 @@ func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines 
 			))
 
 			if result.pitrPreset == pitrPresetCustom {
+				// Seed pitrTarget from timeline end when first switching to Custom.
+				if result.pitrTarget.IsZero() {
+					result.pitrTarget = end
+				}
 				groups = append(groups, huh.NewGroup(
-					huh.NewInput().
+					datefield.New(result.pitrTarget).
+						Mode(datefield.ModeDateTimeSec).
 						Title("Custom target").
-						Placeholder(pitrTargetFormat).
-						Value(&result.pitrTarget).
-						Validate(func(s string) error {
-							_, err := parsePITRTarget(s)
-							return err
-						}),
+						Value(&result.pitrTarget),
 				))
 			}
 
@@ -570,7 +552,6 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []
 
 	// Default to latest.
 	result.pitrPreset = timeline.End.Time().UTC().Format(pitrTargetFormat)
-	result.pitrTarget = result.pitrPreset
 
 	if initial != nil {
 		result.scope = initial.scope
@@ -607,15 +588,15 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []
 	}
 
 	if result.pitrPreset == pitrPresetCustom {
+		// Seed pitrTarget from timeline end when first switching to Custom.
+		if result.pitrTarget.IsZero() {
+			result.pitrTarget = end
+		}
 		groups = append(groups, huh.NewGroup(
-			huh.NewInput().
+			datefield.New(result.pitrTarget).
+				Mode(datefield.ModeDateTimeSec).
 				Title("Custom target").
-				Placeholder(pitrTargetFormat).
-				Value(&result.pitrTarget).
-				Validate(func(s string) error {
-					_, err := parsePITRTarget(s)
-					return err
-				}),
+				Value(&result.pitrTarget),
 		))
 	}
 
@@ -704,8 +685,8 @@ func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []
 // the baseName pointer to a valid selection. Returns the group to append and
 // the (possibly modified) baseName. Used by both newRestoreTargetForm and
 // newPITRRestoreForm to avoid duplicating the filter-options-or-note logic.
-func pitrBaseGroup(targetStr string, backups []sdk.Backup, timelines []sdk.Timeline, baseName *string) *huh.Group {
-	baseOpts := pitrBaseOptions(targetStr, backups, timelines)
+func pitrBaseGroup(target sdk.Timestamp, backups []sdk.Backup, timelines []sdk.Timeline, baseName *string) *huh.Group {
+	baseOpts := pitrBaseOptions(target, backups, timelines)
 	if len(baseOpts) > 0 {
 		if !hasOptionValue(baseOpts, *baseName) {
 			*baseName = baseOpts[0].Value
@@ -727,15 +708,10 @@ func pitrBaseGroup(targetStr string, backups []sdk.Backup, timelines []sdk.Timel
 }
 
 // pitrBaseOptions returns huh.Option entries for backups that are valid PITR
-// base snapshots for the given target time string. Uses [sdk.FilterPITRBases]
+// base snapshots for the given target timestamp. Uses [sdk.FilterPITRBases]
 // to apply the full validation criteria (status, config, timeline coverage).
-// Returns nil if the target cannot be parsed or no valid bases exist.
-func pitrBaseOptions(targetStr string, backups []sdk.Backup, timelines []sdk.Timeline) []huh.Option[string] {
-	target, err := parsePITRTarget(targetStr)
-	if err != nil {
-		return nil
-	}
-
+// Returns nil if no valid bases exist.
+func pitrBaseOptions(target sdk.Timestamp, backups []sdk.Backup, timelines []sdk.Timeline) []huh.Option[string] {
 	bases := sdk.FilterPITRBases(target, backups, timelines)
 	if len(bases) == 0 {
 		return nil

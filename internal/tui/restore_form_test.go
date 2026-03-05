@@ -2,72 +2,13 @@ package tui
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
-
-// --- parsePITRTarget ---
-
-func TestParsePITRTarget(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantT   uint32
-		wantErr bool
-	}{
-		{
-			name:  "ISO format",
-			input: "2026-02-20T14:30:00",
-			wantT: 1771597800,
-		},
-		{
-			name:  "space-separated format",
-			input: "2026-02-20 14:30:00",
-			wantT: 1771597800,
-		},
-		{
-			name:  "leading/trailing whitespace",
-			input: "  2026-02-20T14:30:00  ",
-			wantT: 1771597800,
-		},
-		{
-			name:    "empty string",
-			input:   "",
-			wantErr: true,
-		},
-		{
-			name:    "whitespace only",
-			input:   "   ",
-			wantErr: true,
-		},
-		{
-			name:    "invalid format",
-			input:   "not-a-date",
-			wantErr: true,
-		},
-		{
-			name:    "date without time",
-			input:   "2026-02-20",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ts, err := parsePITRTarget(tt.input)
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantT, ts.T)
-			assert.Equal(t, uint32(0), ts.I)
-		})
-	}
-}
 
 // --- pitrBaseOptions ---
 
@@ -88,28 +29,21 @@ func TestPitrBaseOptions(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		targetStr  string
+		target     sdk.Timestamp
 		backups    []sdk.Backup
 		timelines  []sdk.Timeline
 		wantValues []string
 	}{
 		{
-			name:       "invalid target returns nil",
-			targetStr:  "not-a-date",
-			backups:    []sdk.Backup{mkBackup("bk1", 2000)},
-			timelines:  timelines,
-			wantValues: nil,
-		},
-		{
 			name:       "no valid bases returns nil",
-			targetStr:  "2000-01-01T00:00:10", // T=946684810
+			target:     sdk.Timestamp{T: 946684810},
 			backups:    nil,
 			timelines:  timelines,
 			wantValues: nil,
 		},
 		{
-			name:      "returns options sorted by LastWriteTS desc",
-			targetStr: "2000-01-01T00:50:00", // T=946687800, within timeline if we adjust
+			name:   "returns options sorted by LastWriteTS desc",
+			target: sdk.Timestamp{T: 946687800},
 			backups: []sdk.Backup{
 				mkBackup("bk-early", 1100),
 				mkBackup("bk-late", 1300),
@@ -124,7 +58,7 @@ func TestPitrBaseOptions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts := pitrBaseOptions(tt.targetStr, tt.backups, tt.timelines)
+			opts := pitrBaseOptions(tt.target, tt.backups, tt.timelines)
 			if tt.wantValues == nil {
 				assert.Nil(t, opts)
 				return
@@ -181,17 +115,19 @@ func TestToSnapshotCommand(t *testing.T) {
 // --- toPITRCommand ---
 
 func TestToPITRCommand(t *testing.T) {
-	t.Run("valid PITR command", func(t *testing.T) {
+	// 2026-02-20T14:30:00 UTC as time.Time and expected unix seconds.
+	targetTime := time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC)
+	const targetUnix = uint32(1771597800)
+
+	t.Run("preset target uses pitrPreset", func(t *testing.T) {
 		r := restoreFormResult{
 			scope:            restoreScopeFull,
 			pitrPreset:       "2026-02-20T14:30:00",
-			pitrTarget:       "2026-02-20T14:30:00",
 			insertionWorkers: "8",
 		}
-		cmd, err := r.toPITRCommand("base-backup")
-		require.NoError(t, err)
+		cmd := r.toPITRCommand("base-backup")
 		assert.Equal(t, "base-backup", cmd.BackupName)
-		assert.Equal(t, uint32(1771597800), cmd.Target.T)
+		assert.Equal(t, targetUnix, cmd.Target.T)
 		assert.Nil(t, cmd.Namespaces)
 		assert.NotNil(t, cmd.NumInsertionWorkers)
 		assert.Equal(t, 8, *cmd.NumInsertionWorkers)
@@ -201,11 +137,9 @@ func TestToPITRCommand(t *testing.T) {
 		r := restoreFormResult{
 			scope:      restoreScopeSelective,
 			pitrPreset: "2026-02-20T14:30:00",
-			pitrTarget: "2026-02-20T14:30:00",
 			namespaces: "mydb.mycol",
 		}
-		cmd, err := r.toPITRCommand("base")
-		require.NoError(t, err)
+		cmd := r.toPITRCommand("base")
 		assert.Equal(t, []string{"mydb.mycol"}, cmd.Namespaces)
 	})
 
@@ -213,34 +147,21 @@ func TestToPITRCommand(t *testing.T) {
 		r := restoreFormResult{
 			scope:      restoreScopeFull,
 			pitrPreset: "2026-02-20T14:30:00",
-			pitrTarget: "2026-02-20T14:30:00",
 			namespaces: "stale.value", // stale from scope switch
 		}
-		cmd, err := r.toPITRCommand("base")
-		require.NoError(t, err)
+		cmd := r.toPITRCommand("base")
 		assert.Nil(t, cmd.Namespaces)
 		assert.False(t, cmd.UsersAndRoles)
 	})
 
-	t.Run("custom preset uses pitrTarget", func(t *testing.T) {
+	t.Run("custom preset uses pitrTarget time.Time", func(t *testing.T) {
 		r := restoreFormResult{
 			scope:      restoreScopeFull,
 			pitrPreset: pitrPresetCustom,
-			pitrTarget: "2026-02-20T14:30:00",
+			pitrTarget: targetTime,
 		}
-		cmd, err := r.toPITRCommand("base")
-		require.NoError(t, err)
-		assert.Equal(t, uint32(1771597800), cmd.Target.T)
-	})
-
-	t.Run("invalid target returns error", func(t *testing.T) {
-		r := restoreFormResult{
-			scope:      restoreScopeFull,
-			pitrPreset: pitrPresetCustom,
-			pitrTarget: "not-a-date",
-		}
-		_, err := r.toPITRCommand("base")
-		assert.Error(t, err)
+		cmd := r.toPITRCommand("base")
+		assert.Equal(t, targetUnix, cmd.Target.T)
 	})
 }
 
@@ -371,36 +292,40 @@ func TestCompletedBackupOptions(t *testing.T) {
 // --- resolvePITRTarget ---
 
 func TestResolvePITRTarget(t *testing.T) {
+	// 2026-02-20T14:30:00 UTC
+	const expectedUnix = uint32(1771597800)
+	customTime := time.Date(2026, 2, 20, 14, 30, 0, 0, time.UTC)
+
 	tests := []struct {
 		name         string
 		preset       string
-		customTarget string
-		want         string
+		customTarget time.Time
+		wantT        uint32
 	}{
 		{
-			name:         "non-custom preset returns preset value",
+			name:         "non-custom preset parses timestamp string",
 			preset:       "2026-02-20T14:30:00",
-			customTarget: "ignored",
-			want:         "2026-02-20T14:30:00",
+			customTarget: time.Time{}, // ignored
+			wantT:        expectedUnix,
 		},
 		{
-			name:         "custom preset returns custom target",
+			name:         "custom preset uses time.Time value",
 			preset:       pitrPresetCustom,
-			customTarget: "2026-03-01T10:00:00",
-			want:         "2026-03-01T10:00:00",
+			customTarget: customTime,
+			wantT:        expectedUnix,
 		},
 		{
-			name:         "empty preset returns empty (not custom)",
+			name:         "empty preset returns zero Timestamp",
 			preset:       "",
-			customTarget: "something",
-			want:         "",
+			customTarget: customTime,
+			wantT:        0,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := resolvePITRTarget(tt.preset, tt.customTarget)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantT, got.T)
 		})
 	}
 }

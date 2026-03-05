@@ -289,10 +289,7 @@ func (o *restoreFormOverlay) dispatchRestore() tea.Cmd {
 		if baseName == "" {
 			return restoreErrorCmd(fmt.Errorf("no valid base backup for this PITR target"))
 		}
-		pitrCmd, err := o.result.toPITRCommand(baseName)
-		if err != nil {
-			return restoreErrorCmd(err)
-		}
+		pitrCmd := o.result.toPITRCommand(baseName)
 		// Check if the selected base backup is physical/incremental.
 		if base := findBackupByName(o.backups, baseName); base != nil && (base.IsPhysical() || base.IsIncremental()) {
 			return physicalRestoreConfirmCmd(pitrCmd, base.Name, base.Type.String(), true)
