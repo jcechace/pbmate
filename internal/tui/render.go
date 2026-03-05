@@ -254,6 +254,26 @@ func renderCursorList(lines []string, cursor int, focused bool, styles *Styles) 
 	return b.String()
 }
 
+// segmentedToggleTitle renders a two-segment toggle title for panel borders.
+// Each label is rendered as either "[Label]" (active, bold, colored) or
+// "Label" (inactive, muted). Labels are joined with a single space.
+// Used by the Backups tab (Backups/Restores) and Config tab (Preview/YAML).
+func segmentedToggleTitle(labels []string, activeIdx int, borderColor lipgloss.TerminalColor, styles *Styles) string {
+	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
+	inactiveStyle := styles.StatusMuted
+
+	parts := make([]string, len(labels))
+	for i, label := range labels {
+		if i == activeIdx {
+			parts[i] = bracketStyle.Render("[") + activeStyle.Render(label) + bracketStyle.Render("]")
+		} else {
+			parts[i] = inactiveStyle.Render(label)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 // humanBytes formats a byte count into a human-readable string.
 func humanBytes(b int64) string {
 	const (

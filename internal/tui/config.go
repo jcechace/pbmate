@@ -425,20 +425,11 @@ func (m *configModel) profileYAMLView(p *sdk.StorageProfile) string {
 // segmentedDetailTitle renders the [Preview] YAML / Preview [YAML] toggle
 // label for the right panel border, matching the Backups tab pattern.
 func (m *configModel) segmentedDetailTitle(borderColor lipgloss.TerminalColor) string {
-	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	inactiveStyle := m.styles.StatusMuted
-	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-
-	renderLabel := func(label string, active bool) string {
-		if active {
-			return bracketStyle.Render("[") + activeStyle.Render(label) + bracketStyle.Render("]")
-		}
-		return inactiveStyle.Render(label)
+	activeIdx := 0
+	if m.detail == detailYAML {
+		activeIdx = 1
 	}
-
-	return renderLabel("Preview", m.detail == detailPreview) +
-		" " +
-		renderLabel("YAML", m.detail == detailYAML)
+	return segmentedToggleTitle([]string{"Preview", "YAML"}, activeIdx, borderColor, m.styles)
 }
 
 // --- Detail section renderers ---

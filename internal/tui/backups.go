@@ -563,20 +563,11 @@ func (m *backupsModel) borderColor(p panel) lipgloss.TerminalColor {
 // The active label is bold with brackets, the inactive one is muted. Toggle
 // with tab is shown in the bottom bar hints.
 func (m *backupsModel) segmentedTitle(borderColor lipgloss.TerminalColor) string {
-	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-	inactiveStyle := m.styles.StatusMuted
-	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
-
-	renderLabel := func(label string, active bool) string {
-		if active {
-			return bracketStyle.Render("[") + activeStyle.Render(label) + bracketStyle.Render("]")
-		}
-		return inactiveStyle.Render(label)
+	activeIdx := 0
+	if m.mode == listRestores {
+		activeIdx = 1
 	}
-
-	return renderLabel("Backups", m.mode == listBackups) +
-		" " +
-		renderLabel("Restores", m.mode == listRestores)
+	return segmentedToggleTitle([]string{"Backups", "Restores"}, activeIdx, borderColor, m.styles)
 }
 
 // view renders the Backups tab with left list + right detail panels.
