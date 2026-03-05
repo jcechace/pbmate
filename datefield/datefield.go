@@ -18,6 +18,7 @@
 package datefield
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -571,8 +572,9 @@ func (d *DateTimePicker) RunAccessible(w io.Writer, r io.Reader) error {
 	}
 	_, _ = fmt.Fprintf(w, "%s (format: %s): ", prompt, layout)
 
-	var input string
-	fmt.Fscan(r, &input) //nolint:errcheck
+	scanner := bufio.NewScanner(r)
+	scanner.Scan()
+	input := strings.TrimSpace(scanner.Text())
 
 	t, err := time.ParseInLocation(layout, input, time.UTC)
 	if err != nil {
