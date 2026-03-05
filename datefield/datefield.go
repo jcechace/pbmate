@@ -150,9 +150,10 @@ type DateTimePicker struct {
 }
 
 // New creates a DateTimePicker with the given initial time.
-// Defaults to ModeDateTimeSec and UTC time.
+// The time is normalized to UTC and truncated to second precision.
+// Defaults to ModeDateTimeSec.
 func New(initial time.Time) *DateTimePicker {
-	t := initial.UTC()
+	t := initial.UTC().Truncate(time.Second)
 	d := &DateTimePicker{
 		accessor: &huh.EmbeddedAccessor[time.Time]{},
 		t:        t,
@@ -603,8 +604,9 @@ func (d *DateTimePicker) WithTheme(theme *huh.Theme) huh.Field {
 func (d *DateTimePicker) WithAccessible(_ bool) huh.Field { return d }
 
 // WithKeyMap implements huh.Field.
-// Sets left/right/up/down bindings from the global huh keymap's navigation keys.
-// Tab/shift-tab/enter are taken from our own KeyMap and are not overridden.
+// Maps Next, Prev, and Submit from the huh form keymap.
+// Left, Right, Up, and Down retain their [DefaultKeyMap] bindings since
+// [huh.KeyMap] has no corresponding navigation fields for them.
 func (d *DateTimePicker) WithKeyMap(k *huh.KeyMap) huh.Field {
 	d.keymap.Next = k.Input.Next
 	d.keymap.Prev = k.Input.Prev
