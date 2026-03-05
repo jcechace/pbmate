@@ -3,7 +3,7 @@ module github.com/jcechace/pbmate/sdk/v2
 go 1.26
 
 require (
-	github.com/percona/percona-backup-mongodb v1.8.1-0.20260213115858-01eb9981f58a
+	github.com/percona/percona-backup-mongodb v1.8.1-0.20260303132450-cd59a62cb5d8
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go/modules/mongodb v0.40.0
 	go.mongodb.org/mongo-driver v1.17.9
