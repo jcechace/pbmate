@@ -139,6 +139,14 @@ for _, a := range agents {
 }
 ```
 
+### Get Cluster Time
+
+```go
+// Read the current MongoDB cluster time (useful for computing PITR targets).
+ts, err := client.Cluster.ClusterTime(ctx)
+fmt.Printf("cluster time: T=%d I=%d  (%s)\n", ts.T, ts.I, ts.Time().UTC().Format(time.RFC3339))
+```
+
 ### Monitor and Toggle PITR
 
 ```go
@@ -174,6 +182,19 @@ for entry := range entries {
 if err := <-errs; err != nil {
     log.Printf("follow ended: %v", err)
 }
+```
+
+### Look Up by Operation ID
+
+```go
+// Get a backup by its PBM operation ID (useful when tracking an in-progress op).
+bk, err := client.Backups.GetByOpID(ctx, opid)
+if errors.Is(err, sdk.ErrNotFound) {
+    fmt.Println("no backup found for that operation ID")
+}
+
+// Get a restore by its PBM operation ID.
+restore, err := client.Restores.GetByOpID(ctx, opid)
 ```
 
 ### Handle Concurrent Operations
@@ -257,6 +278,9 @@ for _, p := range profiles {
 f, _ := os.Open("archive-profile.yaml")
 defer f.Close()
 _, err := client.Config.SetProfile(ctx, "archive", f)
+
+// Remove a storage profile.
+err = client.Config.RemoveProfile(ctx, "archive")
 ```
 
 ## Design
