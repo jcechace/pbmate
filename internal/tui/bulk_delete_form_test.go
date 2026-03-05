@@ -10,64 +10,6 @@ import (
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
-// --- parseCustomDate ---
-
-func TestParseCustomDate(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		wantY   int
-		wantM   time.Month
-		wantD   int
-		wantH   int
-		wantMin int
-		wantErr bool
-	}{
-		{
-			name:  "date only",
-			input: "2026-02-20",
-			wantY: 2026, wantM: time.February, wantD: 20,
-		},
-		{
-			name:  "date and time",
-			input: "2026-02-20 14:30",
-			wantY: 2026, wantM: time.February, wantD: 20, wantH: 14, wantMin: 30,
-		},
-		{
-			name:    "empty string",
-			input:   "",
-			wantErr: true,
-		},
-		{
-			name:    "invalid format",
-			input:   "not-a-date",
-			wantErr: true,
-		},
-		{
-			name:    "ISO format with seconds not supported",
-			input:   "2026-02-20T14:30:00",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			parsed, err := parseCustomDate(tt.input)
-			if tt.wantErr {
-				assert.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantY, parsed.Year())
-			assert.Equal(t, tt.wantM, parsed.Month())
-			assert.Equal(t, tt.wantD, parsed.Day())
-			assert.Equal(t, tt.wantH, parsed.Hour())
-			assert.Equal(t, tt.wantMin, parsed.Minute())
-			assert.Equal(t, time.UTC, parsed.Location())
-		})
-	}
-}
-
 // --- presetDuration ---
 
 func TestPresetDuration(t *testing.T) {
@@ -96,6 +38,8 @@ func TestPresetDuration(t *testing.T) {
 // --- toBackupCommand with presets ---
 
 func TestToBackupCommandPreset(t *testing.T) {
+	customDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name       string
 		result     bulkDeleteFormResult
@@ -128,7 +72,7 @@ func TestToBackupCommandPreset(t *testing.T) {
 			result: bulkDeleteFormResult{
 				target:     bulkDeleteBackups,
 				preset:     presetCustom,
-				customDate: "2026-01-15",
+				customDate: customDate,
 				backupType: "all",
 				configName: defaultConfigName,
 			},
@@ -151,23 +95,10 @@ func TestToBackupCommandPreset(t *testing.T) {
 			case "Before":
 				c, ok := cmd.(sdk.DeleteBackupsBefore)
 				require.True(t, ok, "expected DeleteBackupsBefore")
-				assert.False(t, c.OlderThan.IsZero())
+				assert.Equal(t, customDate, c.OlderThan)
 			}
 		})
 	}
-}
-
-func TestToBackupCommandCustomDateError(t *testing.T) {
-	r := &bulkDeleteFormResult{
-		target:     bulkDeleteBackups,
-		preset:     presetCustom,
-		customDate: "not-a-date",
-		backupType: "all",
-		configName: defaultConfigName,
-	}
-	_, err := r.toBackupCommand()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid date")
 }
 
 func TestToBackupCommandProfile(t *testing.T) {
@@ -248,35 +179,25 @@ func TestToPITRCommandNow(t *testing.T) {
 }
 
 func TestToPITRCommandCustom(t *testing.T) {
+	customDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
 	r := &bulkDeleteFormResult{
 		target:     bulkDeletePITR,
 		preset:     presetCustom,
-		customDate: "2026-01-15",
+		customDate: customDate,
 	}
 	cmd, err := r.toPITRCommand()
 	require.NoError(t, err)
 
 	c, ok := cmd.(sdk.DeletePITRBefore)
 	require.True(t, ok)
-	assert.Equal(t, 2026, c.OlderThan.Year())
-	assert.Equal(t, time.January, c.OlderThan.Month())
-	assert.Equal(t, 15, c.OlderThan.Day())
-}
-
-func TestToPITRCommandCustomError(t *testing.T) {
-	r := &bulkDeleteFormResult{
-		target:     bulkDeletePITR,
-		preset:     presetCustom,
-		customDate: "bad",
-	}
-	_, err := r.toPITRCommand()
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid date")
+	assert.Equal(t, customDate, c.OlderThan)
 }
 
 // --- confirmTitle ---
 
 func TestConfirmTitle(t *testing.T) {
+	customDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+
 	tests := []struct {
 		name   string
 		result bulkDeleteFormResult
@@ -294,8 +215,8 @@ func TestConfirmTitle(t *testing.T) {
 		},
 		{
 			name:   "backups custom with date",
-			result: bulkDeleteFormResult{target: bulkDeleteBackups, preset: presetCustom, customDate: "2026-01-15"},
-			want:   "Delete backups older than 2026-01-15?",
+			result: bulkDeleteFormResult{target: bulkDeleteBackups, preset: presetCustom, customDate: customDate},
+			want:   "Delete backups older than 2026-01-15 00:00?",
 		},
 		{
 			name:   "PITR custom without date",
@@ -314,23 +235,26 @@ func TestConfirmTitle(t *testing.T) {
 // --- presetLabel ---
 
 func TestPresetLabel(t *testing.T) {
+	customDate := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+
 	tests := []struct {
+		name   string
 		preset bulkDeletePreset
-		custom string
+		custom time.Time
 		want   string
 	}{
-		{presetNow, "", "now (all)"},
-		{preset1Day, "", "1 day"},
-		{preset3Days, "", "3 days"},
-		{preset1Week, "", "1 week"},
-		{preset2Weeks, "", "2 weeks"},
-		{preset1Month, "", "1 month"},
-		{presetCustom, "2026-01-15", "2026-01-15"},
-		{presetCustom, "", "custom date"},
+		{"now", presetNow, time.Time{}, "now (all)"},
+		{"1 day", preset1Day, time.Time{}, "1 day"},
+		{"3 days", preset3Days, time.Time{}, "3 days"},
+		{"1 week", preset1Week, time.Time{}, "1 week"},
+		{"2 weeks", preset2Weeks, time.Time{}, "2 weeks"},
+		{"1 month", preset1Month, time.Time{}, "1 month"},
+		{"custom with date", presetCustom, customDate, "2026-01-15 00:00"},
+		{"custom without date", presetCustom, time.Time{}, "custom date"},
 	}
 
 	for _, tt := range tests {
-		t.Run(string(tt.preset)+"_"+tt.custom, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			r := &bulkDeleteFormResult{preset: tt.preset, customDate: tt.custom}
 			assert.Equal(t, tt.want, r.presetLabel())
 		})

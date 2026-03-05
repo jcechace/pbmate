@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/jcechace/pbmate/datefield"
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
 
@@ -35,9 +36,9 @@ const (
 type bulkDeleteFormResult struct {
 	target     bulkDeleteTarget
 	preset     bulkDeletePreset
-	customDate string // user-entered date for presetCustom
-	backupType string // "all", "logical", "physical", "incremental"
-	configName string // profile name, "main" for main config
+	customDate time.Time // user-selected date for presetCustom
+	backupType string    // "all", "logical", "physical", "incremental"
+	configName string    // profile name, "main" for main config
 	confirmed  bool
 
 	// profiles is stored for form rebuilds.
@@ -63,19 +64,6 @@ func (r *bulkDeleteFormResult) presetDuration() time.Duration {
 	default:
 		return -1 // custom
 	}
-}
-
-// parseCustomDate parses the custom date string entered by the user.
-// Supports "2006-01-02" and "2006-01-02 15:04" formats. Returns
-// the parsed time in UTC.
-func parseCustomDate(s string) (time.Time, error) {
-	if t, err := time.Parse("2006-01-02 15:04", s); err == nil {
-		return t.UTC(), nil
-	}
-	if t, err := time.Parse("2006-01-02", s); err == nil {
-		return t.UTC(), nil
-	}
-	return time.Time{}, fmt.Errorf("invalid date %q (use YYYY-MM-DD or YYYY-MM-DD HH:MM)", s)
 }
 
 // toBackupCommand converts the form result into a sealed SDK DeleteBackupCommand.
@@ -109,12 +97,8 @@ func (r *bulkDeleteFormResult) toBackupCommand() (sdk.DeleteBackupCommand, error
 	}
 
 	// Custom date.
-	t, err := parseCustomDate(r.customDate)
-	if err != nil {
-		return nil, err
-	}
 	return sdk.DeleteBackupsBefore{
-		OlderThan:  t,
+		OlderThan:  r.customDate,
 		Type:       backupType,
 		ConfigName: configName,
 	}, nil
@@ -130,11 +114,7 @@ func (r *bulkDeleteFormResult) toPITRCommand() (sdk.DeletePITRCommand, error) {
 	}
 
 	// Custom date.
-	t, err := parseCustomDate(r.customDate)
-	if err != nil {
-		return nil, err
-	}
-	return sdk.DeletePITRBefore{OlderThan: t}, nil
+	return sdk.DeletePITRBefore{OlderThan: r.customDate}, nil
 }
 
 // confirmTitle returns a descriptive confirm question for the current selections.
@@ -164,8 +144,8 @@ func (r *bulkDeleteFormResult) presetLabel() string {
 	case preset1Month:
 		return "1 month"
 	case presetCustom:
-		if r.customDate != "" {
-			return r.customDate
+		if !r.customDate.IsZero() {
+			return r.customDate.UTC().Format("2006-01-02 15:04")
 		}
 		return "custom date"
 	default:
@@ -225,10 +205,14 @@ func newBulkDeleteForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, init
 
 	// Custom date input — only shown when preset is "custom".
 	if result.preset == presetCustom {
+		initial := result.customDate
+		if initial.IsZero() {
+			initial = time.Now().UTC()
+		}
 		groups = append(groups, huh.NewGroup(
-			huh.NewInput().
+			datefield.New(initial).
 				Title("Date").
-				Placeholder("YYYY-MM-DD or YYYY-MM-DD HH:MM").
+				Mode(datefield.ModeDateTimeSec).
 				Value(&result.customDate),
 		))
 	}
