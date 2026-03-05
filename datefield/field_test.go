@@ -436,6 +436,17 @@ func TestViewModeDateOmitsTime(t *testing.T) {
 	assert.NotContains(t, plain, "14", "ModeDate should not show hours")
 }
 
+func TestViewModeDateTimeOmitsSeconds(t *testing.T) {
+	now := time.Date(2025, 6, 15, 14, 30, 45, 0, time.UTC)
+	d := New(now).Mode(ModeDateTime)
+	d.WithWidth(40)
+	plain := stripANSI(d.View())
+	assert.Contains(t, plain, "2025")
+	assert.Contains(t, plain, "14", "ModeDateTime should show hours")
+	assert.Contains(t, plain, "30", "ModeDateTime should show minutes")
+	assert.NotContains(t, plain, "45", "ModeDateTime should not show seconds")
+}
+
 // stripANSI removes ANSI escape sequences for plain-text assertions.
 func stripANSI(s string) string {
 	var b strings.Builder

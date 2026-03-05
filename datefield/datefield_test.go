@@ -350,3 +350,79 @@ func TestFlushDigitBuf(t *testing.T) {
 	d.flushDigitBuf()
 	assert.Empty(t, d.digitBuf)
 }
+
+func TestAddDigitLastSegmentStaysAndClears(t *testing.T) {
+	now := time.Date(2025, 3, 5, 14, 30, 0, 0, time.UTC)
+	d := New(now) // ModeDateTimeSec — last segment is segSecond (index 5)
+	d.activeSeg = segSecond
+
+	d.addDigit('4')
+	// One digit in — not yet full, stays on segSecond.
+	assert.Equal(t, segSecond, d.activeSeg)
+	assert.Equal(t, "4", d.digitBuf)
+
+	d.addDigit('5')
+	// Two digits in — full. nextSeg is a no-op at the last segment.
+	assert.Equal(t, segSecond, d.activeSeg)
+	assert.Equal(t, 45, d.t.Second())
+	assert.Empty(t, d.digitBuf)
+}
+
+// =============================================================================
+// Mode-specific segment navigation bounds
+// =============================================================================
+
+func TestNextSegBoundsModeDate(t *testing.T) {
+	now := time.Date(2025, 3, 5, 14, 30, 45, 0, time.UTC)
+	d := New(now).Mode(ModeDate) // 3 segments: year, month, day
+
+	d.activeSeg = segDay
+	d.nextSeg()
+	assert.Equal(t, segDay, d.activeSeg, "nextSeg at segDay should be a no-op in ModeDate")
+}
+
+func TestNextSegBoundsModeDateTime(t *testing.T) {
+	now := time.Date(2025, 3, 5, 14, 30, 45, 0, time.UTC)
+	d := New(now).Mode(ModeDateTime) // 5 segments: year, month, day, hour, minute
+
+	d.activeSeg = segMinute
+	d.nextSeg()
+	assert.Equal(t, segMinute, d.activeSeg, "nextSeg at segMinute should be a no-op in ModeDateTime")
+}
+
+// =============================================================================
+// setSegValue preserves untouched segments
+// =============================================================================
+
+func TestSetSegValuePreservesOtherSegments(t *testing.T) {
+	original := time.Date(2025, 3, 15, 14, 30, 45, 0, time.UTC)
+
+	tests := []struct {
+		name string
+		seg  segment
+		v    int
+	}{
+		{"change year", segYear, 2030},
+		{"change month", segMonth, 6},
+		{"change day", segDay, 20},
+		{"change hour", segHour, 8},
+		{"change minute", segMinute, 0},
+		{"change second", segSecond, 59},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := setSegValue(original, tt.seg, tt.v)
+			// The changed segment should have the new value.
+			d := New(result)
+			assert.Equal(t, tt.v, d.segValue(tt.seg))
+			// All other segments should be unchanged.
+			for _, s := range []segment{segYear, segMonth, segDay, segHour, segMinute, segSecond} {
+				if s == tt.seg {
+					continue
+				}
+				assert.Equal(t, New(original).segValue(s), d.segValue(s), "segment %v should be unchanged", s)
+			}
+		})
+	}
+}
