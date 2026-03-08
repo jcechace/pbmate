@@ -45,5 +45,8 @@ homebrew_casks:
             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/pbmate"]
           end
 
+release:
+  mode: replace
+
 changelog:
   disable: true

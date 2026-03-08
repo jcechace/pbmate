@@ -25,7 +25,11 @@ jobs:
         uses: kenji-miyake/setup-git-cliff@v2
 
       - name: Generate release notes
-        run: git cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+        run: |
+          git cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "::warning::RELEASE_NOTES.md is empty — no matching commits found"
+          fi
 
       - uses: goreleaser/goreleaser-action@v7
         with:
