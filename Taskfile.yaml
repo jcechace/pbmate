@@ -110,6 +110,13 @@ tasks:
     cmds:
       - go install -ldflags "-X main.version={{.VERSION}}" .
 
+  tui:image:
+    desc: Build production Docker image (host arch)
+    cmds:
+      - CGO_ENABLED=0 go build -ldflags "-s -w -X main.version={{.VERSION}}" -o pbmate_linux_$(go env GOARCH) .
+      - docker build -t pbmate:latest .
+      - rm -f pbmate_linux_*
+
   tui:image:dev:
     desc: Build Docker image from source (dev)
     cmds:

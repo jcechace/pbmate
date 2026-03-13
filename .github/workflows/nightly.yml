@@ -1,17 +1,17 @@
-name: Release
+name: Nightly
 
 on:
-  push:
-    tags:
-      - "v*"
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  release:
-    name: Build & Release
+  nightly:
+    name: Nightly Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -22,23 +22,13 @@ jobs:
         with:
           go-version: "1.26"
 
-      - name: Install git-cliff
-        uses: kenji-miyake/setup-git-cliff@v2
-
-      - name: Generate release notes
-        run: |
-          git cliff --config cliff.toml --latest --strip header > RELEASE_NOTES.md
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "::warning::RELEASE_NOTES.md is empty — no matching commits found"
-          fi
-
-      - uses: goreleaser/goreleaser-action@v7
+      - name: Build snapshot binaries
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
-          args: release --clean --release-notes RELEASE_NOTES.md
+          args: release --snapshot --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -56,8 +46,16 @@ jobs:
 
       - name: Build and push Docker image
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
           docker buildx build --platform linux/amd64,linux/arm64 \
-            -t ghcr.io/jcechace/pbmate:${VERSION} \
-            -t ghcr.io/jcechace/pbmate:latest \
+            -t ghcr.io/jcechace/pbmate:nightly \
             --push .
+
+      - name: Create rolling pre-release
+        run: |
+          gh release delete nightly --yes --cleanup-tag || true
+          gh release create nightly dist/*.tar.gz dist/checksums.txt \
+            --prerelease \
+            --title "Nightly ($(date -u +%Y-%m-%d))" \
+            --notes "Built from main at $(git rev-parse --short HEAD). Not a stable release."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
