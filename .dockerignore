@@ -1,0 +1,9 @@
+.git
+.idea
+.DS_Store
+dist/
+bin/
+*.out
+coverage/
+.task/
+.env*

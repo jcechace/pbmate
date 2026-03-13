@@ -110,6 +110,11 @@ tasks:
     cmds:
       - go install -ldflags "-X main.version={{.VERSION}}" .
 
+  tui:image:dev:
+    desc: Build Docker image from source (dev)
+    cmds:
+      - docker build -f Dockerfile.dev -t pbmate:dev .
+
   # ---------------------------------------------------------------------------
   # Datefield
   # ---------------------------------------------------------------------------
