@@ -93,6 +93,7 @@ func (m *configModel) setData(d configData) {
 	m.config = d.config
 	m.configYAML = d.yaml
 	m.profiles = d.profiles
+	m.profileYAMLs = make(map[string][]byte)
 
 	// Sort profiles alphabetically by name.
 	sort.Slice(m.profiles, func(i, j int) bool {
