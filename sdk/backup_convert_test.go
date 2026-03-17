@@ -24,6 +24,7 @@ func TestConvertBackup(t *testing.T) {
 		FirstWriteTS:     primitive.Timestamp{T: 1705312100, I: 1},
 		LastWriteTS:      primitive.Timestamp{T: 1705312300, I: 1},
 		LastTransitionTS: 1705312400,
+		Hb:               primitive.Timestamp{T: 1705312350, I: 1},
 		Size:             1024000,
 		SizeUncompressed: 2048000,
 		Namespaces:       []string{"db1.coll1"},
@@ -61,6 +62,7 @@ func TestConvertBackup(t *testing.T) {
 	assert.Equal(t, uint32(1705312300), b.LastWriteTS.T)
 	assert.Equal(t, uint32(1), b.LastWriteTS.I)
 	assert.Equal(t, int64(1705312400), b.LastTransitionTS.Unix())
+	assert.Equal(t, int64(1705312350), b.Heartbeat.Unix())
 	assert.Equal(t, int64(1024000), b.Size)
 	assert.Equal(t, int64(2048000), b.SizeUncompressed)
 	assert.Equal(t, []string{"db1.coll1"}, b.Namespaces)
@@ -102,6 +104,7 @@ func TestConvertBackupReplsetsNil(t *testing.T) {
 
 	b := convertBackup(meta)
 	assert.Nil(t, b.Replsets)
+	assert.True(t, b.Heartbeat.IsZero())
 }
 
 func TestConvertBackupReplsetIsConfigSvrNil(t *testing.T) {

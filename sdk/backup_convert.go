@@ -17,6 +17,7 @@ func convertBackup(meta *backup.BackupMeta) Backup {
 		FirstWriteTS:     convertTimestamp(meta.FirstWriteTS),
 		LastWriteTS:      convertTimestamp(meta.LastWriteTS),
 		LastTransitionTS: convertUnixToTime(meta.LastTransitionTS),
+		Heartbeat:        convertUnixToTime(int64(meta.Hb.T)),
 		Size:             meta.Size,
 		SizeUncompressed: meta.SizeUncompressed,
 		Namespaces:       meta.Namespaces,

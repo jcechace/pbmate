@@ -180,6 +180,7 @@ type Backup struct {
 	FirstWriteTS     Timestamp       // first oplog write position; use with LastWriteTS for oplog range
 	LastWriteTS      Timestamp       // restore-to point (oplog position); use LastWriteTS.Time() for display
 	LastTransitionTS time.Time       // when the status last changed
+	Heartbeat        time.Time       // leader heartbeat; updated every ~5s while running, zero when idle
 	Size             int64           // compressed size in bytes; zero while in progress
 	SizeUncompressed int64           // original data size in bytes
 	Namespaces       []string        // nil means full backup; non-nil lists specific db.collection patterns
