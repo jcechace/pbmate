@@ -70,6 +70,16 @@ brew install pbmate
 
 Grab a pre-built binary from [GitHub Releases](https://github.com/jcechace/pbmate/releases).
 
+### Docker
+
+Nightly images (built daily from main) are published to GitHub Container Registry for linux/amd64 and linux/arm64:
+
+```bash
+docker run --rm -it ghcr.io/jcechace/pbmate:nightly --uri mongodb://user:pass@your-host:27017
+```
+
+Stable release images (`ghcr.io/jcechace/pbmate:<version>` and `:latest`) are published alongside GitHub Releases.
+
 ### From Source
 
 ```bash
