@@ -53,6 +53,10 @@ func renderBackupDetail(b *strings.Builder, bk *sdk.Backup, styles *Styles) {
 	ind := statusIndicator(bk.Status, styles)
 	fmt.Fprintf(b, "  Status:      %s %s\n", ind, bk.Status)
 
+	if bk.InProgress() && !bk.Heartbeat.IsZero() {
+		fmt.Fprintf(b, "  Last HB:     %s\n", bk.Heartbeat.UTC().Format("2006-01-02 15:04:05 UTC"))
+	}
+
 	if !bk.LastWriteTS.IsZero() {
 		restoreTime := bk.LastWriteTS.Time().UTC().Format("2006-01-02 15:04:05")
 		fmt.Fprintf(b, "  Restore To:  %s\n", styles.Bold.Render(restoreTime))
