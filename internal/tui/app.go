@@ -1,13 +1,9 @@
 package tui
 
 import (
-	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/spinner"
@@ -156,299 +152,79 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.updateViewportDims()
 		return m, nil
-
-	case connectMsg:
-		if msg.err != nil {
-			m.connectAttempt++
-			delay := connectBackoff(m.connectAttempt)
-			m.flashErr = fmt.Sprintf("Connection failed (retry in %s)", delay.Truncate(time.Second))
-			return m, reconnectCmd(delay)
-		}
-		m.connecting = false
-		m.connectAttempt = 0
-		m.flashErr = ""
-		m.client = msg.client
-		m.overview.ctx = m.ctx
-		m.overview.client = msg.client
-		return m, tickCmd(0)
-
-	case reconnectMsg:
-		m.flashErr = ""
-		return m, connectCmd(m.mongoURI)
-
-	case spinner.TickMsg:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		// Keep spinning while connecting or running operations.
-		if m.connecting || m.overview.HasRunningOps() {
-			m.overview.rebuildStatusContent(m.spinner.View())
-			return m, cmd
-		}
-		return m, nil // stop the tick chain
-
-	case tickMsg:
-		if m.client == nil {
-			return m, nil
-		}
-		// Always fetch overview data (needed for status bar).
-		// Additionally fetch tab-specific data.
-		cmds := []tea.Cmd{fetchOverviewCmd(m.ctx, m.client, m.overview.skipLogFetch(), m.overview.logFilter)}
-		if m.activeTab == tabBackups {
-			cmds = append(cmds, fetchBackupsCmd(m.ctx, m.client), fetchRestoresCmd(m.ctx, m.client))
-		}
-		if m.activeTab == tabConfig {
-			cmds = append(cmds, fetchConfigCmd(m.ctx, m.client))
-		}
-		return m, tea.Batch(cmds...)
-
-	case overviewDataMsg:
-		hadOps := m.overview.HasRunningOps()
-		m.overview.setData(msg.overviewData, m.spinner.View())
-		m.setFlash("fetch", msg.err)
-		// Adaptive polling: faster when operations are running.
-		cmds := []tea.Cmd{tickCmd(idleInterval)}
-		if m.overview.HasRunningOps() {
-			cmds[0] = tickCmd(activeInterval)
-			// Restart spinner if operations just appeared.
-			if !hadOps && !m.connecting {
-				cmds = append(cmds, m.spinner.Tick)
-			}
-		}
-		return m, tea.Batch(cmds...)
-
-	case backupsDataMsg:
-		m.backups.setBackupData(msg.backupsData)
-		m.setFlash("fetch", msg.err)
-		return m, nil
-
-	case restoresDataMsg:
-		m.backups.setRestoreData(msg.restoresData)
-		m.setFlash("fetch", msg.err)
-		return m, nil
-
-	case actionResultMsg:
-		if msg.err != nil {
-			m.flashErr = msg.err.Error()
-			return m, nil
-		}
-		m.flashErr = ""
-		// Action-specific side effects on success.
-		switch msg.action {
-		case "restore":
-			m.backups.mode = listRestores
-			m.backups.rebuildListContent()
-			m.backups.rebuildDetailContent()
-		case "apply config", "set profile", "create profile", "remove profile", "edit config":
-			// Clear cached profile YAMLs so they are re-fetched.
-			m.config.profileYAMLs = make(map[string][]byte)
-		default:
-			// Match "edit profile <name>" actions.
-			if strings.HasPrefix(msg.action, "edit profile ") {
-				m.config.profileYAMLs = make(map[string][]byte)
-			}
-		}
-		return m, tickCmd(0)
-
-	case logFollowMsg:
-		// Discard messages from a stale follow session.
-		if msg.session != m.overview.logFollowSession {
-			return m, nil
-		}
-		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
-			// Follow channel errored; stop following.
-			m.overview.stopFollow()
-			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
-			return m, nil
-		}
-		m.overview.appendLogEntries(msg.entries)
-		// Wait for the next batch from the follow channel.
-		return m, m.overview.nextLogCmd()
-
-	case logFollowDoneMsg:
-		// Discard done messages from a stale follow session.
-		if msg.session != m.overview.logFollowSession {
-			return m, nil
-		}
-		m.overview.stopFollow()
-		if msg.err != nil && !errors.Is(msg.err, context.Canceled) {
-			m.flashErr = fmt.Sprintf("follow: %v", msg.err)
-		}
-		return m, nil
-
-	case logFilterRequest:
-		overlay, cmd := newLogFilterOverlay(m.styles.FormTheme, msg.agents, msg.filter)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case logFilterResultMsg:
-		if msg.reset {
-			m.overview.logFilter = sdk.LogFilter{}
-		} else {
-			m.overview.logFilter = msg.filter
-		}
-		// If following, restart follow with new filter.
-		if m.overview.isFollowing() {
-			m.overview.stopFollow()
-			cmd := m.overview.toggleFollow()
-			return m, tea.Batch(cmd, tickCmd(0))
-		}
-		return m, tickCmd(0)
-
-	case bulkDeleteRequest:
-		if m.client != nil {
-			return m, fetchBulkDeleteProfilesCmd(m.ctx, m.client, msg.initial)
-		}
-		return m, nil
-
-	case bulkDeleteFormReadyMsg:
-		overlay, cmd := newBulkDeleteOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.initial)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case backupFormReadyMsg:
-		overlay, cmd := newBackupFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.kind, msg.profiles, msg.backups)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case resyncFormRequest:
-		overlay, cmd := newResyncFormOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.initial)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case configDataMsg:
-		m.config.setData(msg.configData)
-		m.setFlash("fetch", msg.err)
-		// Trigger lazy profile YAML fetch if the selected profile is uncached.
-		if name := m.config.needsProfileYAML(); name != "" {
-			return m, fetchProfileYAMLCmd(m.ctx, m.client, name)
-		}
-		return m, nil
-
-	case profileYAMLMsg:
-		m.setFlash("fetch", msg.err)
-		if msg.err == nil {
-			m.config.setProfileYAML(msg.name, msg.yaml)
-		}
-		return m, nil
-
-	case fetchProfileYAMLRequest:
-		if m.client != nil {
-			return m, fetchProfileYAMLCmd(m.ctx, m.client, msg.name)
-		}
-		return m, nil
-
-	case removeProfileRequest:
-		if m.client != nil {
-			title := fmt.Sprintf("Delete Profile: %s", msg.name)
-			description := fmt.Sprintf("Remove storage profile %q?\nThis will clear associated backup metadata.", msg.name)
-			overlay, cmd := newConfirmOverlay(m.styles.FormTheme, title, description, "Delete", "Cancel",
-				removeProfileCmd(m.ctx, m.client, msg.name))
-			m.activeOverlay = overlay
-			return m, cmd
-		}
-		return m, nil
-
-	case setConfigRequest:
-		if m.client == nil {
-			return m, nil
-		}
-		overlay, cmd := newSetConfigOverlay(m.ctx, m.client, m.styles.FormTheme, msg.profiles, msg.mainExists, msg.initial)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case editConfigRequest:
-		if m.client != nil {
-			return m, fetchEditYAMLCmd(m.ctx, m.client, msg.profileName)
-		}
-		return m, nil
-
-	case editConfigReadyMsg:
-		if msg.err != nil {
-			m.flashErr = msg.err.Error()
-			return m, nil
-		}
-		return m, openEditorCmd(m.editor, msg.yaml, msg.profileName)
-
-	case editorDoneMsg:
-		if msg.err != nil {
-			// Pre-editor errors (temp file creation, editor exit) — no
-			// temp file to preserve (already cleaned in openEditorCmd).
-			m.flashErr = msg.err.Error()
-			return m, nil
-		}
-		if bytes.Equal(msg.original, msg.edited) {
-			// No changes — clean up temp file.
-			_ = os.Remove(msg.tmpPath)
-			m.flashErr = ""
-			return m, nil
-		}
-		// Apply the edited config. applyEditedConfigCmd handles temp
-		// file cleanup: deletes on success, preserves on failure.
-		return m, applyEditedConfigCmd(m.ctx, m.client, msg.edited, msg.profileName, msg.tmpPath)
-
-	case deleteCheckRequest:
-		if m.client != nil {
-			return m, canDeleteCmd(m.ctx, m.client, msg.baseName, msg.title, msg.description)
-		}
-		return m, nil
-
-	case canDeleteMsg:
-		if msg.err != nil {
-			m.setFlash("delete", msg.err)
-			return m, nil
-		}
-		overlay, cmd := newConfirmOverlay(m.styles.FormTheme, msg.title, msg.description, "Delete", "Cancel",
-			deleteBackupCmd(m.ctx, m.client, msg.baseName))
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case restoreTargetRequest:
-		if m.client == nil {
-			return m, nil
-		}
-		overlay, cmd := newRestoreTargetOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backups, msg.timelines)
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case restoreRequest:
-		if m.client == nil {
-			return m, nil
-		}
-		var overlay *restoreFormOverlay
-		var cmd tea.Cmd
-		switch msg.mode {
-		case restoreModeSnapshot:
-			overlay, cmd = newSnapshotRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.backup)
-		case restoreModePITR:
-			overlay, cmd = newPITRRestoreOverlay(m.ctx, m.client, m.styles.FormTheme, msg.timeline, msg.backups, msg.timelines)
-		}
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case physicalRestoreConfirmRequest:
-		if m.client == nil {
-			return m, nil
-		}
-		desc := physicalRestoreWarning(msg)
-		overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
-			"Physical Restore", desc, "Restore", "Cancel",
-			startPhysicalRestoreCmd(m.ctx, m.client, msg.cmd))
-		m.activeOverlay = overlay
-		return m, cmd
-
-	case physicalRestoreResultMsg:
-		if msg.err != nil {
-			m.flashErr = msg.err.Error()
-			return m, nil
-		}
-		m.exitMessage = "Physical restore dispatched. Monitor progress with: pbm status"
-		m.overview.stopFollow()
-		return m, tea.Quit
-
 	case quitTimeoutMsg:
 		m.quitPending = false
 		return m, nil
 
+	// Connection lifecycle.
+	case connectMsg:
+		return m.handleConnect(msg)
+	case reconnectMsg:
+		return m.handleReconnect(msg)
+	case spinner.TickMsg:
+		return m.handleSpinnerTick(msg)
+
+	// Polling and data arrival.
+	case tickMsg:
+		return m.handleTick(msg)
+	case overviewDataMsg:
+		return m.handleOverviewData(msg)
+	case backupsDataMsg:
+		return m.handleBackupsData(msg)
+	case restoresDataMsg:
+		return m.handleRestoresData(msg)
+	case configDataMsg:
+		return m.handleConfigData(msg)
+	case profileYAMLMsg:
+		return m.handleProfileYAML(msg)
+	case fetchProfileYAMLRequest:
+		return m.handleFetchProfileYAMLRequest(msg)
+
+	// Action results.
+	case actionResultMsg:
+		return m.handleActionResult(msg)
+	case editorDoneMsg:
+		return m.handleEditorDone(msg)
+	case physicalRestoreResultMsg:
+		return m.handlePhysicalRestoreResult(msg)
+
+	// Log follow and filter.
+	case logFollowMsg:
+		return m.handleLogFollow(msg)
+	case logFollowDoneMsg:
+		return m.handleLogFollowDone(msg)
+	case logFilterRequest:
+		return m.handleLogFilterRequest(msg)
+	case logFilterResultMsg:
+		return m.handleLogFilterResult(msg)
+
+	// Overlay and form creation.
+	case bulkDeleteRequest:
+		return m.handleBulkDeleteRequest(msg)
+	case bulkDeleteFormReadyMsg:
+		return m.handleBulkDeleteFormReady(msg)
+	case backupFormReadyMsg:
+		return m.handleBackupFormReady(msg)
+	case resyncFormRequest:
+		return m.handleResyncFormRequest(msg)
+	case setConfigRequest:
+		return m.handleSetConfigRequest(msg)
+	case removeProfileRequest:
+		return m.handleRemoveProfileRequest(msg)
+	case editConfigRequest:
+		return m.handleEditConfigRequest(msg)
+	case editConfigReadyMsg:
+		return m.handleEditConfigReady(msg)
+	case deleteCheckRequest:
+		return m.handleDeleteCheckRequest(msg)
+	case canDeleteMsg:
+		return m.handleCanDelete(msg)
+	case restoreTargetRequest:
+		return m.handleRestoreTargetRequest(msg)
+	case restoreRequest:
+		return m.handleRestoreRequest(msg)
+	case physicalRestoreConfirmRequest:
+		return m.handlePhysicalRestoreConfirmRequest(msg)
 	}
 
 	// Route to the active overlay if one is open.
