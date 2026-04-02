@@ -4,16 +4,22 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "[tui]"
 
   - package-ecosystem: gomod
     directory: /sdk
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "[sdk]"
 
   - package-ecosystem: gomod
     directory: /datefield
     schedule:
       interval: weekly
+    commit-message:
+      prefix: "[datefield]"
 
   - package-ecosystem: github-actions
     directory: /
