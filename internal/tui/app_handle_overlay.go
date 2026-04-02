@@ -61,8 +61,7 @@ func (m Model) handleEditConfigRequest(msg editConfigRequest) (tea.Model, tea.Cm
 
 func (m Model) handleEditConfigReady(msg editConfigReadyMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.flashErr = msg.err.Error()
-		return m, nil
+		return m, m.setActionFlash(msg.err)
 	}
 	return m, openEditorCmd(m.editor, msg.yaml, msg.profileName)
 }
@@ -76,8 +75,7 @@ func (m Model) handleDeleteCheckRequest(msg deleteCheckRequest) (tea.Model, tea.
 
 func (m Model) handleCanDelete(msg canDeleteMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.setFlash("delete", msg.err)
-		return m, nil
+		return m, m.setActionFlash(msg.err)
 	}
 	overlay, cmd := newConfirmOverlay(m.styles.FormTheme, msg.title, msg.description, "Delete", "Cancel",
 		deleteBackupCmd(m.ctx, m.client, msg.baseName))

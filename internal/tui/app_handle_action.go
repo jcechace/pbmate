@@ -10,10 +10,9 @@ import (
 
 func (m Model) handleActionResult(msg actionResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.flashErr = msg.err.Error()
-		return m, nil
+		return m, m.setActionFlash(msg.err)
 	}
-	m.flashErr = ""
+	m.setActionFlash(nil)
 	// Action-specific side effects on success.
 	switch msg.action {
 	case "restore":
@@ -36,13 +35,12 @@ func (m Model) handleEditorDone(msg editorDoneMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
 		// Pre-editor errors (temp file creation, editor exit) — no
 		// temp file to preserve (already cleaned in openEditorCmd).
-		m.flashErr = msg.err.Error()
-		return m, nil
+		return m, m.setActionFlash(msg.err)
 	}
 	if bytes.Equal(msg.original, msg.edited) {
 		// No changes — clean up temp file.
 		_ = os.Remove(msg.tmpPath)
-		m.flashErr = ""
+		m.setActionFlash(nil)
 		return m, nil
 	}
 	// Apply the edited config. applyEditedConfigCmd handles temp
@@ -52,8 +50,7 @@ func (m Model) handleEditorDone(msg editorDoneMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handlePhysicalRestoreResult(msg physicalRestoreResultMsg) (tea.Model, tea.Cmd) {
 	if msg.err != nil {
-		m.flashErr = msg.err.Error()
-		return m, nil
+		return m, m.setActionFlash(msg.err)
 	}
 	m.exitMessage = "Physical restore dispatched. Monitor progress with: pbm status"
 	m.overview.stopFollow()

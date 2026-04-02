@@ -26,6 +26,10 @@ const (
 	// quitTimeout is how long the "press q again" hint stays active before
 	// reverting to normal state.
 	quitTimeout = 2 * time.Second
+
+	// actionFlashTimeout is how long action error messages persist in the
+	// status bar before auto-clearing. Must be long enough to read.
+	actionFlashTimeout = 5 * time.Second
 )
 
 // connectBackoff returns the retry delay for the given attempt number (1-based).

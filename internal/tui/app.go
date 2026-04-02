@@ -51,12 +51,13 @@ type Model struct {
 
 	styles Styles
 
-	activeTab      tab
-	width          int
-	height         int
-	connecting     bool   // true while initial connection is in progress (including retries)
-	connectAttempt int    // number of connection attempts (0 = first try, 1+ = retries)
-	flashErr       string // transient error message for the status bar
+	activeTab       tab
+	width           int
+	height          int
+	connecting      bool   // true while initial connection is in progress (including retries)
+	connectAttempt  int    // number of connection attempts (0 = first try, 1+ = retries)
+	flashErr        string // transient error message for the status bar
+	flashFromAction bool   // true when flashErr was set by a user action (sticky across polls)
 
 	// activeOverlay captures all input when non-nil. Overlays include
 	// backup forms, file pickers, profile name forms, and confirm dialogs.
@@ -110,17 +111,6 @@ func New(opts Options) Model {
 	}
 }
 
-// setFlash sets or clears the transient error message in the status bar.
-// On success (err == nil) the message is cleared. On failure the prefix
-// and error are combined into a flash message.
-func (m *Model) setFlash(prefix string, err error) {
-	if err != nil {
-		m.flashErr = fmt.Sprintf("%s: %v", prefix, err)
-	} else {
-		m.flashErr = ""
-	}
-}
-
 // Close cancels the root context and disconnects the SDK client.
 // Safe to call when the client is nil (e.g. connection never succeeded).
 func (m Model) Close() {
@@ -154,6 +144,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case quitTimeoutMsg:
 		m.quitPending = false
+		return m, nil
+	case clearActionFlashMsg:
+		if m.flashFromAction {
+			m.flashErr = ""
+			m.flashFromAction = false
+		}
 		return m, nil
 
 	// Connection lifecycle.

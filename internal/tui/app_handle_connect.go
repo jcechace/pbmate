@@ -18,6 +18,7 @@ func (m Model) handleConnect(msg connectMsg) (tea.Model, tea.Cmd) {
 	m.connecting = false
 	m.connectAttempt = 0
 	m.flashErr = ""
+	m.flashFromAction = false
 	m.client = msg.client
 	m.overview.ctx = m.ctx
 	m.overview.client = msg.client
@@ -26,6 +27,7 @@ func (m Model) handleConnect(msg connectMsg) (tea.Model, tea.Cmd) {
 
 func (m Model) handleReconnect(_ reconnectMsg) (tea.Model, tea.Cmd) {
 	m.flashErr = ""
+	m.flashFromAction = false
 	return m, connectCmd(m.mongoURI)
 }
 
