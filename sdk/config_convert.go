@@ -57,7 +57,10 @@ func convertBackupTimeouts(t *config.BackupTimeouts) *BackupTimeouts {
 	if t == nil {
 		return nil
 	}
-	return &BackupTimeouts{StartingStatus: t.Starting}
+	return &BackupTimeouts{
+		StartingStatus: t.Starting,
+		BalancerStop:   t.BalancerStopSec,
+	}
 }
 
 // convertStorageConfig converts a PBM StorageConf to an SDK StorageConfig.

@@ -118,6 +118,10 @@ type BackupTimeouts struct {
 	// StartingStatus is the timeout in seconds to wait for a backup agent
 	// to pick up the command. Nil means PBM uses its built-in default.
 	StartingStatus *uint32
+
+	// BalancerStop is the timeout in seconds to wait for the balancer to stop
+	// before starting a backup. 0 means wait indefinitely (PBM default).
+	BalancerStop uint32
 }
 
 // BackupConfig holds backup-specific configuration.

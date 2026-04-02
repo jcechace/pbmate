@@ -139,6 +139,15 @@ func TestConvertBackupTimeouts(t *testing.T) {
 		require.NotNil(t, result)
 		require.NotNil(t, result.StartingStatus)
 		assert.Equal(t, uint32(45), *result.StartingStatus)
+		assert.Zero(t, result.BalancerStop)
+	})
+
+	t.Run("with balancer stop timeout", func(t *testing.T) {
+		result := convertBackupTimeouts(&config.BackupTimeouts{BalancerStopSec: 120})
+
+		require.NotNil(t, result)
+		assert.Nil(t, result.StartingStatus)
+		assert.Equal(t, uint32(120), result.BalancerStop)
 	})
 
 	t.Run("nil starting timeout", func(t *testing.T) {
@@ -146,6 +155,7 @@ func TestConvertBackupTimeouts(t *testing.T) {
 
 		require.NotNil(t, result)
 		assert.Nil(t, result.StartingStatus)
+		assert.Zero(t, result.BalancerStop)
 	})
 }
 
