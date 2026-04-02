@@ -77,24 +77,25 @@ func (o *bulkDeleteOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 	targetChanged := o.result.target != o.lastTarget
 	presetChanged := o.result.preset != o.lastPreset
 	if targetChanged || presetChanged {
-		return o.rebuildForm()
+		return o.rebuildForm(targetChanged)
 	}
 
 	return o, cmd
 }
 
 // rebuildForm reconstructs the bulk delete form when target or preset changes,
-// preserving current field values. Focus is advanced past the Target selector
-// so the user doesn't have to re-navigate through unchanged fields.
-func (o *bulkDeleteOverlay) rebuildForm() (formOverlay, tea.Cmd) {
+// preserving current field values. When only preset changed, focus advances
+// past Target so it lands on Preset. When target changed, focus stays on
+// Target so the user can continue adjusting it.
+func (o *bulkDeleteOverlay) rebuildForm(targetChanged bool) (formOverlay, tea.Cmd) {
 	form, result := newBulkDeleteForm(o.formTheme, o.profiles, o.result)
 	o.form = form
 	o.result = result
 	o.lastTarget = result.target
 	o.lastPreset = result.preset
-	// Advance past Target to Preset (1 field), so focus lands on the
-	// field the user was interacting with or just past it.
-	return o, initFormWithAdvance(o.form, true)
+
+	advance := !targetChanged // advance past Target only when preset changed
+	return o, initFormWithAdvance(o.form, advance)
 }
 
 // dispatch creates the appropriate tea.Cmd based on the form result.
