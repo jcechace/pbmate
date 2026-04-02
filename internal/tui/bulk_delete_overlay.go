@@ -52,7 +52,10 @@ func newBulkDeleteOverlay(ctx context.Context, client *sdk.Client, formTheme *hu
 		ctx:        ctx,
 		client:     client,
 	}
-	return o, o.form.Init()
+	// When opened with a pre-selected target (e.g. d on PITR timeline),
+	// advance focus past Target to land on "Older than".
+	advance := initial != nil
+	return o, initFormWithAdvance(o.form, advance)
 }
 
 func (o *bulkDeleteOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
