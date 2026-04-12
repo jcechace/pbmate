@@ -45,7 +45,7 @@ func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme 
 		ctx:         ctx,
 		client:      client,
 	}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *restoreTargetOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
@@ -162,7 +162,7 @@ func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formThem
 		ctx:        ctx,
 		client:     client,
 	}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
@@ -185,7 +185,7 @@ func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, f
 		ctx:          ctx,
 		client:       client,
 	}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *restoreFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
@@ -251,7 +251,7 @@ func (o *restoreFormOverlay) rebuildSnapshotForm() (formOverlay, tea.Cmd) {
 	o.form = form
 	o.result = result
 	o.lastScope = result.scope
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 // rebuildPITRForm reconstructs the PITR restore form when preset, base, or

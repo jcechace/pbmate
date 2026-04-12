@@ -385,7 +385,7 @@ func updateFormModel(form **huh.Form, msg tea.Msg) tea.Cmd {
 // (form.NextField). Used after dynamic form rebuilds where the focus should
 // land on a field other than the first interactive one.
 func initFormWithAdvance(form *huh.Form, advance bool) tea.Cmd {
-	initCmd := form.Init()
+	initCmd := initThemedForm(form)
 	if advance {
 		advanceCmd := form.NextField()
 		return tea.Batch(initCmd, advanceCmd)
@@ -398,11 +398,15 @@ func initFormWithAdvance(form *huh.Form, advance bool) tea.Cmd {
 // the returned cmds are cosmetic (blur/focus animations). Use this when
 // a form rebuild needs to restore focus past the first interactive field.
 func initFormAdvanceTo(form *huh.Form, n int) tea.Cmd {
-	cmds := []tea.Cmd{form.Init()}
+	cmds := []tea.Cmd{initThemedForm(form)}
 	for range n {
 		cmds = append(cmds, form.NextField())
 	}
 	return tea.Batch(cmds...)
+}
+
+func initThemedForm(form *huh.Form) tea.Cmd {
+	return tea.Batch(form.Init(), tea.RequestBackgroundColor)
 }
 
 // --- Shared ---

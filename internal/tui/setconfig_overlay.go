@@ -38,7 +38,7 @@ func newSetConfigOverlay(ctx context.Context, client *sdk.Client, formTheme huh.
 		ctx:         ctx,
 		client:      client,
 	}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *setConfigOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
