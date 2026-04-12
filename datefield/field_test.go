@@ -2,12 +2,13 @@ package datefield
 
 import (
 	"errors"
+	"image/color"
 	"strings"
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,27 +17,27 @@ import (
 // Helpers
 // =============================================================================
 
-// keyMsg constructs a tea.KeyMsg for a named key (e.g. "left", "up", "tab").
-func keyMsg(key string) tea.KeyMsg {
+// keyMsg constructs a tea.KeyPressMsg for a named key (e.g. "left", "up", "tab").
+func keyMsg(key string) tea.KeyPressMsg {
 	switch key {
 	case "left":
-		return tea.KeyMsg{Type: tea.KeyLeft}
+		return tea.KeyPressMsg{Code: tea.KeyLeft}
 	case "right":
-		return tea.KeyMsg{Type: tea.KeyRight}
+		return tea.KeyPressMsg{Code: tea.KeyRight}
 	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
+		return tea.KeyPressMsg{Code: tea.KeyUp}
 	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
+		return tea.KeyPressMsg{Code: tea.KeyDown}
 	case "tab":
-		return tea.KeyMsg{Type: tea.KeyTab}
+		return tea.KeyPressMsg{Code: tea.KeyTab}
 	case "shift+tab":
-		return tea.KeyMsg{Type: tea.KeyShiftTab}
+		return tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift}
 	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
+		return tea.KeyPressMsg{Code: tea.KeyEnter}
 	default:
-		// Rune key.
+		// Printable key.
 		r := []rune(key)
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: r}
+		return tea.KeyPressMsg{Code: r[0], Text: key}
 	}
 }
 
@@ -339,14 +340,26 @@ func TestWithTheme(t *testing.T) {
 	d := New(time.Now())
 	assert.Nil(t, d.theme)
 
-	theme := huh.ThemeCharm()
+	firstStyles := &huh.Styles{}
+	theme := huh.ThemeFunc(func(bool) *huh.Styles { return firstStyles })
 	d.WithTheme(theme)
-	assert.Equal(t, theme, d.theme)
+	assert.Same(t, firstStyles, d.getTheme())
 
 	// Second call should be ignored (theme already set).
-	other := huh.ThemeDracula()
+	otherStyles := &huh.Styles{}
+	other := huh.ThemeFunc(func(bool) *huh.Styles { return otherStyles })
 	d.WithTheme(other)
-	assert.Equal(t, theme, d.theme, "WithTheme should not overwrite an already-set theme")
+	assert.Same(t, firstStyles, d.getTheme(), "WithTheme should not overwrite an already-set theme")
+}
+
+func TestUpdateTracksBackgroundColor(t *testing.T) {
+	d := New(time.Now())
+	assert.True(t, d.hasDarkBg)
+
+	model, cmd := d.Update(tea.BackgroundColorMsg{Color: color.NRGBA{R: 255, G: 255, B: 255, A: 255}})
+	assert.Same(t, d, model.(*DateTimePicker))
+	assert.Nil(t, cmd)
+	assert.False(t, d.hasDarkBg)
 }
 
 func TestWithPosition(t *testing.T) {

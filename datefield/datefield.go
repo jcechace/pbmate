@@ -24,10 +24,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/cellbuf"
 )
 
@@ -49,6 +49,8 @@ const (
 	// ModeDateTimeSec shows full date and time with seconds: 2025-03-05 14:30:00
 	ModeDateTimeSec
 )
+
+const defaultThemeIsDark = true
 
 // =============================================================================
 // Segment
@@ -143,10 +145,11 @@ type DateTimePicker struct {
 	digitBuf  string  // accumulated digit input for the current segment
 
 	// huh integration
-	keymap KeyMap
-	theme  *huh.Theme
-	width  int
-	height int
+	keymap    KeyMap
+	theme     huh.Theme
+	hasDarkBg bool
+	width     int
+	height    int
 }
 
 // New creates a DateTimePicker with the given initial time.
@@ -155,11 +158,12 @@ type DateTimePicker struct {
 func New(initial time.Time) *DateTimePicker {
 	t := initial.UTC().Truncate(time.Second)
 	d := &DateTimePicker{
-		accessor: &huh.EmbeddedAccessor[time.Time]{},
-		t:        t,
-		mode:     ModeDateTimeSec,
-		validate: func(time.Time) error { return nil },
-		keymap:   DefaultKeyMap(),
+		accessor:  &huh.EmbeddedAccessor[time.Time]{},
+		t:         t,
+		mode:      ModeDateTimeSec,
+		validate:  func(time.Time) error { return nil },
+		keymap:    DefaultKeyMap(),
+		hasDarkBg: defaultThemeIsDark,
 	}
 	d.accessor.Set(t)
 	return d
@@ -346,16 +350,23 @@ func formatSegment(s segment, v int) string {
 	return fmt.Sprintf("%02d", v)
 }
 
-// activeStyles returns focused or blurred FieldStyles from the theme.
+// activeStyles returns focused or blurred FieldStyles from the active theme.
 func (d *DateTimePicker) activeStyles() *huh.FieldStyles {
-	theme := d.theme
-	if theme == nil {
-		theme = huh.ThemeCharm()
+	styles := d.getTheme()
+	if styles == nil {
+		styles = huh.ThemeCharm(d.hasDarkBg)
 	}
 	if d.focused {
-		return &theme.Focused
+		return &styles.Focused
 	}
-	return &theme.Blurred
+	return &styles.Blurred
+}
+
+func (d *DateTimePicker) getTheme() *huh.Styles {
+	if d.theme == nil {
+		return nil
+	}
+	return d.theme.Theme(d.hasDarkBg)
 }
 
 // renderSegments renders the segmented date/time value string.
@@ -424,8 +435,13 @@ func wrapText(s string, limit int) string {
 func (d *DateTimePicker) Init() tea.Cmd { return nil }
 
 // Update implements huh.Field.
-func (d *DateTimePicker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyMsg)
+func (d *DateTimePicker) Update(msg tea.Msg) (huh.Model, tea.Cmd) {
+	if bgMsg, ok := msg.(tea.BackgroundColorMsg); ok {
+		d.hasDarkBg = bgMsg.IsDark()
+		return d, nil
+	}
+
+	keyMsg, ok := msg.(tea.KeyPressMsg)
 	if !ok {
 		return d, nil
 	}
@@ -473,8 +489,8 @@ func (d *DateTimePicker) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	default:
 		// Digit input.
-		if len(keyMsg.Runes) == 1 {
-			ch := keyMsg.Runes[0]
+		if len(keyMsg.Text) == 1 {
+			ch := keyMsg.Text[0]
 			if ch >= '0' && ch <= '9' {
 				d.addDigit(byte(ch))
 			}
@@ -590,8 +606,8 @@ func (d *DateTimePicker) RunAccessible(w io.Writer, r io.Reader) error {
 }
 
 // WithTheme implements huh.Field.
-func (d *DateTimePicker) WithTheme(theme *huh.Theme) huh.Field {
-	if d.theme != nil {
+func (d *DateTimePicker) WithTheme(theme huh.Theme) huh.Field {
+	if d.theme != nil || theme == nil {
 		return d
 	}
 	d.theme = theme
