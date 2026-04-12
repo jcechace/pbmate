@@ -166,7 +166,7 @@ type resyncFormRequest struct {
 
 // update handles key messages for the Config tab.
 // The readonly flag disables all mutation actions (set config, resync, delete).
-func (m *configModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) tea.Cmd {
+func (m *configModel) update(msg tea.KeyPressMsg, keys globalKeyMap, readonly bool) tea.Cmd {
 	switch {
 	case key.Matches(msg, configKeys.SetConfig) && !readonly:
 		return m.emitSetConfigRequest(nil)

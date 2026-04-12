@@ -130,7 +130,7 @@ func (m *backupsModel) selectedRestore() *sdk.Restore {
 // update handles key messages for the Backups tab.
 // Returns a tea.Cmd if an action was triggered, nil otherwise.
 // The readonly flag disables all mutation actions (restore, delete).
-func (m *backupsModel) update(msg tea.KeyMsg, keys globalKeyMap, readonly bool) tea.Cmd {
+func (m *backupsModel) update(msg tea.KeyPressMsg, keys globalKeyMap, readonly bool) tea.Cmd {
 	switch {
 	case key.Matches(msg, backupKeys.Toggle) && m.focus == panelLeft:
 		if m.mode == listBackups {

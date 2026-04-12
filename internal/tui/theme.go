@@ -26,23 +26,47 @@ type Theme struct {
 	// flavor is the Catppuccin flavor for this theme. Nil for the default
 	// adaptive theme. Used to build a matching huh form theme.
 	flavor *catppuccingo.Flavor
+
+	adaptive bool
 }
 
 // defaultChromaStyle is used when the theme does not specify a Chroma style.
 const defaultChromaStyle = "swapoff"
 
-// DefaultTheme returns the baseline palette used before theme adaptation.
-func DefaultTheme() Theme {
+const initialThemeIsDark = true
+
+func defaultThemeVariant(isDark bool) Theme {
+	subtle := lipgloss.Color("245")
+	highlight := lipgloss.Color("236")
+	ok := lipgloss.Color("34")
+	err := lipgloss.Color("160")
+	warning := lipgloss.Color("172")
+	muted := lipgloss.Color("245")
+	if isDark {
+		subtle = lipgloss.Color("241")
+		highlight = lipgloss.Color("252")
+		ok = lipgloss.Color("42")
+		err = lipgloss.Color("196")
+		warning = lipgloss.Color("214")
+		muted = lipgloss.Color("241")
+	}
+
 	return Theme{
 		Primary:     lipgloss.Color("62"),
-		Subtle:      lipgloss.Color("241"),
-		Highlight:   lipgloss.Color("252"),
-		OK:          lipgloss.Color("42"),
-		Error:       lipgloss.Color("196"),
-		Warning:     lipgloss.Color("214"),
-		Muted:       lipgloss.Color("241"),
+		Subtle:      subtle,
+		Highlight:   highlight,
+		OK:          ok,
+		Error:       err,
+		Warning:     warning,
+		Muted:       muted,
 		ChromaStyle: defaultChromaStyle,
+		adaptive:    true,
 	}
+}
+
+// DefaultTheme returns the baseline palette used before theme adaptation.
+func DefaultTheme() Theme {
+	return defaultThemeVariant(initialThemeIsDark)
 }
 
 // catppuccinTheme builds a Theme from a catppuccin flavor.
@@ -89,6 +113,14 @@ func ThemeByName(name string) Theme {
 	default:
 		return DefaultTheme()
 	}
+}
+
+// Resolve returns the theme variant that matches the terminal background.
+func (t Theme) Resolve(isDark bool) Theme {
+	if !t.adaptive {
+		return t
+	}
+	return defaultThemeVariant(isDark)
 }
 
 // HuhTheme returns a huh form theme matching this theme. For Catppuccin
