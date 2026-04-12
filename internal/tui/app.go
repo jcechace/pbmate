@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/spinner"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/spinner"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -129,7 +129,7 @@ func (m Model) ExitMessage() string {
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.WindowSize(), connectCmd(m.mongoURI), m.spinner.Tick)
+	return tea.Batch(tea.RequestWindowSize, connectCmd(m.mongoURI), m.spinner.Tick)
 }
 
 // Update implements tea.Model.
@@ -231,7 +231,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Key messages without an overlay go to the normal key handler.
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		return m.updateKeys(keyMsg)
 	}
 
@@ -239,7 +239,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // updateKeys handles key messages when no form overlay is active.
-func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	// If the help overlay is open, dismiss on ?/esc and ignore everything else.
 	if m.showHelp {
 		if key.Matches(msg, m.keys.Help) || key.Matches(msg, m.keys.Back) {
@@ -338,9 +338,11 @@ func (m Model) updateKeys(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 // View implements tea.Model.
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if m.width == 0 {
-		return "Loading..."
+		v := tea.NewView("Loading...")
+		v.AltScreen = true
+		return v
 	}
 
 	header := m.headerView()
@@ -357,11 +359,13 @@ func (m Model) View() string {
 		MaxHeight(contentHeight).
 		Render(m.contentView(contentHeight))
 
-	return lipgloss.JoinVertical(lipgloss.Left,
+	v := tea.NewView(lipgloss.JoinVertical(lipgloss.Left,
 		header,
 		content,
 		bottomBar,
-	)
+	))
+	v.AltScreen = true
+	return v
 }
 
 // headerView renders the tab bar.

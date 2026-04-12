@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jcechace/pbmate/datefield"
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -115,7 +115,7 @@ func (r *restoreTargetResult) effectivePITRTarget() sdk.Timestamp {
 // The user picks the restore type (Snapshot/PITR) and the specific target.
 // Groups are built dynamically based on type — the form is rebuilt when type
 // or PITR preset changes (see restoreTargetOverlay).
-func newRestoreTargetForm(formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreTargetResult) (*huh.Form, *restoreTargetResult) {
+func newRestoreTargetForm(formTheme huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreTargetResult) (*huh.Form, *restoreTargetResult) {
 	result := &restoreTargetResult{
 		restoreType: restoreModeSnapshot,
 		profileName: defaultConfigName,
@@ -272,7 +272,7 @@ func backupContextDescription(bk *sdk.Backup) string {
 // a specific backup. Groups are built dynamically based on scope — the form
 // is rebuilt when scope changes (see restoreFormOverlay). initial carries
 // values from a previous form state during rebuild (nil for first open).
-func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
+func newSnapshotRestoreForm(formTheme huh.Theme, bk *sdk.Backup, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
 	result := &restoreFormResult{
 		scope:     restoreScopeFull,
 		confirmed: true,
@@ -385,7 +385,7 @@ func newSnapshotRestoreForm(formTheme *huh.Theme, bk *sdk.Backup, initial *resto
 // When the selected base backup is physical or incremental, scope and tuning
 // knobs are omitted — PBM uses the physical restore path where they don't
 // apply. This mirrors the snapshot form behavior for physical backups.
-func newPITRRestoreForm(formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
+func newPITRRestoreForm(formTheme huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*huh.Form, *restoreFormResult) {
 	result := &restoreFormResult{
 		scope:     restoreScopeFull,
 		confirmed: true,

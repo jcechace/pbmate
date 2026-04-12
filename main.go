@@ -5,8 +5,8 @@ import (
 	"os"
 	"sort"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/alecthomas/kong"
-	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/jcechace/pbmate/internal/config"
 	"github.com/jcechace/pbmate/internal/tui"
@@ -62,7 +62,7 @@ func (cmd *tuiCmd) Run(cfg *config.AppConfig) error {
 		Readonly:    readonly,
 		Editor:      editor,
 	})
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 	result, err := p.Run()
 	if err != nil {
 		return err

@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -29,7 +29,7 @@ type logFilterResultMsg struct {
 	reset  bool // true when user chose "Reset"
 }
 
-func newLogFilterOverlay(formTheme *huh.Theme, agents []sdk.Agent, current sdk.LogFilter) (*logFilterOverlay, tea.Cmd) {
+func newLogFilterOverlay(formTheme huh.Theme, agents []sdk.Agent, current sdk.LogFilter) (*logFilterOverlay, tea.Cmd) {
 	initial := fromLogFilter(current)
 	form, result := newLogFilterForm(formTheme, agents, initial)
 	o := &logFilterOverlay{form: form, result: result}

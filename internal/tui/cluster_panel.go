@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
+	"charm.land/bubbles/v2/viewport"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -130,10 +130,10 @@ func (p *clusterPanel) detailView() string {
 // resize sets viewport dimensions for both cluster and detail viewports.
 // Called at Update time (persists for scrolling) and View time (value copy).
 func (p *clusterPanel) resize(clusterW, clusterH, detailW, detailH int) {
-	p.clusterVP.Width = clusterW
-	p.clusterVP.Height = clusterH
-	p.detailVP.Width = detailW
-	p.detailVP.Height = detailH
+	p.clusterVP.SetWidth(clusterW)
+	p.clusterVP.SetHeight(clusterH)
+	p.detailVP.SetWidth(detailW)
+	p.detailVP.SetHeight(detailH)
 }
 
 // --- Internal methods ---

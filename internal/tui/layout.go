@@ -1,8 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
+	"image/color"
+
+	"charm.land/bubbles/v2/viewport"
 )
 
 // Layout constants controlling panel geometry.
@@ -56,7 +57,7 @@ func scrollViewport(vp *viewport.Model, delta int) {
 
 // panelBorderColor returns the focused or unfocused border color depending on
 // whether the panel is focused. Used by all sub-models for consistent styling.
-func panelBorderColor(focused bool, styles *Styles) lipgloss.TerminalColor {
+func panelBorderColor(focused bool, styles *Styles) color.Color {
 	if focused {
 		return styles.FocusedBorderColor
 	}

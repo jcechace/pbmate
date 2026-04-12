@@ -3,8 +3,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -113,7 +113,7 @@ func uniqueReplicaSets(agents []sdk.Agent) []string {
 // newLogFilterForm creates a form for configuring log filters.
 // The agents list is used to populate the replica set selector.
 // initial carries the current filter state for pre-population (nil for defaults).
-func newLogFilterForm(formTheme *huh.Theme, agents []sdk.Agent, initial *logFilterFormResult) (*huh.Form, *logFilterFormResult) {
+func newLogFilterForm(formTheme huh.Theme, agents []sdk.Agent, initial *logFilterFormResult) (*huh.Form, *logFilterFormResult) {
 	result := &logFilterFormResult{
 		severity:   "I",
 		replicaSet: logFilterAll,

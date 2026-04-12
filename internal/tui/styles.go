@@ -1,8 +1,10 @@
 package tui
 
 import (
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"image/color"
+
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Styles holds all lipgloss styles derived from a Theme.
@@ -16,8 +18,8 @@ type Styles struct {
 	PanelBorder          lipgloss.Border
 	LeftPanel            lipgloss.Style
 	RightPanel           lipgloss.Style
-	FocusedBorderColor   lipgloss.TerminalColor
-	UnfocusedBorderColor lipgloss.TerminalColor
+	FocusedBorderColor   color.Color
+	UnfocusedBorderColor color.Color
 
 	// Bottom bar (merged status + help).
 	BottomBar lipgloss.Style
@@ -38,7 +40,7 @@ type Styles struct {
 	ChromaStyle string
 
 	// FormTheme is the huh form theme matching the active TUI theme.
-	FormTheme *huh.Theme
+	FormTheme huh.Theme
 }
 
 // NewStyles creates a Styles set from the given Theme.

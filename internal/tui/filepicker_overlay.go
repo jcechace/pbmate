@@ -6,11 +6,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/filepicker"
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/filepicker"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -31,12 +31,12 @@ type filePickerOverlay struct {
 	profile      string // target profile ("" = main config)
 	isNew        bool   // creating new vs overwriting existing
 	needsConfirm bool   // show confirm overlay before applying
-	formTheme    *huh.Theme
+	formTheme    huh.Theme
 	ctx          context.Context
 	client       *sdk.Client
 }
 
-func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile string, isNew bool, needsConfirm bool, formTheme *huh.Theme, title string) (*filePickerOverlay, tea.Cmd) {
+func newFilePickerOverlay(ctx context.Context, client *sdk.Client, profile string, isNew bool, needsConfirm bool, formTheme huh.Theme, title string) (*filePickerOverlay, tea.Cmd) {
 	fp := filepicker.New()
 	fp.AllowedTypes = filePickerAllowedTypes
 	fp.AutoHeight = false

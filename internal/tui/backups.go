@@ -2,13 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -555,14 +556,14 @@ func (m *backupsModel) renderProfileDetail(b *strings.Builder, profile string) {
 
 // borderColor returns the border color for the given panel, highlighting
 // the focused panel.
-func (m *backupsModel) borderColor(p panel) lipgloss.TerminalColor {
+func (m *backupsModel) borderColor(p panel) color.Color {
 	return panelBorderColor(m.focus == p, m.styles)
 }
 
 // segmentedTitle renders the toggle title: [Backups] Restores or Backups [Restores].
 // The active label is bold with brackets, the inactive one is muted. Toggle
 // with tab is shown in the bottom bar hints.
-func (m *backupsModel) segmentedTitle(borderColor lipgloss.TerminalColor) string {
+func (m *backupsModel) segmentedTitle(borderColor color.Color) string {
 	activeIdx := 0
 	if m.mode == listRestores {
 		activeIdx = 1
@@ -576,10 +577,10 @@ func (m *backupsModel) view(totalW, totalH int) string {
 	innerH := innerHeight(totalH)
 
 	// Set viewport dimensions (known only at View time) and render.
-	m.listVP.Width = contentLeftW
-	m.listVP.Height = innerH
-	m.detailVP.Width = contentRightW
-	m.detailVP.Height = innerH
+	m.listVP.SetWidth(contentLeftW)
+	m.listVP.SetHeight(innerH)
+	m.detailVP.SetWidth(contentRightW)
+	m.detailVP.SetHeight(innerH)
 
 	border := m.styles.PanelBorder
 	leftColor := m.borderColor(panelLeft)
@@ -602,10 +603,10 @@ func (m *backupsModel) resize(totalW, totalH int) {
 	_, _, contentLeftW, contentRightW := horizontalSplit(totalW)
 	innerH := innerHeight(totalH)
 
-	m.listVP.Width = contentLeftW
-	m.listVP.Height = innerH
-	m.detailVP.Width = contentRightW
-	m.detailVP.Height = innerH
+	m.listVP.SetWidth(contentLeftW)
+	m.listVP.SetHeight(innerH)
+	m.detailVP.SetWidth(contentRightW)
+	m.detailVP.SetHeight(innerH)
 }
 
 // --- Viewport content rebuilders ---

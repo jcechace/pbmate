@@ -3,17 +3,18 @@ package tui
 import (
 	"bytes"
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/alecthomas/chroma/v2"
 	"github.com/alecthomas/chroma/v2/formatters"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -253,7 +254,7 @@ func (m *configModel) moveCursor(delta int) {
 // --- View ---
 
 // borderColor returns the border color for the given panel.
-func (m *configModel) borderColor(p panel) lipgloss.TerminalColor {
+func (m *configModel) borderColor(p panel) color.Color {
 	return panelBorderColor(m.focus == p, m.styles)
 }
 
@@ -262,10 +263,10 @@ func (m *configModel) view(totalW, totalH int) string {
 	panelLeftW, panelRightW, contentLeftW, contentRightW := horizontalSplit(totalW)
 	innerH := innerHeight(totalH)
 
-	m.listVP.Width = contentLeftW
-	m.listVP.Height = innerH
-	m.detailVP.Width = contentRightW
-	m.detailVP.Height = innerH
+	m.listVP.SetWidth(contentLeftW)
+	m.listVP.SetHeight(innerH)
+	m.detailVP.SetWidth(contentRightW)
+	m.detailVP.SetHeight(innerH)
 
 	border := m.styles.PanelBorder
 
@@ -286,10 +287,10 @@ func (m *configModel) resize(totalW, totalH int) {
 	_, _, contentLeftW, contentRightW := horizontalSplit(totalW)
 	innerH := innerHeight(totalH)
 
-	m.listVP.Width = contentLeftW
-	m.listVP.Height = innerH
-	m.detailVP.Width = contentRightW
-	m.detailVP.Height = innerH
+	m.listVP.SetWidth(contentLeftW)
+	m.listVP.SetHeight(innerH)
+	m.detailVP.SetWidth(contentRightW)
+	m.detailVP.SetHeight(innerH)
 }
 
 // --- List content ---
@@ -425,7 +426,7 @@ func (m *configModel) profileYAMLView(p *sdk.StorageProfile) string {
 
 // segmentedDetailTitle renders the [Preview] YAML / Preview [YAML] toggle
 // label for the right panel border, matching the Backups tab pattern.
-func (m *configModel) segmentedDetailTitle(borderColor lipgloss.TerminalColor) string {
+func (m *configModel) segmentedDetailTitle(borderColor color.Color) string {
 	activeIdx := 0
 	if m.detail == detailYAML {
 		activeIdx = 1

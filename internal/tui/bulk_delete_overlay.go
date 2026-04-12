@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -18,7 +18,7 @@ type bulkDeleteOverlay struct {
 	lastTarget bulkDeleteTarget
 	lastPreset bulkDeletePreset
 	profiles   []sdk.StorageProfile
-	formTheme  *huh.Theme
+	formTheme  huh.Theme
 	ctx        context.Context
 	client     *sdk.Client
 }
@@ -40,7 +40,7 @@ func fetchBulkDeleteProfilesCmd(ctx context.Context, client *sdk.Client, initial
 	}
 }
 
-func newBulkDeleteOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *bulkDeleteFormResult) (*bulkDeleteOverlay, tea.Cmd) {
+func newBulkDeleteOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, profiles []sdk.StorageProfile, initial *bulkDeleteFormResult) (*bulkDeleteOverlay, tea.Cmd) {
 	form, result := newBulkDeleteForm(formTheme, profiles, initial)
 	o := &bulkDeleteOverlay{
 		form:       form,
