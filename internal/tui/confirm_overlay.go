@@ -18,7 +18,7 @@ type confirmOverlay struct {
 func newConfirmOverlay(formTheme huh.Theme, title, description, affirmative, negative string, actionCmd tea.Cmd) (*confirmOverlay, tea.Cmd) {
 	form, result := newConfirmForm(formTheme, description, affirmative, negative)
 	o := &confirmOverlay{form: form, result: result, title: title, actionCmd: actionCmd}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *confirmOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {

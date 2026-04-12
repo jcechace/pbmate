@@ -33,7 +33,7 @@ func newLogFilterOverlay(formTheme huh.Theme, agents []sdk.Agent, current sdk.Lo
 	initial := fromLogFilter(current)
 	form, result := newLogFilterForm(formTheme, agents, initial)
 	o := &logFilterOverlay{form: form, result: result}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *logFilterOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {

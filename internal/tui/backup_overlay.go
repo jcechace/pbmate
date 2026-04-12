@@ -39,7 +39,7 @@ func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme huh
 		lastConfigName: result.configName,
 		ctx:            ctx, client: client, formTheme: formTheme,
 	}
-	return o, o.form.Init()
+	return o, initThemedForm(o.form)
 }
 
 func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOverlay, tea.Cmd) {
@@ -92,7 +92,7 @@ func (o *backupFormOverlay) transitionToFull() (formOverlay, tea.Cmd) {
 		client:         o.client,
 		formTheme:      o.formTheme,
 	}
-	return next, next.form.Init()
+	return next, initThemedForm(next.form)
 }
 
 // rebuildForm reconstructs the full backup form when the backup type or
