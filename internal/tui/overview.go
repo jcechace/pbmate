@@ -252,7 +252,7 @@ func (m *overviewModel) setData(d overviewData, spinnerFrame string) {
 
 // update handles key messages for the overview tab.
 // Returns a tea.Cmd if an action was triggered, nil otherwise.
-func (m *overviewModel) update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd {
+func (m *overviewModel) update(msg tea.KeyPressMsg, keys globalKeyMap) tea.Cmd {
 	switch {
 	case key.Matches(msg, keys.NextPanel):
 		m.cyclePanel(1)

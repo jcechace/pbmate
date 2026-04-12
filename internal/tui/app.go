@@ -46,10 +46,11 @@ type Model struct {
 	contextName string      // named context, empty for direct URI
 	readonly    bool        // disable all mutation actions
 	editor      string      // resolved editor command (e.g. "vim", "code -w")
+	baseTheme   Theme       // selected theme before terminal background adaptation
 	ctx         context.Context
 	cancel      context.CancelFunc
 
-	styles Styles
+	styles *Styles
 
 	activeTab       tab
 	width           int
@@ -89,24 +90,26 @@ type Model struct {
 // is established asynchronously — the TUI renders immediately while
 // connecting in the background.
 func New(opts Options) Model {
-	s := NewStyles(opts.Theme)
+	s := NewStyles(opts.Theme.Resolve(initialThemeIsDark))
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.MiniDot
+	styles := &s
 	return Model{
 		mongoURI:    opts.URI,
 		contextName: opts.ContextName,
 		readonly:    opts.Readonly,
 		editor:      opts.Editor,
+		baseTheme:   opts.Theme,
 		ctx:         ctx,
 		cancel:      cancel,
-		styles:      s,
+		styles:      styles,
 		activeTab:   tabOverview,
 		connecting:  true,
 		spinner:     sp,
-		overview:    newOverviewModel(&s),
-		backups:     newBackupsModel(&s),
-		config:      newConfigModel(&s),
+		overview:    newOverviewModel(styles),
+		backups:     newBackupsModel(styles),
+		config:      newConfigModel(styles),
 		keys:        globalKeys,
 	}
 }
@@ -129,11 +132,20 @@ func (m Model) ExitMessage() string {
 
 // Init implements tea.Model.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestWindowSize, connectCmd(m.mongoURI), m.spinner.Tick)
+	return tea.Batch(
+		tea.RequestWindowSize,
+		tea.RequestBackgroundColor,
+		connectCmd(m.mongoURI),
+		m.spinner.Tick,
+	)
 }
 
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if bgMsg, ok := msg.(tea.BackgroundColorMsg); ok {
+		*m.styles = NewStyles(m.baseTheme.Resolve(bgMsg.IsDark()))
+	}
+
 	// Data and system messages are handled first regardless of overlay state,
 	// so polling and status bar updates continue while forms are open.
 	switch msg := msg.(type) {
@@ -400,10 +412,10 @@ func (m Model) headerView() string {
 // When a form overlay is active, it renders on top of the current tab content.
 func (m Model) contentView(height int) string {
 	if m.showHelp {
-		return renderHelpOverlay(&m.styles, m.width, height, m.readonly)
+		return renderHelpOverlay(m.styles, m.width, height, m.readonly)
 	}
 	if m.activeOverlay != nil {
-		return m.activeOverlay.View(&m.styles, m.width, height)
+		return m.activeOverlay.View(m.styles, m.width, height)
 	}
 
 	switch m.activeTab {

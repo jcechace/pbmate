@@ -47,7 +47,7 @@ func (o *backupFormOverlay) Update(msg tea.Msg, back, quit key.Binding) (formOve
 		return nil, nil
 	}
 	// 'c' on the quick form transitions to the full wizard.
-	if keyMsg, ok := msg.(tea.KeyMsg); ok && o.kind == backupFormQuick && key.Matches(keyMsg, customizeKey) {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok && o.kind == backupFormQuick && key.Matches(keyMsg, customizeKey) {
 		return o.transitionToFull()
 	}
 

@@ -365,7 +365,7 @@ func newBorderlessForm(groups []*huh.Group, theme huh.Theme) *huh.Form {
 // dismissOverlay returns true if the message is a key press matching back or
 // quit. Overlay Update methods use this to dismiss on Esc/q.
 func dismissOverlay(msg tea.Msg, back, quit key.Binding) bool {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
 		return key.Matches(keyMsg, back) || key.Matches(keyMsg, quit)
 	}
 	return false
