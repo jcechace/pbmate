@@ -3,8 +3,8 @@ package tui
 import (
 	"fmt"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -46,7 +46,7 @@ func (r *resyncFormResult) toCommand() sdk.ResyncCommand {
 // Groups are built dynamically based on scope — the form is rebuilt when scope
 // or profile changes (see resyncFormOverlay). initial carries values from a
 // previous form state during rebuild (nil for first open).
-func newResyncForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*huh.Form, *resyncFormResult) {
+func newResyncForm(formTheme huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*huh.Form, *resyncFormResult) {
 	result := &resyncFormResult{
 		scope:       resyncScopeMain,
 		profileName: resyncProfileAll,

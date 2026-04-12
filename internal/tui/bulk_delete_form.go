@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/jcechace/pbmate/datefield"
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -157,7 +157,7 @@ func (r *bulkDeleteFormResult) presetLabel() string {
 // operation. Groups are built dynamically based on the target — backup-specific
 // fields (type, profile) are only shown when target is "backups". The custom
 // date input is only shown when the preset is "custom".
-func newBulkDeleteForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *bulkDeleteFormResult) (*huh.Form, *bulkDeleteFormResult) {
+func newBulkDeleteForm(formTheme huh.Theme, profiles []sdk.StorageProfile, initial *bulkDeleteFormResult) (*huh.Form, *bulkDeleteFormResult) {
 	result := &bulkDeleteFormResult{
 		target:     bulkDeleteBackups,
 		preset:     preset1Week,

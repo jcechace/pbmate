@@ -3,13 +3,14 @@ package tui
 import (
 	"context"
 	"fmt"
+	"image/color"
 	"slices"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -379,7 +380,7 @@ func (m *overviewModel) rebuildStatusContent(spinnerFrame string) {
 
 // borderColor returns the border color for the given quadrant, highlighting
 // the focused panel.
-func (m *overviewModel) borderColor(f overviewFocus) lipgloss.TerminalColor {
+func (m *overviewModel) borderColor(f overviewFocus) color.Color {
 	return panelBorderColor(m.focus == f, m.styles)
 }
 
@@ -395,10 +396,10 @@ func (m *overviewModel) view(totalW, totalH int) string {
 
 	// Set viewport dimensions (known only at View time).
 	m.cluster.resize(contentLeftW, innerTopH, contentRightW, innerTopH)
-	m.statusVP.Width = contentLeftW
-	m.statusVP.Height = innerBotH
-	m.logs.vp.Width = contentRightW
-	m.logs.vp.Height = innerBotH
+	m.statusVP.SetWidth(contentLeftW)
+	m.statusVP.SetHeight(innerBotH)
+	m.logs.vp.SetWidth(contentRightW)
+	m.logs.vp.SetHeight(innerBotH)
 
 	// Render titled panels with focus-highlighted borders.
 	border := m.styles.PanelBorder
@@ -428,8 +429,8 @@ func (m *overviewModel) resize(totalW, totalH int) {
 	bottomH := totalH - topH
 
 	m.cluster.resize(contentLeftW, innerHeight(topH), contentRightW, innerHeight(topH))
-	m.statusVP.Width = contentLeftW
-	m.statusVP.Height = innerHeight(bottomH)
-	m.logs.vp.Width = contentRightW
-	m.logs.vp.Height = innerHeight(bottomH)
+	m.statusVP.SetWidth(contentLeftW)
+	m.statusVP.SetHeight(innerHeight(bottomH))
+	m.logs.vp.SetWidth(contentRightW)
+	m.logs.vp.SetHeight(innerHeight(bottomH))
 }

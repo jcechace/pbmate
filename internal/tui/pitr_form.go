@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )

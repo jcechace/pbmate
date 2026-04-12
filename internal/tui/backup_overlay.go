@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -19,10 +19,10 @@ type backupFormOverlay struct {
 	lastConfigName string // tracks configName for dynamic rebuild
 	ctx            context.Context
 	client         *sdk.Client
-	formTheme      *huh.Theme
+	formTheme      huh.Theme
 }
 
-func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, kind backupFormKind, profiles []sdk.StorageProfile, backups []sdk.Backup) (*backupFormOverlay, tea.Cmd) {
+func newBackupFormOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, kind backupFormKind, profiles []sdk.StorageProfile, backups []sdk.Backup) (*backupFormOverlay, tea.Cmd) {
 	var form *huh.Form
 	var result *backupFormResult
 	switch kind {

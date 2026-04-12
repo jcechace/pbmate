@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -47,7 +47,7 @@ func (r *setConfigFormResult) effectiveProfile() string {
 // operation. Groups are built dynamically based on target — the form is rebuilt
 // when target or profile selection changes (see setConfigOverlay). initial
 // carries values from a previous form state during rebuild (nil for first open).
-func newSetConfigForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *setConfigFormResult) (*huh.Form, *setConfigFormResult) {
+func newSetConfigForm(formTheme huh.Theme, profiles []sdk.StorageProfile, initial *setConfigFormResult) (*huh.Form, *setConfigFormResult) {
 	result := &setConfigFormResult{
 		target:    setConfigTargetMain,
 		profile:   setConfigProfileNew,

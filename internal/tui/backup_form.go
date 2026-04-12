@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -154,7 +154,7 @@ func hasIncrementalChain(backups []sdk.Backup, configName string) bool {
 
 // newQuickBackupForm creates a compact confirm form for starting a backup
 // with defaults. The user can confirm ("Start") or choose to customize.
-func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
+func newQuickBackupForm(formTheme huh.Theme) (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
@@ -185,7 +185,7 @@ func newQuickBackupForm(formTheme *huh.Theme) (*huh.Form, *backupFormResult) {
 // initialResult carries values from the quick form (or defaults if opened
 // directly via S). profiles is the list of named storage profiles. backups
 // is the already-fetched backup list used for incremental chain detection.
-func newFullBackupForm(formTheme *huh.Theme, profiles []sdk.StorageProfile, backups []sdk.Backup, initial *backupFormResult) (*huh.Form, *backupFormResult) {
+func newFullBackupForm(formTheme huh.Theme, profiles []sdk.StorageProfile, backups []sdk.Backup, initial *backupFormResult) (*huh.Form, *backupFormResult) {
 	result := &backupFormResult{
 		backupType:  "logical",
 		compression: "default",
@@ -310,7 +310,7 @@ type confirmFormResult struct {
 
 // newConfirmForm creates a compact confirmation overlay with a description
 // and Yes/No (or custom) buttons.
-func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
+func newConfirmForm(formTheme huh.Theme, description, affirmative, negative string) (*huh.Form, *confirmFormResult) {
 	result := &confirmFormResult{confirmed: true}
 
 	form := newBorderlessForm([]*huh.Group{
@@ -332,7 +332,7 @@ func newConfirmForm(formTheme *huh.Theme, description, affirmative, negative str
 
 // newStandardForm creates a huh.Form with PBMate's standard configuration:
 // stack layout, default overlay width, no help/errors, custom keymap.
-func newStandardForm(groups []*huh.Group, theme *huh.Theme) *huh.Form {
+func newStandardForm(groups []*huh.Group, theme huh.Theme) *huh.Form {
 	return huh.NewForm(groups...).
 		WithTheme(theme).
 		WithLayout(huh.LayoutStack).
@@ -345,10 +345,19 @@ func newStandardForm(groups []*huh.Group, theme *huh.Theme) *huh.Form {
 // newBorderlessForm creates a standard form with hidden group borders.
 // Used for compact overlays (confirms, quick backup) where the overlay
 // panel border is sufficient.
-func newBorderlessForm(groups []*huh.Group, theme *huh.Theme) *huh.Form {
-	t := *theme
-	t.Focused.Base = t.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-	return newStandardForm(groups, &t)
+func newBorderlessForm(groups []*huh.Group, theme huh.Theme) *huh.Form {
+	borderless := huh.ThemeFunc(func(isDark bool) *huh.Styles {
+		var styles *huh.Styles
+		if theme != nil {
+			styles = theme.Theme(isDark)
+		} else {
+			styles = huh.ThemeCharm(isDark)
+		}
+		clone := *styles
+		clone.Focused.Base = clone.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
+		return &clone
+	})
+	return newStandardForm(groups, borderless)
 }
 
 // --- Shared overlay helpers ---

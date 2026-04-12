@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 )
 
 // confirmOverlay wraps a confirmation form with a stored action command
@@ -15,7 +15,7 @@ type confirmOverlay struct {
 	actionCmd tea.Cmd // executed if confirmed
 }
 
-func newConfirmOverlay(formTheme *huh.Theme, title, description, affirmative, negative string, actionCmd tea.Cmd) (*confirmOverlay, tea.Cmd) {
+func newConfirmOverlay(formTheme huh.Theme, title, description, affirmative, negative string, actionCmd tea.Cmd) (*confirmOverlay, tea.Cmd) {
 	form, result := newConfirmForm(formTheme, description, affirmative, negative)
 	o := &confirmOverlay{form: form, result: result, title: title, actionCmd: actionCmd}
 	return o, o.form.Init()

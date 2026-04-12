@@ -1,22 +1,23 @@
 package tui
 
 import (
+	"image/color"
 	"strings"
 
+	"charm.land/huh/v2"
+	"charm.land/lipgloss/v2"
 	catppuccingo "github.com/catppuccin/go"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // Theme holds the color palette used throughout the TUI.
 type Theme struct {
-	Primary   lipgloss.TerminalColor
-	Subtle    lipgloss.TerminalColor
-	Highlight lipgloss.TerminalColor
-	OK        lipgloss.TerminalColor
-	Error     lipgloss.TerminalColor
-	Warning   lipgloss.TerminalColor
-	Muted     lipgloss.TerminalColor
+	Primary   color.Color
+	Subtle    color.Color
+	Highlight color.Color
+	OK        color.Color
+	Error     color.Color
+	Warning   color.Color
+	Muted     color.Color
 
 	// ChromaStyle is the Chroma syntax highlighting style name for YAML
 	// rendering. Must match a registered Chroma style (e.g. "catppuccin-mocha").
@@ -30,17 +31,16 @@ type Theme struct {
 // defaultChromaStyle is used when the theme does not specify a Chroma style.
 const defaultChromaStyle = "swapoff"
 
-// DefaultTheme returns an adaptive theme that works on both light and dark
-// terminals using standard ANSI colors.
+// DefaultTheme returns the baseline palette used before theme adaptation.
 func DefaultTheme() Theme {
 	return Theme{
-		Primary:     lipgloss.AdaptiveColor{Light: "62", Dark: "62"},
-		Subtle:      lipgloss.AdaptiveColor{Light: "245", Dark: "241"},
-		Highlight:   lipgloss.AdaptiveColor{Light: "236", Dark: "252"},
-		OK:          lipgloss.AdaptiveColor{Light: "34", Dark: "42"},
-		Error:       lipgloss.AdaptiveColor{Light: "160", Dark: "196"},
-		Warning:     lipgloss.AdaptiveColor{Light: "172", Dark: "214"},
-		Muted:       lipgloss.AdaptiveColor{Light: "245", Dark: "241"},
+		Primary:     lipgloss.Color("62"),
+		Subtle:      lipgloss.Color("241"),
+		Highlight:   lipgloss.Color("252"),
+		OK:          lipgloss.Color("42"),
+		Error:       lipgloss.Color("196"),
+		Warning:     lipgloss.Color("214"),
+		Muted:       lipgloss.Color("241"),
 		ChromaStyle: defaultChromaStyle,
 	}
 }
@@ -94,18 +94,20 @@ func ThemeByName(name string) Theme {
 // HuhTheme returns a huh form theme matching this theme. For Catppuccin
 // themes, the form colors use the same flavor. For the default adaptive
 // theme, huh's built-in adaptive Catppuccin theme is used.
-func (t Theme) HuhTheme() *huh.Theme {
+func (t Theme) HuhTheme() huh.Theme {
 	if t.flavor == nil {
-		return huh.ThemeCatppuccin()
+		return huh.ThemeFunc(huh.ThemeCatppuccin)
 	}
-	return huhCatppuccinTheme(*t.flavor)
+	return huh.ThemeFunc(func(bool) *huh.Styles {
+		return huhCatppuccinTheme(*t.flavor)
+	})
 }
 
 // huhCatppuccinTheme builds a huh form theme from a specific Catppuccin
 // flavor, using hardcoded colors instead of adaptive ones. This mirrors
 // huh.ThemeCatppuccin() but pins to the chosen flavor.
-func huhCatppuccinTheme(f catppuccingo.Flavor) *huh.Theme {
-	t := huh.ThemeBase()
+func huhCatppuccinTheme(f catppuccingo.Flavor) *huh.Styles {
+	t := huh.ThemeBase(f != catppuccingo.Latte)
 
 	base := lipgloss.Color(f.Base().Hex)
 	text := lipgloss.Color(f.Text().Hex)

@@ -1,6 +1,6 @@
 package tui
 
-import "github.com/charmbracelet/bubbles/key"
+import "charm.land/bubbles/v2/key"
 
 // globalKeyMap defines keybindings available in all views.
 type globalKeyMap struct {

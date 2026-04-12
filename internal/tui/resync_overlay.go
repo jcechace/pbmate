@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -17,12 +17,12 @@ type resyncFormOverlay struct {
 	lastTarget  resyncScope // tracks scope for dynamic rebuild
 	lastProfile string      // tracks profile for confirm title rebuild
 	profiles    []sdk.StorageProfile
-	formTheme   *huh.Theme
+	formTheme   huh.Theme
 	ctx         context.Context
 	client      *sdk.Client
 }
 
-func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*resyncFormOverlay, tea.Cmd) {
+func newResyncFormOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, profiles []sdk.StorageProfile, initial *resyncFormResult) (*resyncFormOverlay, tea.Cmd) {
 	form, result := newResyncForm(formTheme, profiles, initial)
 	o := &resyncFormOverlay{
 		form:        form,

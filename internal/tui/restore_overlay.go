@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -26,12 +26,12 @@ type restoreTargetOverlay struct {
 	lastPreset  string      // tracks pitrPreset for dynamic rebuild (pitr mode)
 	backups     []sdk.Backup
 	timelines   []sdk.Timeline
-	formTheme   *huh.Theme
+	formTheme   huh.Theme
 	ctx         context.Context
 	client      *sdk.Client
 }
 
-func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreTargetOverlay, tea.Cmd) {
+func newRestoreTargetOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreTargetOverlay, tea.Cmd) {
 	form, result := newRestoreTargetForm(formTheme, backups, timelines, nil)
 	o := &restoreTargetOverlay{
 		form:        form,
@@ -144,12 +144,12 @@ type restoreFormOverlay struct {
 	lastScope    string         // tracks scope for dynamic rebuild
 	lastPreset   string         // tracks pitrPreset for dynamic rebuild (PITR mode)
 	lastBaseName string         // tracks pitrBaseName for dynamic rebuild (PITR mode)
-	formTheme    *huh.Theme
+	formTheme    huh.Theme
 	ctx          context.Context
 	client       *sdk.Client
 }
 
-func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, bk *sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
+func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, bk *sdk.Backup) (*restoreFormOverlay, tea.Cmd) {
 	form, result := newSnapshotRestoreForm(formTheme, bk, nil)
 	o := &restoreFormOverlay{
 		form:       form,
@@ -165,11 +165,11 @@ func newSnapshotRestoreOverlay(ctx context.Context, client *sdk.Client, formThem
 	return o, o.form.Init()
 }
 
-func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
+func newPITRRestoreOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline) (*restoreFormOverlay, tea.Cmd) {
 	return newPITRRestoreOverlayWithInitial(ctx, client, formTheme, timeline, backups, timelines, nil)
 }
 
-func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*restoreFormOverlay, tea.Cmd) {
+func newPITRRestoreOverlayWithInitial(ctx context.Context, client *sdk.Client, formTheme huh.Theme, timeline *sdk.Timeline, backups []sdk.Backup, timelines []sdk.Timeline, initial *restoreFormResult) (*restoreFormOverlay, tea.Cmd) {
 	form, result := newPITRRestoreForm(formTheme, timeline, backups, timelines, initial)
 	o := &restoreFormOverlay{
 		form:         form,

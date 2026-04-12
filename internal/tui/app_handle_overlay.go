@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func (m Model) handleBulkDeleteRequest(msg bulkDeleteRequest) (tea.Model, tea.Cmd) {

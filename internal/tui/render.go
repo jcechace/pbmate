@@ -2,18 +2,19 @@ package tui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/bubbles/key"
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
 )
 
 // newPanelViewport creates a viewport for use inside a panel. Keybindings
 // and mouse are disabled so they don't conflict with global navigation.
 func newPanelViewport() viewport.Model {
-	vp := viewport.New(0, 0)
+	vp := viewport.New(viewport.WithWidth(0), viewport.WithHeight(0))
 	vp.KeyMap = viewport.KeyMap{}
 	vp.MouseWheelEnabled = false
 	return vp
@@ -24,7 +25,7 @@ func newPanelViewport() viewport.Model {
 // outerW is the full panel width including borders. The title is rendered
 // in bold with the border color.
 func replaceTitleBorder(rendered, title string, outerW int,
-	border lipgloss.Border, borderColor lipgloss.TerminalColor,
+	border lipgloss.Border, borderColor color.Color,
 ) string {
 	styled := lipgloss.NewStyle().Bold(true).Foreground(borderColor).Render(title)
 	return replaceStyledTitleBorder(rendered, styled, outerW, border, borderColor)
@@ -35,7 +36,7 @@ func replaceTitleBorder(rendered, title string, outerW int,
 // title styling; this function handles the border line layout.
 // outerW is the full panel width including borders.
 func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
-	border lipgloss.Border, borderColor lipgloss.TerminalColor,
+	border lipgloss.Border, borderColor color.Color,
 ) string {
 	bc := lipgloss.NewStyle().Foreground(borderColor)
 	paddedTitle := " " + styledTitle + " "
@@ -63,7 +64,7 @@ func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
 // The title and border share the same color, which highlights on focus.
 func renderTitledPanel(title, content string, style lipgloss.Style,
 	width, height int, border lipgloss.Border,
-	borderColor lipgloss.TerminalColor,
+	borderColor color.Color,
 ) string {
 	panelStyle := style.Width(width).Height(height).BorderForeground(borderColor)
 	rendered := panelStyle.Render(content)
@@ -183,7 +184,7 @@ func renderHelpColumn(sections []helpSection, keyStyle, descStyle, sectionStyle 
 		b.WriteString(sectionStyle.Render(section.title))
 		b.WriteByte('\n')
 		for _, entry := range section.entries {
-			b.WriteString(fmt.Sprintf("  %s  %s", keyStyle.Render(entry.key), descStyle.Render(entry.desc)))
+			fmt.Fprintf(&b, "  %s  %s", keyStyle.Render(entry.key), descStyle.Render(entry.desc))
 			b.WriteByte('\n')
 		}
 	}
@@ -258,7 +259,7 @@ func renderCursorList(lines []string, cursor int, focused bool, styles *Styles) 
 // Each label is rendered as either "[Label]" (active, bold, colored) or
 // "Label" (inactive, muted). Labels are joined with a single space.
 // Used by the Backups tab (Backups/Restores) and Config tab (Preview/YAML).
-func segmentedToggleTitle(labels []string, activeIdx int, borderColor lipgloss.TerminalColor, styles *Styles) string {
+func segmentedToggleTitle(labels []string, activeIdx int, borderColor color.Color, styles *Styles) string {
 	activeStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
 	bracketStyle := lipgloss.NewStyle().Bold(true).Foreground(borderColor)
 	inactiveStyle := styles.StatusMuted

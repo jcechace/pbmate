@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"github.com/charmbracelet/bubbles/key"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -20,12 +20,12 @@ type setConfigOverlay struct {
 	lastProfile string          // tracks profile for dynamic rebuild
 	profiles    []sdk.StorageProfile
 	mainExists  bool
-	formTheme   *huh.Theme
+	formTheme   huh.Theme
 	ctx         context.Context
 	client      *sdk.Client
 }
 
-func newSetConfigOverlay(ctx context.Context, client *sdk.Client, formTheme *huh.Theme, profiles []sdk.StorageProfile, mainExists bool, initial *setConfigFormResult) (*setConfigOverlay, tea.Cmd) {
+func newSetConfigOverlay(ctx context.Context, client *sdk.Client, formTheme huh.Theme, profiles []sdk.StorageProfile, mainExists bool, initial *setConfigFormResult) (*setConfigOverlay, tea.Cmd) {
 	form, result := newSetConfigForm(formTheme, profiles, initial)
 	o := &setConfigOverlay{
 		form:        form,

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
 )
@@ -73,11 +73,11 @@ func (p *logPanel) view() string {
 
 // atBottom reports whether the viewport is scrolled to the bottom.
 func (p *logPanel) atBottom() bool {
-	maxY := p.lineCount - p.vp.Height
+	maxY := p.lineCount - p.vp.Height()
 	if maxY <= 0 {
 		return true // content fits in viewport
 	}
-	return p.vp.YOffset >= maxY
+	return p.vp.YOffset() >= maxY
 }
 
 // rebuildContent reconstructs the viewport content from log entries and the
@@ -114,15 +114,15 @@ func (p *logPanel) rebuildContent() {
 	content := b.String()
 
 	// When wrapping is enabled, word-wrap lines to viewport width.
-	if p.wrap && p.vp.Width > 0 {
-		content = lipgloss.NewStyle().Width(p.vp.Width).Render(content)
+	if p.wrap && p.vp.Width() > 0 {
+		content = lipgloss.NewStyle().Width(p.vp.Width()).Render(content)
 	}
 
 	p.lineCount = strings.Count(content, "\n") + 1
 	p.vp.SetContent(content)
 
 	// Auto-scroll to bottom when pinned.
-	if p.vp.Height > 0 && p.pinned {
+	if p.vp.Height() > 0 && p.pinned {
 		p.vp.GotoBottom()
 	}
 }
