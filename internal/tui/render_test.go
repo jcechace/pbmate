@@ -12,7 +12,7 @@ import (
 
 // testStyles returns a Styles value suitable for unit tests.
 func testStyles() Styles {
-	return NewStyles(DefaultTheme())
+	return LookupTheme("default", true).Styles()
 }
 
 func TestHumanBytes(t *testing.T) {

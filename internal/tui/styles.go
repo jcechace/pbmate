@@ -3,7 +3,6 @@ package tui
 import (
 	"image/color"
 
-	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -38,13 +37,10 @@ type Styles struct {
 
 	// ChromaStyle is the Chroma syntax highlighting style name for YAML rendering.
 	ChromaStyle string
-
-	// FormTheme is the huh form theme matching the active TUI theme.
-	FormTheme huh.Theme
 }
 
-// NewStyles creates a Styles set from the given Theme.
-func NewStyles(t Theme) Styles {
+// Styles derives shell rendering styles from a resolved theme.
+func (t Theme) Styles() Styles {
 	tab := lipgloss.NewStyle().
 		Padding(0, 2)
 
@@ -91,6 +87,5 @@ func NewStyles(t Theme) Styles {
 		StatusMuted:   lipgloss.NewStyle().Foreground(t.Muted),
 
 		ChromaStyle: t.ChromaStyle,
-		FormTheme:   t.HuhTheme(),
 	}
 }

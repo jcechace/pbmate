@@ -7,21 +7,36 @@ import (
 )
 
 func TestThemeResolveDefaultTheme(t *testing.T) {
-	theme := DefaultTheme()
-
-	dark := theme.Resolve(true)
-	light := theme.Resolve(false)
+	dark := LookupTheme("default", true)
+	light := LookupTheme("default", false)
 
 	assert.NotEqual(t, dark.Subtle, light.Subtle)
 	assert.NotEqual(t, dark.Highlight, light.Highlight)
 	assert.NotEqual(t, dark.OK, light.OK)
-	assert.Equal(t, defaultChromaStyle, dark.ChromaStyle)
-	assert.Equal(t, defaultChromaStyle, light.ChromaStyle)
+	assert.Equal(t, "swapoff", dark.ChromaStyle)
+	assert.Equal(t, "swapoff", light.ChromaStyle)
+	assert.True(t, dark.isDark)
+	assert.False(t, light.isDark)
 }
 
 func TestThemeResolveCatppuccinTheme(t *testing.T) {
-	theme := CatppuccinLatte()
+	resolvedDark := LookupTheme("latte", true)
+	resolvedLight := LookupTheme("latte", false)
 
-	assert.Equal(t, theme, theme.Resolve(true))
-	assert.Equal(t, theme, theme.Resolve(false))
+	assert.Equal(t, resolvedDark.Primary, resolvedLight.Primary)
+	assert.Equal(t, resolvedDark.Subtle, resolvedLight.Subtle)
+	assert.Equal(t, resolvedDark.ChromaStyle, resolvedLight.ChromaStyle)
+	assert.False(t, resolvedDark.isDark)
+	assert.False(t, resolvedLight.isDark)
+}
+
+func TestDefaultThemeVariants(t *testing.T) {
+	dark := defaultDarkTheme()
+	light := defaultLightTheme()
+
+	assert.True(t, dark.isDark)
+	assert.False(t, light.isDark)
+	assert.NotEqual(t, dark.Subtle, light.Subtle)
+	assert.NotEqual(t, dark.Highlight, light.Highlight)
+	assert.NotEqual(t, dark.OK, light.OK)
 }

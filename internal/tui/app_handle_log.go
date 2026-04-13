@@ -39,7 +39,7 @@ func (m Model) handleLogFollowDone(msg logFollowDoneMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleLogFilterRequest(msg logFilterRequest) (tea.Model, tea.Cmd) {
-	overlay, cmd := newLogFilterOverlay(m.styles.FormTheme, msg.agents, msg.filter)
+	overlay, cmd := newLogFilterOverlay(m.formTheme(), msg.agents, msg.filter)
 	m.activeOverlay = overlay
 	return m, cmd
 }

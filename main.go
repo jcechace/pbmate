@@ -43,7 +43,6 @@ func (cmd *tuiCmd) Run(cfg *config.AppConfig) error {
 	}
 
 	themeName := cfg.ResolveTheme(cmd.Theme, cmd.Context)
-	theme := tui.ThemeByName(themeName)
 
 	// Determine the context name for the header display.
 	// Only show it when a named context is used, not for direct --uri.
@@ -57,7 +56,7 @@ func (cmd *tuiCmd) Run(cfg *config.AppConfig) error {
 
 	m := tui.New(tui.Options{
 		URI:         uri,
-		Theme:       theme,
+		ThemeName:   themeName,
 		ContextName: contextName,
 		Readonly:    readonly,
 		Editor:      editor,

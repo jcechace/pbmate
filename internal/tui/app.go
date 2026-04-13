@@ -8,6 +8,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/spinner"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/huh/v2"
 	"charm.land/lipgloss/v2"
 
 	sdk "github.com/jcechace/pbmate/sdk/v2"
@@ -33,7 +34,7 @@ var tabNames = [tabCount]string{
 // config file, and connection context before the TUI is created.
 type Options struct {
 	URI         string // MongoDB connection URI (required)
-	Theme       Theme  // Color theme
+	ThemeName   string // Selected theme name (e.g. "default", "mocha")
 	ContextName string // Named context (empty for direct --uri connections)
 	Readonly    bool   // Disable all mutation actions
 	Editor      string // External editor command (e.g. "vim", "code -w")
@@ -46,7 +47,8 @@ type Model struct {
 	contextName string      // named context, empty for direct URI
 	readonly    bool        // disable all mutation actions
 	editor      string      // resolved editor command (e.g. "vim", "code -w")
-	baseTheme   Theme       // selected theme before terminal background adaptation
+	themeName   string
+	theme       Theme
 	ctx         context.Context
 	cancel      context.CancelFunc
 
@@ -90,17 +92,16 @@ type Model struct {
 // is established asynchronously — the TUI renders immediately while
 // connecting in the background.
 func New(opts Options) Model {
-	s := NewStyles(opts.Theme.Resolve(initialThemeIsDark))
 	ctx, cancel := context.WithCancel(context.Background())
 	sp := spinner.New()
 	sp.Spinner = spinner.MiniDot
-	styles := &s
-	return Model{
+	styles := &Styles{}
+	m := Model{
 		mongoURI:    opts.URI,
 		contextName: opts.ContextName,
 		readonly:    opts.Readonly,
 		editor:      opts.Editor,
-		baseTheme:   opts.Theme,
+		themeName:   opts.ThemeName,
 		ctx:         ctx,
 		cancel:      cancel,
 		styles:      styles,
@@ -112,6 +113,17 @@ func New(opts Options) Model {
 		config:      newConfigModel(styles),
 		keys:        globalKeys,
 	}
+	m.applyTheme(LookupTheme(opts.ThemeName, true))
+	return m
+}
+
+func (m Model) formTheme() huh.Theme {
+	return m.theme.HuhTheme()
+}
+
+func (m *Model) applyTheme(theme Theme) {
+	m.theme = theme
+	*m.styles = theme.Styles()
 }
 
 // Close cancels the root context and disconnects the SDK client.
@@ -143,7 +155,7 @@ func (m Model) Init() tea.Cmd {
 // Update implements tea.Model.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if bgMsg, ok := msg.(tea.BackgroundColorMsg); ok {
-		*m.styles = NewStyles(m.baseTheme.Resolve(bgMsg.IsDark()))
+		m.applyTheme(LookupTheme(m.themeName, bgMsg.IsDark()))
 	}
 
 	// Data and system messages are handled first regardless of overlay state,
@@ -291,7 +303,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, nil // no status yet
 		}
 		if pitr.Enabled {
-			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+			overlay, cmd := newConfirmOverlay(m.formTheme(),
 				"Disable PITR",
 				"Stop oplog slicing on all nodes?\nExisting oplog chunks are preserved.",
 				"Disable", "Cancel",
@@ -299,7 +311,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.activeOverlay = overlay
 			return m, cmd
 		}
-		overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+		overlay, cmd := newConfirmOverlay(m.formTheme(),
 			"Enable PITR",
 			"Start oplog slicing on all nodes?",
 			"Enable", "Cancel",
@@ -308,7 +320,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	case key.Matches(msg, backupKeys.Cancel) && m.client != nil && !m.readonly:
 		if m.overview.HasRunningOps() {
-			overlay, cmd := newConfirmOverlay(m.styles.FormTheme,
+			overlay, cmd := newConfirmOverlay(m.formTheme(),
 				"Cancel Backup",
 				"Cancel the currently running backup?",
 				"Cancel Backup", "Keep Running",

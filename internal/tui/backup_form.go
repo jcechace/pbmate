@@ -346,18 +346,7 @@ func newStandardForm(groups []*huh.Group, theme huh.Theme) *huh.Form {
 // Used for compact overlays (confirms, quick backup) where the overlay
 // panel border is sufficient.
 func newBorderlessForm(groups []*huh.Group, theme huh.Theme) *huh.Form {
-	borderless := huh.ThemeFunc(func(isDark bool) *huh.Styles {
-		var styles *huh.Styles
-		if theme != nil {
-			styles = theme.Theme(isDark)
-		} else {
-			styles = huh.ThemeCharm(isDark)
-		}
-		clone := *styles
-		clone.Focused.Base = clone.Focused.Base.BorderStyle(lipgloss.HiddenBorder())
-		return &clone
-	})
-	return newStandardForm(groups, borderless)
+	return newStandardForm(groups, BorderlessHuhTheme(theme))
 }
 
 // --- Shared overlay helpers ---
