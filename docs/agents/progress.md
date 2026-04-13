@@ -10,6 +10,26 @@ SDK wraps the core PBM operations (backup, restore, config, cluster, PITR, logs)
 
 ## Recently Completed
 
+### Charm v2 Migration (TUI + datefield)
+Completed the Charm v2 migration for the TUI and reusable `datefield` module.
+
+Commits:
+- `[datefield] Migrate picker to Charm v2`
+- `[tui] Migrate TUI shell to Charm v2`
+- `[tui] Refine theme adaptation and key input`
+- `[tui] Request terminal colors for overlays`
+- `[tui] Fix layout sizing and border rendering`
+- `[tui] Simplify theme resolution model`
+
+Key outcomes:
+- All Charm imports moved to `charm.land/*/v2`.
+- Bubble Tea v2 app shell migration completed (`tea.View`, alt-screen handling, `KeyPressMsg`, `RequestWindowSize`).
+- Huh v2 form/overlay plumbing updated, including explicit terminal background-color requests for overlays.
+- TUI panel/overlay/file-picker sizing and title-border rendering restored to match the pre-migration layout closely.
+- Theme pipeline simplified to a resolved `Theme` plus `LookupTheme(name, isDark)` lookup path.
+- Shell styles now derive from `theme.Styles()` and form themes from `theme.HuhTheme()`.
+- Named Catppuccin themes render correctly again and the default adaptive theme is back to acceptable behavior.
+
 ### Pre-Release Code Quality Cleanup (v0.2.0 prep)
 Six-commit cleanup pass across all modules:
 - `[datefield]` Fix nanosecond truncation in `New()`, fix `WithKeyMap` doc, `go mod tidy`

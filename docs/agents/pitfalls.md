@@ -35,6 +35,8 @@
 | Nil context panic on follow before connect | Pressing `f` before connection succeeded panicked with "cannot create context from nil parent" because `overviewModel.ctx` is nil until `connectMsg` arrives. | Guard sub-model key dispatch in `updateKeys` with `m.client == nil` check — no input to sub-models before connection. |
 | parseNamespaces returns `[""]` for empty input | `strings.Split("", ",")` returns `[""]`, not `nil`. Selective restore with no namespaces entered would send `[""]` to PBM. | Filter out empty strings after trimming. Return nil when no non-empty entries remain. |
 | latestTimeline compared only `.T` | `latestTimeline()` used `.End.T > best.End.T`, ignoring the ordinal — same class of bug as the SDK Timestamp comparison pitfall. | Use `Timestamp.After()` for all timestamp comparisons, including TUI helpers. |
+| Bubble Tea background color is best-effort | `tea.RequestBackgroundColor` only triggers `BackgroundColorMsg` if the terminal answers the ANSI query. Some environments (notably some Docker/PTY setups) may never reply, leaving the app on its startup fallback. | Treat background detection as opportunistic, not guaranteed. Keep a reasonable startup fallback and don't assume a follow-up `BackgroundColorMsg` will always arrive. |
+| Lip Gloss v2 `Width()` applies to the final rendered block | Overlay/file-picker width math initially assumed `Width()` meant inner content width plus padding, as if border width was external. In Lip Gloss v2 the frame participates in the final width, which caused off-by-two border and separator glitches. | When sizing bordered/padded overlays, add the full frame size explicitly or measure the already-rendered block instead of relying on old v1 width assumptions. |
 
 ## General Pitfalls
 
