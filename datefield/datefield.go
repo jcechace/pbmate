@@ -614,11 +614,6 @@ func (d *DateTimePicker) WithTheme(theme huh.Theme) huh.Field {
 	return d
 }
 
-// WithAccessible implements huh.Field.
-//
-// Deprecated: call [DateTimePicker.RunAccessible] directly.
-func (d *DateTimePicker) WithAccessible(_ bool) huh.Field { return d }
-
 // WithKeyMap implements huh.Field.
 // Maps Next, Prev, and Submit from the huh form keymap.
 // Left, Right, Up, and Down retain their [DefaultKeyMap] bindings since
