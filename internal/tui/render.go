@@ -22,22 +22,31 @@ func newPanelViewport() viewport.Model {
 
 // replaceTitleBorder replaces the top border of a rendered lipgloss panel
 // with a titled version: ╭─ Title ────────────╮
-// outerW is the full panel width including borders. The title is rendered
-// in bold with the border color.
-func replaceTitleBorder(rendered, title string, outerW int,
+// The title is rendered in bold with the border color. The replacement line
+// width is derived from the already-rendered panel so it stays in sync with
+// Lip Gloss' actual border width semantics.
+func replaceTitleBorder(rendered, title string,
 	border lipgloss.Border, borderColor color.Color,
 ) string {
 	styled := lipgloss.NewStyle().Bold(true).Foreground(borderColor).Render(title)
-	return replaceStyledTitleBorder(rendered, styled, outerW, border, borderColor)
+	return replaceStyledTitleBorder(rendered, styled, border, borderColor)
 }
 
 // replaceStyledTitleBorder replaces the top border of a rendered lipgloss
 // panel with a pre-styled title string. The caller is responsible for all
 // title styling; this function handles the border line layout.
-// outerW is the full panel width including borders.
-func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
+func replaceStyledTitleBorder(rendered, styledTitle string,
 	border lipgloss.Border, borderColor color.Color,
 ) string {
+	lines := strings.SplitN(rendered, "\n", 2)
+	outerW := 0
+	if len(lines) > 0 {
+		outerW = lipgloss.Width(lines[0])
+	}
+	if outerW == 0 {
+		return rendered
+	}
+
 	bc := lipgloss.NewStyle().Foreground(borderColor)
 	paddedTitle := " " + styledTitle + " "
 	titleW := lipgloss.Width(paddedTitle)
@@ -52,7 +61,6 @@ func replaceStyledTitleBorder(rendered, styledTitle string, outerW int,
 		paddedTitle +
 		bc.Render(strings.Repeat(border.Top, fill)+border.TopRight)
 
-	lines := strings.SplitN(rendered, "\n", 2)
 	if len(lines) == 2 {
 		return topLine + "\n" + lines[1]
 	}
@@ -73,8 +81,7 @@ func renderTitledPanel(title, content string, style lipgloss.Style,
 		return rendered
 	}
 
-	outerW := width + panelBorderH
-	return replaceTitleBorder(rendered, title, outerW, border, borderColor)
+	return replaceTitleBorder(rendered, title, border, borderColor)
 }
 
 // helpColumnGap is the horizontal gap between the two help columns.
@@ -221,8 +228,7 @@ func renderHelpOverlay(styles *Styles, contentW, contentH int, readonly bool) st
 		Width(panelWidth).
 		Render(body)
 
-	outerW := panelWidth + panelBorderH
-	panel = replaceTitleBorder(panel, "Help", outerW, border, borderColor)
+	panel = replaceTitleBorder(panel, "Help", border, borderColor)
 
 	return lipgloss.Place(contentW, contentH,
 		lipgloss.Center, lipgloss.Center,

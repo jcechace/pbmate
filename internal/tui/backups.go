@@ -588,8 +588,7 @@ func (m *backupsModel) view(totalW, totalH int) string {
 	// Build the left panel without a title, then apply the segmented title border.
 	left := renderTitledPanel("", m.listVP.View(),
 		m.styles.LeftPanel, panelLeftW, innerH, border, leftColor)
-	left = replaceStyledTitleBorder(left, m.segmentedTitle(leftColor),
-		panelLeftW+panelBorderH, border, leftColor)
+	left = replaceStyledTitleBorder(left, m.segmentedTitle(leftColor), border, leftColor)
 
 	right := renderTitledPanel("Detail", m.detailVP.View(),
 		m.styles.RightPanel, panelRightW, innerH, border, m.borderColor(panelRight))

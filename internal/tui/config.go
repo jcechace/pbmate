@@ -276,8 +276,7 @@ func (m *configModel) view(totalW, totalH int) string {
 	rightColor := m.borderColor(panelRight)
 	right := renderTitledPanel("", m.detailVP.View(),
 		m.styles.RightPanel, panelRightW, innerH, border, rightColor)
-	right = replaceStyledTitleBorder(right, m.segmentedDetailTitle(rightColor),
-		panelRightW+panelBorderH, border, rightColor)
+	right = replaceStyledTitleBorder(right, m.segmentedDetailTitle(rightColor), border, rightColor)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 }

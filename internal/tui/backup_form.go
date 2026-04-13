@@ -434,12 +434,14 @@ func formKeyMap() *huh.KeyMap {
 // as renderTitledPanel. Panel width adapts to terminal width.
 func renderFormOverlay(form *huh.Form, title string, styles *Styles, contentW, contentH int) string {
 	innerW := formOverlayInnerWidth(contentW)
+	form.WithWidth(innerW)
 	formView := form.View()
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor
 
-	// panelWidth is the lipgloss Width value (content + padding, inside border).
-	panelWidth := innerW + panelPaddingH
+	// Lip Gloss v2 Width() applies to the fully rendered block. Add the full
+	// frame size so the form gets the intended inner content width.
+	panelWidth := innerW + panelPaddingH + panelBorderH
 
 	// Render the panel body (border + padding + content).
 	panel := lipgloss.NewStyle().
@@ -449,8 +451,7 @@ func renderFormOverlay(form *huh.Form, title string, styles *Styles, contentW, c
 		Width(panelWidth).
 		Render(formView)
 
-	outerW := panelWidth + panelBorderH
-	panel = replaceTitleBorder(panel, title, outerW, border, borderColor)
+	panel = replaceTitleBorder(panel, title, border, borderColor)
 
 	// Center the panel in the content area.
 	return lipgloss.Place(contentW, contentH,
