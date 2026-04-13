@@ -237,13 +237,15 @@ Single merged bar replacing the previous two-bar (status + help) design.
 ### Startup Sequence
 
 ```
-Init() -> tea.Batch(tea.WindowSize(), connectCmd(mongoURI))
+Init() -> tea.Batch(tea.RequestWindowSize, tea.RequestBackgroundColor, connectCmd(mongoURI))
 ```
 
-Two commands fire in parallel: `tea.WindowSize()` triggers a `WindowSizeMsg` so
-we know terminal dimensions, and `connectCmd` runs `sdk.NewClient()` in a
-goroutine, returning `connectMsg{client, err}`. The TUI renders immediately
-with "Connecting..." while the SDK connects in the background.
+Three commands fire in parallel: `tea.RequestWindowSize` triggers a
+`WindowSizeMsg` so we know terminal dimensions, `tea.RequestBackgroundColor`
+requests the terminal background so the adaptive default theme can resolve, and
+`connectCmd` runs `sdk.NewClient()` in a goroutine, returning
+`connectMsg{client, err}`. The TUI renders immediately with "Connecting..."
+while the SDK connects in the background.
 
 ### Connection Retry
 
@@ -281,7 +283,7 @@ single-shot timer design and adaptive intervals (2s active, 10s idle).
 | Message             | Source               | Purpose                           |
 |---------------------|----------------------|-----------------------------------|
 | `tea.WindowSizeMsg` | BubbleTea runtime    | Terminal resized                  |
-| `tea.KeyMsg`        | BubbleTea runtime    | User keypress                     |
+| `tea.KeyPressMsg`   | BubbleTea runtime    | User keypress                     |
 | `connectMsg`        | `connectCmd`         | SDK client ready or error         |
 | `reconnectMsg`      | `reconnectCmd`       | Retry delay elapsed, reconnect    |
 | `tickMsg`           | `tickCmd`            | Timer fired, time to fetch        |
@@ -309,8 +311,9 @@ single-shot timer design and adaptive intervals (2s active, 10s idle).
   focused, subtle when unfocused).
 - Compact, information-dense — no wasted space.
 - Catppuccin theme support (Mocha/Latte/Frappe/Macchiato) + adaptive default.
-- The default theme uses `lipgloss.AdaptiveColor` for light/dark terminals.
-  Named flavors use hardcoded `lipgloss.Color` for exact color matching.
+- The default theme resolves to explicit light/dark palettes via
+  `LookupTheme(name, isDark)` after `tea.BackgroundColorMsg` arrives. Named
+  flavors use fixed `lipgloss.Color` values for exact color matching.
 - `huh` form themes are built per-flavor from catppuccin-go, not from huh's
   built-in `ThemeCatppuccin()` (which is adaptive and ignores the chosen flavor).
 

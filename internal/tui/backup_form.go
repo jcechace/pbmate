@@ -395,6 +395,8 @@ func initFormAdvanceTo(form *huh.Form, n int) tea.Cmd {
 }
 
 func initThemedForm(form *huh.Form) tea.Cmd {
+	// Re-request the terminal background for each form so Huh/datefield can
+	// resolve the active dark/light theme even if the startup query was missed.
 	return tea.Batch(form.Init(), tea.RequestBackgroundColor)
 }
 

@@ -16,7 +16,7 @@ PBMate's TUI uses BubbleTea, which enforces the Elm Architecture: a unidirection
  Update(Model, Msg) ──> (new Model, Cmd) ────┘
 ```
 
-1. **View** — pure function: reads Model, returns a string. No side effects.
+1. **View** — pure function: reads Model and returns rendered output. The root `tea.Model` returns `tea.View`; sub-model `view(...)` helpers still return `string`. No side effects.
 2. **Msg** arrives — a user keypress, window resize, timer tick, or async command result.
 3. **Update** — takes current Model + Msg, returns new Model and optionally a Cmd.
 4. **Cmd** — a `func() Msg`. BubbleTea runs it in a goroutine and feeds the resulting Msg back into Update. This is how side effects happen.
@@ -34,7 +34,7 @@ PBMate's TUI uses BubbleTea, which enforces the Elm Architecture: a unidirection
 
 Each tab has its own sub-model. They are **plain structs with methods**, not `tea.Model` implementations:
 
-- `update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd` — handles keypresses
+- `update(msg tea.KeyPressMsg, keys globalKeyMap) tea.Cmd` — handles keypresses
 - `view(w, h int) string` — renders the tab content
 - `resize(w, h int)` — precomputes viewport dimensions
 - `setData(...)` — receives fresh data from fetch commands

@@ -137,7 +137,7 @@ so SDK and MCP tags do not produce binary releases.
 ### Adding a new TUI tab
 
 1. Create `<tab>.go` with a sub-model struct (not `tea.Model`).
-2. Implement `update(msg tea.KeyMsg, keys globalKeyMap) tea.Cmd`, `view(w, h int) string`, `resize(w, h int)`, `setData(...)`.
+2. Implement `update(msg tea.KeyPressMsg, keys globalKeyMap) tea.Cmd`, `view(w, h int) string`, `resize(w, h int)`, `setData(...)`.
 3. Add data message type in `data.go` and fetch command.
 4. Wire into `app.go`: tab constant, Init, Update routing, View routing.
 5. Add keybindings in `keys.go`.
