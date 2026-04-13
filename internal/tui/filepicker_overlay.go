@@ -120,15 +120,15 @@ func (o *filePickerOverlay) View(styles *Styles, contentW, contentH int) string 
 // File picker rendering
 // =============================================================================
 
-// filePickerInnerWidth is the content width inside the file picker panel.
-const filePickerInnerWidth = 60
-
 // renderFilePickerOverlay renders the file picker centered over the content
 // area inside a bordered panel with a title and current path breadcrumb.
 func renderFilePickerOverlay(fp *filepicker.Model, title string, styles *Styles, contentW, contentH int) string {
+	innerW := formOverlayInnerWidth(contentW)
+	separator := strings.Repeat("\u2500", innerW)
+
 	// Current directory path — truncate from the left if too wide.
 	dir := fp.CurrentDirectory
-	maxPathW := filePickerInnerWidth - 2 // leave room for "…/" prefix
+	maxPathW := max(innerW-2, 0) // leave room for "…/" prefix
 	if len(dir) > maxPathW {
 		dir = "\u2026" + dir[len(dir)-maxPathW:]
 	}
@@ -138,15 +138,15 @@ func renderFilePickerOverlay(fp *filepicker.Model, title string, styles *Styles,
 	hintLine := styles.StatusMuted.Render("h:back  l:open  enter:select  esc:cancel")
 
 	body := pathLine + "\n" +
-		styles.StatusMuted.Render(strings.Repeat("\u2500", filePickerInnerWidth)) + "\n" +
+		styles.StatusMuted.Render(separator) + "\n" +
 		fp.View() + "\n" +
-		styles.StatusMuted.Render(strings.Repeat("\u2500", filePickerInnerWidth)) + "\n" +
+		styles.StatusMuted.Render(separator) + "\n" +
 		hintLine
 
 	border := lipgloss.RoundedBorder()
 	borderColor := styles.FocusedBorderColor
 
-	panelWidth := filePickerInnerWidth + panelPaddingH
+	panelWidth := innerW + panelPaddingH + panelBorderH
 
 	panel := lipgloss.NewStyle().
 		Border(border).
@@ -155,8 +155,7 @@ func renderFilePickerOverlay(fp *filepicker.Model, title string, styles *Styles,
 		Width(panelWidth).
 		Render(body)
 
-	outerW := panelWidth + panelBorderH
-	panel = replaceTitleBorder(panel, title, outerW, border, borderColor)
+	panel = replaceTitleBorder(panel, title, border, borderColor)
 
 	return lipgloss.Place(contentW, contentH,
 		lipgloss.Center, lipgloss.Center,
